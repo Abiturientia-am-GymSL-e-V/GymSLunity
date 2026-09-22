@@ -68,7 +68,10 @@ return new class extends Migration
                 DB::table('members')->where('id', $member->id)->update(['custom_values' => json_encode($values, JSON_THROW_ON_ERROR)]);
             }
         });
-        Schema::table('members', fn (Blueprint $table) => $table->dropColumn($legacy));
+        Schema::table('members', function (Blueprint $table) use ($legacy) {
+            $table->dropIndex('members_graduation_year_index');
+            $table->dropColumn($legacy);
+        });
         Schema::table('member_changes', fn (Blueprint $table) => $table->json('field_schema')->nullable());
         // Keep earlier snapshots readable after the three school columns move to JSON.
         DB::table('member_changes')->orderBy('id')->chunkById(200, function ($changes) use ($legacy) {
