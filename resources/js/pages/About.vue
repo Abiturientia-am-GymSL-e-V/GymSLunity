@@ -12,7 +12,7 @@ defineOptions({
     <Head title="Über GymSLunity" />
     <div class="mx-auto w-full max-w-6xl space-y-4 p-4 sm:p-6">
         <h1 class="text-2xl font-semibold tracking-tight">Über GymSLunity</h1>
-        <hr>
+        <hr />
         <div class="flex justify-center">
             <img
                 src="/images/gymslunity-logo.png"
@@ -21,9 +21,14 @@ defineOptions({
             />
         </div>
         <div class="flex justify-center">
-            <a href="https://gymslunity.de"><img alt="Current Release" src="https://img.shields.io/github/v/release/Abiturientia-am-GymSL-e-V/GymSLunity" style="max-width: 100%;"></a>
+            <a href="https://gymslunity.de"
+                ><img
+                    alt="Current Release"
+                    src="https://img.shields.io/github/v/release/Abiturientia-am-GymSL-e-V/GymSLunity"
+                    style="max-width: 100%"
+            /></a>
         </div>
-        <hr>
+        <hr />
         <p class="max-w-2xl text-muted-foreground">
             GymSLunity unterstützt Vereine bei der Verwaltung ihrer Mitglieder
             und Vereinsdaten.

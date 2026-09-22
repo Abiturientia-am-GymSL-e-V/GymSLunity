@@ -22,7 +22,7 @@ const text = ref('Hallo Welt');
         <div class="max-w-md space-y-2">
             <Label for="hello-text">Dein Text</Label>
             <Input id="hello-text" v-model="text" />
-            <hr>
+            <hr />
             <p>Aktueller Inhalt: {{ text }}</p>
         </div>
     </div>
