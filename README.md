@@ -1,2 +1,0 @@
-# gymslunity
-GymSLunity - Vereinsverwaltung
