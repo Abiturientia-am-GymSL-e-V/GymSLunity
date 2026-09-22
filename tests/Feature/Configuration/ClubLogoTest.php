@@ -1,0 +1,48 @@
+<?php
+
+namespace Tests\Feature\Configuration;
+
+use App\Models\ClubSetting;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Tests\TestCase;
+
+class ClubLogoTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_admin_can_upload_replace_and_remove_a_private_processed_logo(): void
+    {
+        Storage::fake('local');
+        $this->actingAs(User::factory()->create(['roles' => ['admin']]));
+        $this->get(route('branding.logo'))->assertNotFound();
+        $this->post(route('configuration.club.logo.store'), ['version' => 0, 'logo' => UploadedFile::fake()->image('logo.jpg', 120, 60)])->assertSessionHasNoErrors();
+        $first = ClubSetting::current()->data['logo_path'];
+        $this->assertStringStartsWith('branding/logo-', $first);
+        $this->assertStringStartsWith("\x89PNG", Storage::disk('local')->get($first));
+        $this->get(route('branding.logo'))->assertOk()->assertHeader('content-type', 'image/png');
+        $this->patch(route('configuration.club.update'), ['version' => 1, 'name' => 'Testverein'])->assertSessionHasNoErrors();
+        $this->assertSame($first, ClubSetting::current()->data['logo_path']);
+        $this->post(route('configuration.club.logo.store'), ['version' => 2, 'logo' => UploadedFile::fake()->image('new.png', 80, 40)])->assertSessionHasNoErrors();
+        $second = ClubSetting::current()->data['logo_path'];
+        $this->assertNotSame($first, $second);
+        Storage::disk('local')->assertMissing($first);
+        $this->delete(route('configuration.club.logo.destroy'), ['version' => 3])->assertSessionHasNoErrors();
+        Storage::disk('local')->assertMissing($second);
+        $this->get(route('branding.logo'))->assertNotFound();
+        $this->assertDatabaseCount('configuration_changes', 4);
+    }
+
+    public function test_logo_requires_admin_and_rejects_stale_version_or_unsupported_file(): void
+    {
+        Storage::fake('local');
+        $user = User::factory()->create(['roles' => ['mv']]);
+        $this->actingAs($user)->post(route('configuration.club.logo.store'), ['version' => 0, 'logo' => UploadedFile::fake()->image('logo.png')])->assertForbidden();
+        $this->actingAs(User::factory()->create(['roles' => ['admin']]));
+        $this->post(route('configuration.club.logo.store'), ['version' => 5, 'logo' => UploadedFile::fake()->image('logo.png')])->assertSessionHasErrors('version');
+        $this->post(route('configuration.club.logo.store'), ['version' => 0, 'logo' => UploadedFile::fake()->create('logo.svg', 1, 'image/svg+xml')])->assertSessionHasErrors('logo');
+        $this->assertSame([], Storage::disk('local')->files('branding'));
+    }
+}

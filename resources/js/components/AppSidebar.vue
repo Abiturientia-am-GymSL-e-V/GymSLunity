@@ -1,0 +1,117 @@
+<script setup lang="ts">
+import { Link, usePage } from '@inertiajs/vue3';
+import {
+    BookOpen,
+    FolderGit2,
+    LayoutGrid,
+    UsersRound,
+    Settings2,
+    MessageSquareText,
+    HandCoins,
+    Info,
+} from '@lucide/vue';
+import { computed } from 'vue';
+import AppLogo from '@/components/AppLogo.vue';
+import NavFooter from '@/components/NavFooter.vue';
+import NavMain from '@/components/NavMain.vue';
+import NavUser from '@/components/NavUser.vue';
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarFooter,
+    SidebarHeader,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    SidebarSeparator,
+} from '@/components/ui/sidebar';
+import { dashboard, helloWorld, payments } from '@/routes';
+import { index as members } from '@/routes/members';
+import { edit as clubSettings } from '@/routes/configuration/club';
+import type { NavItem } from '@/types';
+
+const page = usePage();
+const mainNavItems = computed<NavItem[]>(() => [
+    {
+        title: 'Übersicht',
+        href: dashboard(),
+        icon: LayoutGrid,
+    },
+    ...(page.props.can.viewMembers
+        ? [{ title: 'Mitglieder', href: members(), icon: UsersRound }]
+        : []),
+    ...(page.props.can.viewPayments
+        ? [{ title: 'Beiträge', href: payments(), icon: HandCoins }]
+        : []),
+    ...(page.props.can.manageConfiguration
+        ? [{ title: 'Konfiguration', href: clubSettings(), icon: Settings2 }]
+        : []),
+    { title: 'Hallo Welt', href: helloWorld(), icon: MessageSquareText },
+]);
+
+const footerNavItems: NavItem[] = [
+    {
+        title: 'Über GymSLunity',
+        href: '/ueber-gymslunity',
+        icon: Info,
+    },
+    {
+        title: 'Repository',
+        href: 'https://github.com/laravel/vue-starter-kit',
+        icon: FolderGit2,
+    },
+    {
+        title: 'Dokumentation',
+        href: 'https://laravel.com/docs/starter-kits#vue',
+        icon: BookOpen,
+    },
+];
+</script>
+
+<template>
+    <Sidebar collapsible="icon" variant="inset">
+        <SidebarHeader>
+            <SidebarMenu>
+                <SidebarMenuItem>
+                    <SidebarMenuButton size="lg" as-child>
+                        <Link :href="dashboard()">
+                            <AppLogo />
+                        </Link>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+            </SidebarMenu>
+        </SidebarHeader>
+
+        <SidebarContent>
+            <div
+                v-if="page.props.logoUrl || page.props.clubName"
+                class="group-data-[collapsible=icon]:hidden"
+            >
+                <SidebarSeparator class="my-3" />
+                <div
+                    class="flex flex-col items-center gap-2 px-4 py-2 text-center"
+                >
+                    <img
+                        v-if="page.props.logoUrl"
+                        :src="page.props.logoUrl"
+                        :alt="`${page.props.clubName ?? 'Verein'} – Vereinslogo`"
+                        class="max-h-24 max-w-full object-contain"
+                    />
+                    <span
+                        v-if="page.props.clubName"
+                        class="max-w-full text-sm font-semibold break-words"
+                        >{{ page.props.clubName }}</span
+                    >
+                </div>
+                <SidebarSeparator class="my-3" />
+            </div>
+            <NavMain :items="mainNavItems" />
+        </SidebarContent>
+
+        <SidebarFooter>
+            <NavFooter :items="footerNavItems" />
+            <NavUser />
+        </SidebarFooter>
+    </Sidebar>
+    <slot />
+</template>

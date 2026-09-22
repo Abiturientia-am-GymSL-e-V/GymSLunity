@@ -1,0 +1,442 @@
+[
+    {
+        "key": "first_name",
+        "label": "Vorname",
+        "type": "text",
+        "required": true,
+        "options": [],
+        "max": 255,
+        "section": "personal",
+        "position": 10
+    },
+    {
+        "key": "middle_name",
+        "label": "Weiterer Vorname",
+        "type": "text",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "personal",
+        "position": 20
+    },
+    {
+        "key": "last_name",
+        "label": "Nachname",
+        "type": "text",
+        "required": true,
+        "options": [],
+        "max": 255,
+        "section": "personal",
+        "position": 30
+    },
+    {
+        "key": "gender",
+        "label": "Geschlecht",
+        "type": "select",
+        "required": false,
+        "options": [
+            {
+                "value": "m",
+                "label": "Männlich",
+                "active": true
+            },
+            {
+                "value": "w",
+                "label": "Weiblich",
+                "active": true
+            },
+            {
+                "value": "d",
+                "label": "Divers",
+                "active": true
+            },
+            {
+                "value": "o",
+                "label": "Ohne Angabe",
+                "active": true
+            }
+        ],
+        "max": 255,
+        "section": "personal",
+        "position": 40
+    },
+    {
+        "key": "birth_date",
+        "label": "Geburtsdatum",
+        "type": "date",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "personal",
+        "position": 50
+    },
+    {
+        "key": "deceased_at",
+        "label": "Todesdatum",
+        "type": "date",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "personal",
+        "position": 60
+    },
+    {
+        "key": "email",
+        "label": "E-Mail-Adresse",
+        "type": "email",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "contact",
+        "position": 10
+    },
+    {
+        "key": "mobile_phone",
+        "label": "Mobilnummer",
+        "type": "tel",
+        "required": false,
+        "options": [],
+        "max": 50,
+        "section": "contact",
+        "position": 20
+    },
+    {
+        "key": "street",
+        "label": "Straße und Hausnummer",
+        "type": "text",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "contact",
+        "position": 30
+    },
+    {
+        "key": "postal_code",
+        "label": "Postleitzahl",
+        "type": "text",
+        "required": false,
+        "options": [],
+        "max": 20,
+        "section": "contact",
+        "position": 40
+    },
+    {
+        "key": "city",
+        "label": "Ort",
+        "type": "text",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "contact",
+        "position": 50
+    },
+    {
+        "key": "country",
+        "label": "Land",
+        "type": "text",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "contact",
+        "position": 60
+    },
+    {
+        "key": "membership_type",
+        "label": "Mitgliedschaft",
+        "type": "select",
+        "required": true,
+        "options": [
+            {
+                "value": "Aktive Schüler",
+                "label": "Aktive Schüler",
+                "active": true
+            },
+            {
+                "value": "Ehemalige",
+                "label": "Ehemalige",
+                "active": true
+            },
+            {
+                "value": "Fördermitglieder",
+                "label": "Fördermitglieder",
+                "active": true
+            },
+            {
+                "value": "Externe Mitglieder",
+                "label": "Externe Mitglieder",
+                "active": true
+            },
+            {
+                "value": "Kontakt",
+                "label": "Kontakt",
+                "active": true
+            },
+            {
+                "value": "Lehrer",
+                "label": "Lehrer",
+                "active": true
+            }
+        ],
+        "max": 80,
+        "section": "membership",
+        "position": 10
+    },
+    {
+        "key": "sponsor_contribution",
+        "label": "Förderbeitrag (€)",
+        "type": "decimal",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "membership",
+        "position": 20
+    },
+    {
+        "key": "joined_at",
+        "label": "Eintrittsdatum",
+        "type": "date",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "membership",
+        "position": 30
+    },
+    {
+        "key": "left_at",
+        "label": "Austrittsdatum",
+        "type": "date",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "membership",
+        "position": 40
+    },
+    {
+        "key": "graduation",
+        "label": "Abschluss",
+        "type": "select",
+        "required": false,
+        "options": [
+            {
+                "value": "Abitur",
+                "label": "Abitur",
+                "active": true
+            },
+            {
+                "value": "Fachabitur",
+                "label": "Fachabitur",
+                "active": true
+            },
+            {
+                "value": "Mittlere Reife",
+                "label": "Mittlere Reife",
+                "active": true
+            }
+        ],
+        "max": 80,
+        "section": "membership",
+        "position": 50
+    },
+    {
+        "key": "graduation_year",
+        "label": "Jahrgang",
+        "type": "number",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "membership",
+        "position": 60
+    },
+    {
+        "key": "is_honorary",
+        "label": "Ehrenmitglied",
+        "type": "boolean",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "membership",
+        "position": 70
+    },
+    {
+        "key": "is_former_student",
+        "label": "Ehemalige Schülerin / ehemaliger Schüler",
+        "type": "boolean",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "membership",
+        "position": 80
+    },
+    {
+        "key": "department_role",
+        "label": "Funktion in der Abteilung",
+        "type": "select",
+        "required": false,
+        "options": [
+            {
+                "value": "1. Vorsitzender",
+                "label": "1. Vorsitzender",
+                "active": true
+            },
+            {
+                "value": "2. Vorsitzender",
+                "label": "2. Vorsitzender",
+                "active": true
+            },
+            {
+                "value": "Geschäftsführer",
+                "label": "Geschäftsführer",
+                "active": true
+            },
+            {
+                "value": "Delegierte",
+                "label": "Delegierte",
+                "active": true
+            },
+            {
+                "value": "Delegierte Vertreter",
+                "label": "Delegierte Vertreter",
+                "active": true
+            }
+        ],
+        "max": 100,
+        "section": "roles",
+        "position": 10
+    },
+    {
+        "key": "club_role",
+        "label": "Funktion im Hauptverein",
+        "type": "select",
+        "required": false,
+        "options": [
+            {
+                "value": "1. Vorsitzender",
+                "label": "1. Vorsitzender",
+                "active": true
+            },
+            {
+                "value": "2. Vorsitzender",
+                "label": "2. Vorsitzender",
+                "active": true
+            },
+            {
+                "value": "Kassierer",
+                "label": "Kassierer",
+                "active": true
+            },
+            {
+                "value": "Schriftführer",
+                "label": "Schriftführer",
+                "active": true
+            },
+            {
+                "value": "stellvertretender Kassierer",
+                "label": "stellvertretender Kassierer",
+                "active": true
+            },
+            {
+                "value": "stellvertretender Schriftführer",
+                "label": "stellvertretender Schriftführer",
+                "active": true
+            },
+            {
+                "value": "Kassenprüfer",
+                "label": "Kassenprüfer",
+                "active": true
+            }
+        ],
+        "max": 100,
+        "section": "roles",
+        "position": 20
+    },
+    {
+        "key": "iban",
+        "label": "IBAN",
+        "type": "text",
+        "required": false,
+        "options": [],
+        "max": 34,
+        "section": "bank",
+        "position": 10
+    },
+    {
+        "key": "mandate_reference",
+        "label": "Mandatsreferenz",
+        "type": "text",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "bank",
+        "position": 20
+    },
+    {
+        "key": "mandate_signed_at",
+        "label": "Erteilungsdatum",
+        "type": "date",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "bank",
+        "position": 30
+    },
+    {
+        "key": "account_holder_first_name",
+        "label": "Vorname des Kontoinhabers",
+        "type": "text",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "account",
+        "position": 10
+    },
+    {
+        "key": "account_holder_last_name",
+        "label": "Nachname des Kontoinhabers",
+        "type": "text",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "account",
+        "position": 20
+    },
+    {
+        "key": "account_holder_street",
+        "label": "Straße und Hausnummer",
+        "type": "text",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "account",
+        "position": 30
+    },
+    {
+        "key": "account_holder_postal_code",
+        "label": "Postleitzahl",
+        "type": "text",
+        "required": false,
+        "options": [],
+        "max": 20,
+        "section": "account",
+        "position": 40
+    },
+    {
+        "key": "account_holder_city",
+        "label": "Ort",
+        "type": "text",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "account",
+        "position": 50
+    },
+    {
+        "key": "account_holder_country",
+        "label": "Land",
+        "type": "text",
+        "required": false,
+        "options": [],
+        "max": 255,
+        "section": "account",
+        "position": 60
+    }
+]
