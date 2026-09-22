@@ -50,7 +50,7 @@ class HandleInertiaRequests extends Middleware
             'can' => [
                 'viewMembers' => $request->user()?->can('viewAny', Member::class) ?? false,
                 'manageConfiguration' => $request->user()?->can('manage-configuration') ?? false,
-                'viewPayments' => $request->user()?->can('view-payments') ?? false
+                'viewPayments' => $request->user()?->can('view-payments') ?? false,
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];

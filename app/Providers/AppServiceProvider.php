@@ -30,7 +30,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('view-payments', fn (User $user): bool => $user->is_active && count(array_intersect($user->roles ?? [], ['admin', 'bv'])) > 0);
     }
 
-
     /**
      * Configure default behaviors for production-ready applications.
      */

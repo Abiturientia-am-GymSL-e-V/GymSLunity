@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Members\MemberFields;
 use App\Models\ClubSetting;
 use App\Models\Member;
+use App\Models\MemberChange;
 use App\Models\MemberFieldDefinition;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -163,6 +164,6 @@ class MemberFieldController extends Controller
         }
 
         return $memberQuery->exists()
-            || \App\Models\MemberChange::query()->where('before->'.$field->key, $value)->orWhere('after->'.$field->key, $value)->exists();
+            || MemberChange::query()->where('before->'.$field->key, $value)->orWhere('after->'.$field->key, $value)->exists();
     }
 }
