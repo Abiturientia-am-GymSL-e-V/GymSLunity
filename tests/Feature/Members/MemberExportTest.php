@@ -2,9 +2,13 @@
 
 namespace Tests\Feature\Members;
 
+use App\Models\ClubSetting;
 use App\Models\Member;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class MemberExportTest extends TestCase
@@ -80,7 +84,12 @@ class MemberExportTest extends TestCase
 
     public function test_office_pdf_and_print_exports_preserve_visible_column_scope_and_escape_values(): void
     {
+        $this->travelTo(CarbonImmutable::parse('2026-09-22 20:15:00 UTC'));
         $this->actingAs(User::factory()->create(['roles' => ['mv']]));
+        Storage::fake('local');
+        $logoPath = 'branding/logo-11111111-1111-1111-1111-111111111111.png';
+        Storage::disk('local')->put($logoPath, UploadedFile::fake()->image('logo.png', 120, 60)->get());
+        ClubSetting::current()->update(['data' => ['name' => 'Turnverein Musterstadt', 'logo_path' => $logoPath]]);
         Member::factory()->create(['first_name' => 'Formel', 'last_name' => '=HYPERLINK("x") <Test>', 'postal_code' => '01234']);
 
         $pdf = $this->post(route('members.export'), $this->data(['format' => 'pdf']));
@@ -88,6 +97,10 @@ class MemberExportTest extends TestCase
         $this->assertStringStartsWith('%PDF-', $pdf->getContent());
 
         $html = $this->post(route('members.export'), $this->data(['format' => 'print']))->assertOk()->getContent();
+        $this->assertStringContainsString('<title>Turnverein Musterstadt · Mitgliederliste</title>', $html);
+        $this->assertStringContainsString('<h1>Turnverein Musterstadt · Mitgliederliste</h1>', $html);
+        $this->assertStringContainsString('<img class="report-logo" src="data:image/png;base64,', $html);
+        $this->assertStringContainsString('Stand 22.09.2026 22:15 CEST', $html);
         $this->assertStringContainsString('Mitgliedsnummer', $html);
         $this->assertStringContainsString('01234', $html);
         $this->assertStringContainsString('&lt;Test&gt;', $html);
@@ -108,6 +121,18 @@ class MemberExportTest extends TestCase
                 $this->assertStringContainsString('01234', $xml);
                 $this->assertStringContainsString('HYPERLINK', $xml);
                 $this->assertStringNotContainsString('<Test>', $xml);
+                if ($format === 'docx') {
+                    $image = false;
+                    for ($index = 0; $index < $archive->numFiles; $index++) {
+                        $entry = $archive->getNameIndex($index);
+                        if (is_string($entry) && str_starts_with($entry, 'word/media/')) {
+                            $image = $archive->getFromIndex($index);
+                            break;
+                        }
+                    }
+                    $this->assertIsString($image);
+                    $this->assertStringStartsWith("\x89PNG", $image);
+                }
             } finally {
                 $archive->close();
                 unlink($temp);

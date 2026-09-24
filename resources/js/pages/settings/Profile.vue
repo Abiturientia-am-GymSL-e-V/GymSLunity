@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Form, Head, usePage } from '@inertiajs/vue3';
+import { Form, Head, useForm, usePage } from '@inertiajs/vue3';
 import { Link } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import DeleteUser from '@/components/DeleteUser.vue';
 import Heading from '@/components/Heading.vue';
@@ -25,12 +25,33 @@ defineOptions({
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
+const props = defineProps<{ hasProfileSignature: boolean }>();
+const signatureInput = ref<HTMLInputElement>();
+const signatureVersion = ref(Date.now());
+const signatureForm = useForm<{ signature: File | null }>({ signature: null });
+const deleteSignatureForm = useForm({});
+
+function uploadSignature() {
+    signatureForm.post('/settings/profile/signature', {
+        forceFormData: true,
+        preserveScroll: true,
+        onSuccess: () => {
+            signatureForm.reset();
+            if (signatureInput.value) signatureInput.value.value = '';
+            signatureVersion.value = Date.now();
+        },
+    });
+}
+
+function removeSignature() {
+    deleteSignatureForm.delete('/settings/profile/signature', {
+        preserveScroll: true,
+    });
+}
 </script>
 
 <template>
     <Head title="Profileinstellungen" />
-
-    <h1 class="sr-only">Profileinstellungen</h1>
 
     <div class="flex flex-col space-y-6">
         <Heading
@@ -100,6 +121,73 @@ const user = computed(() => page.props.auth.user);
                 >
             </div>
         </Form>
+
+        <div class="space-y-6 border-t pt-8">
+            <Heading
+                variant="small"
+                title="Unterschrift"
+                description="Hinterlege eine Unterschrift, die du beim Unterzeichnen von Dokumenten verwenden kannst."
+            />
+
+            <div
+                v-if="props.hasProfileSignature"
+                class="flex min-h-28 items-center justify-center rounded-lg border bg-white p-4"
+            >
+                <img
+                    :src="`/settings/profile/signature?v=${signatureVersion}`"
+                    alt="Im Profil gespeicherte Unterschrift"
+                    class="max-h-24 max-w-full"
+                />
+            </div>
+
+            <form class="space-y-4" @submit.prevent="uploadSignature">
+                <div class="grid gap-2">
+                    <Label for="profile-signature">Unterschriftsgrafik</Label>
+                    <Input
+                        id="profile-signature"
+                        ref="signatureInput"
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        required
+                        @change="
+                            signatureForm.signature =
+                                ($event.target as HTMLInputElement)
+                                    .files?.[0] ?? null
+                        "
+                    />
+                    <InputError :message="signatureForm.errors.signature" />
+                    <p class="text-xs text-muted-foreground">
+                        PNG, JPEG oder WebP, maximal 2 MB. Am besten eignet sich
+                        eine freigestellte Unterschrift auf transparentem
+                        Hintergrund.
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap gap-3">
+                    <Button
+                        type="submit"
+                        :disabled="
+                            signatureForm.processing || !signatureForm.signature
+                        "
+                    >
+                        {{
+                            props.hasProfileSignature
+                                ? 'Unterschrift ersetzen'
+                                : 'Unterschrift speichern'
+                        }}
+                    </Button>
+                    <Button
+                        v-if="props.hasProfileSignature"
+                        type="button"
+                        variant="outline"
+                        :disabled="deleteSignatureForm.processing"
+                        @click="removeSignature"
+                    >
+                        Entfernen
+                    </Button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <DeleteUser />

@@ -16,6 +16,10 @@ return [
 
     'default' => env('MAIL_MAILER', 'log'),
 
+    // Kept separately so the database-backed configuration can switch back
+    // to the deployment-provided transport without reading the environment.
+    'environment_default' => env('MAIL_MAILER', 'log'),
+
     /*
     |--------------------------------------------------------------------------
     | Mailer Configurations

@@ -40,6 +40,7 @@ const props = defineProps<{
     q: string;
     roles: Record<string, string>;
     descriptions: Record<string, string>;
+    areas: Record<string, string[]>;
 }>();
 defineOptions({
     layout: {
@@ -105,7 +106,7 @@ function close(value: boolean) {
 
 <template>
     <Head title="Benutzer & Rechte" />
-    <div class="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-6">
+    <div class="mx-auto w-full max-w-[1200px] space-y-6 p-4 sm:p-6">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight">
@@ -269,7 +270,7 @@ function close(value: boolean) {
                     <label
                         v-for="(label, role) in roles"
                         :key="role"
-                        class="flex items-start gap-3 text-sm"
+                        class="flex items-start gap-3 rounded-md border p-3 text-sm"
                         ><input
                             v-model="form.roles"
                             :value="role"
@@ -284,8 +285,16 @@ function close(value: boolean) {
                             ><span
                                 class="mt-0.5 block text-xs text-muted-foreground"
                                 >{{ descriptions[role] }}</span
-                            ></span
-                        ></label
+                            ><span class="mt-2 flex flex-wrap gap-1">
+                                <Badge
+                                    v-for="area in areas[role]"
+                                    :key="area"
+                                    variant="outline"
+                                    class="font-normal"
+                                    >{{ area }}</Badge
+                                >
+                            </span>
+                        </span></label
                     ><InputError :message="form.errors.roles" />
                 </fieldset>
                 <div class="grid gap-3 text-sm">

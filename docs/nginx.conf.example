@@ -1,0 +1,75 @@
+# HTTP auf HTTPS umleiten. example.org durch die eigene Domain ersetzen.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name verein.example.org;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name verein.example.org;
+
+    root /var/www/gymslunity/public;
+    index index.php;
+    charset utf-8;
+
+    # Zertifikatspfade passend zum eingesetzten ACME-Client setzen.
+    ssl_certificate /etc/letsencrypt/live/verein.example.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/verein.example.org/privkey.pem;
+
+    # Erst aktivieren, wenn die Domain dauerhaft ausschließlich HTTPS nutzt.
+    # add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+
+    client_max_body_size 12m;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location = /robots.txt  { access_log off; log_not_found off; }
+
+    location ~ ^/index\.php(/|$) {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        fastcgi_param DOCUMENT_ROOT $realpath_root;
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
+        fastcgi_read_timeout 120s;
+        fastcgi_hide_header X-Powered-By;
+    }
+
+    location ~ \.php$ {
+        return 404;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+
+    location ^~ /build/assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+        access_log off;
+    }
+
+    location ~* \.(?:css|js|jpg|jpeg|gif|png|svg|webp|ico|woff|woff2)$ {
+        expires 7d;
+        add_header Cache-Control "public";
+        try_files $uri =404;
+        access_log off;
+    }
+}

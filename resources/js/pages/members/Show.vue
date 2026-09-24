@@ -8,11 +8,13 @@ import {
     Printer,
     Pencil,
     Save,
+    Upload,
     X,
 } from '@lucide/vue';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import MemberHistoryPanel from '@/components/members/MemberHistory.vue';
+import ContributionAccount from '@/components/members/ContributionAccount.vue';
 import MemberFieldControl from '@/components/members/MemberFieldControl.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,11 +27,13 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 import { Spinner } from '@/components/ui/spinner';
 import { memberTimestamp, memberValue } from '@/lib/memberFormatting';
 import { onBeforeHistoryNavigation } from '@/lib/navigationGuard';
 import { index, show, update } from '@/routes/members';
+import { store as storeDocument } from '@/routes/members/documents';
 import type {
     MemberDetail,
     MemberDocument,
@@ -46,6 +50,18 @@ const props = defineProps<{
     canEdit: boolean;
     returnTo: string;
     configurationVersion: number;
+    contributionAccount: {
+        balance_cents: number;
+        transactions: Array<{
+            id: number;
+            kind: string;
+            amount_cents: number;
+            booking_date: string;
+            description: string;
+            reference: string | null;
+            actor_name: string;
+        }>;
+    };
 }>();
 defineOptions({
     layout: {
@@ -82,10 +98,30 @@ let removeHistoryGuard: (() => void) | undefined;
 let removeNavigationListener: (() => void) | undefined;
 let lastUrl = '';
 let lastState: unknown;
-const dirty = computed(() => editing.value && form.isDirty);
+const documentKinds = [
+    { kind: 'application', label: 'Mitgliedsantrag' },
+    { kind: 'sepa', label: 'SEPA-Mandat' },
+] as const;
+type DocumentKind = (typeof documentKinds)[number]['kind'];
+const documentUploads = {
+    application: useForm<{ document: File | null }>({ document: null }),
+    sepa: useForm<{ document: File | null }>({ document: null }),
+};
+const dirty = computed(
+    () =>
+        editing.value &&
+        (form.isDirty ||
+            documentUploads.application.isDirty ||
+            documentUploads.sepa.isDirty),
+);
+const documentProcessing = computed(
+    () =>
+        documentUploads.application.processing ||
+        documentUploads.sepa.processing,
+);
 
 function requestLeave(action: () => void) {
-    if (form.processing) return;
+    if (form.processing || documentProcessing.value) return;
     if (dirty.value) {
         pendingLeave = action;
         discardOpen.value = true;
@@ -94,6 +130,8 @@ function requestLeave(action: () => void) {
 function discard() {
     discardOpen.value = false;
     form.reset();
+    documentUploads.application.reset();
+    documentUploads.sepa.reset();
     editing.value = false;
     pendingLeave?.();
     pendingLeave = undefined;
@@ -162,7 +200,7 @@ function save(closeAfter = false) {
 }
 
 function beforeUnload(event: BeforeUnloadEvent) {
-    if (dirty.value || form.processing) {
+    if (dirty.value || form.processing || documentProcessing.value) {
         event.preventDefault();
         event.returnValue = '';
     }
@@ -190,7 +228,11 @@ onMounted(() => {
         lastState = window.history.state;
     });
     removeGuard = router.on('before', (event) => {
-        if (allowNavigation && event.detail.visit.method === 'patch') return;
+        if (
+            allowNavigation &&
+            ['patch', 'post'].includes(event.detail.visit.method)
+        )
+            return;
         if (form.processing) return false;
         if (!dirty.value) return;
         const visit = event.detail.visit;
@@ -204,12 +246,27 @@ onBeforeUnmount(() => {
     removeNavigationListener?.();
     window.removeEventListener('beforeunload', beforeUnload);
 });
-const documentKinds = [
-    { kind: 'application', label: 'Mitgliedsantrag' },
-    { kind: 'sepa', label: 'SEPA-Mandat' },
-];
-function documentFor(kind: string) {
+function documentFor(kind: DocumentKind) {
     return props.documents.find((document) => document.kind === kind);
+}
+function chooseDocument(kind: DocumentKind, event: Event) {
+    documentUploads[kind].document =
+        (event.target as HTMLInputElement).files?.[0] ?? null;
+}
+function uploadDocument(kind: DocumentKind) {
+    const upload = documentUploads[kind];
+    if (!upload.document || upload.processing) return;
+    allowNavigation = true;
+    upload.post(
+        storeDocument.url({ member: props.member.member_number, kind }),
+        {
+            preserveScroll: true,
+            onSuccess: () => upload.reset(),
+            onFinish: () => {
+                allowNavigation = false;
+            },
+        },
+    );
 }
 const adult = computed(() => {
     if (!props.member.birth_date) return 'Nicht bestimmbar';
@@ -222,7 +279,7 @@ const adult = computed(() => {
 <template>
     <Head :title="fullName" />
     <form
-        class="mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 sm:p-6"
+        class="mx-auto flex w-full max-w-[1200px] flex-col gap-6 p-4 sm:p-6"
         novalidate
         data-test="member-detail"
         @submit.prevent="save()"
@@ -278,7 +335,7 @@ const adult = computed(() => {
                         {{ `Mitglied Nr. ${member.member_number}` }}
                     </p>
                     <h1
-                        class="text-2xl font-semibold tracking-tight break-words sm:text-3xl"
+                        class="text-2xl font-semibold tracking-tight break-words"
                     >
                         {{ fullName }}
                     </h1>
@@ -350,7 +407,7 @@ const adult = computed(() => {
                             {{ section.title }}
                         </h2>
                     </div>
-                    <div class="grid gap-x-6 gap-y-5 p-5 sm:grid-cols-2">
+                    <div class="grid gap-x-6 gap-y-5 p-5 md:grid-cols-2">
                         <div
                             v-for="field in section.fields"
                             :key="field.key"
@@ -467,6 +524,73 @@ const adult = computed(() => {
                                     herunterladen</a
                                 ></Button
                             >
+                            <div
+                                v-if="editing"
+                                class="basis-full space-y-2 rounded-lg border bg-muted/30 p-3"
+                            >
+                                <Label
+                                    :for="`document-${document.kind}`"
+                                    class="text-xs"
+                                    >{{
+                                        documentFor(document.kind)
+                                            ? `${document.label} ersetzen`
+                                            : `${document.label} hochladen`
+                                    }}</Label
+                                >
+                                <div class="flex flex-col gap-2 sm:flex-row">
+                                    <Input
+                                        :id="`document-${document.kind}`"
+                                        type="file"
+                                        accept="application/pdf,.pdf"
+                                        :disabled="
+                                            documentUploads[document.kind]
+                                                .processing
+                                        "
+                                        :aria-invalid="
+                                            !!documentUploads[document.kind]
+                                                .errors.document
+                                        "
+                                        :aria-describedby="`error-document-${document.kind}`"
+                                        @change="
+                                            chooseDocument(
+                                                document.kind,
+                                                $event,
+                                            )
+                                        "
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        :disabled="
+                                            !documentUploads[document.kind]
+                                                .document ||
+                                            documentUploads[document.kind]
+                                                .processing
+                                        "
+                                        @click="uploadDocument(document.kind)"
+                                        ><Spinner
+                                            v-if="
+                                                documentUploads[document.kind]
+                                                    .processing
+                                            "
+                                        /><Upload v-else class="size-4" />{{
+                                            documentFor(document.kind)
+                                                ? 'Ersetzen'
+                                                : 'Hochladen'
+                                        }}</Button
+                                    >
+                                </div>
+                                <p class="text-xs text-muted-foreground">
+                                    PDF, maximal 10 MB
+                                </p>
+                                <InputError
+                                    :id="`error-document-${document.kind}`"
+                                    :message="
+                                        documentUploads[document.kind].errors
+                                            .document
+                                    "
+                                />
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -476,11 +600,14 @@ const adult = computed(() => {
                     }}
                 </p>
             </div>
-            <MemberHistoryPanel
-                :history="history"
-                :sections="sections"
-                :disabled="editing || form.processing"
-            />
+            <div class="min-w-0 space-y-6">
+                <ContributionAccount :account="contributionAccount" />
+                <MemberHistoryPanel
+                    :history="history"
+                    :sections="sections"
+                    :disabled="editing || form.processing"
+                />
+            </div>
         </div>
 
         <footer

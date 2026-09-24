@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import { usePasskeyVerify } from '@laravel/passkeys/vue';
 import { Form, Head } from '@inertiajs/vue3';
+import { KeyRound } from '@lucide/vue';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
 import TextLink from '@/components/TextLink.vue';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
@@ -22,6 +23,18 @@ defineProps<{
     status?: string;
     canResetPassword: boolean;
 }>();
+
+const {
+    verify: verifyPasskey,
+    isLoading: passkeyLoading,
+    error: passkeyError,
+    isSupported: passkeySupported,
+} = usePasskeyVerify({
+    autofill: true,
+    onSuccess: (response) => {
+        window.location.assign(response.redirect ?? '/dashboard');
+    },
+});
 </script>
 
 <template>
@@ -50,7 +63,7 @@ defineProps<{
                     required
                     v-focus
                     :tabindex="1"
-                    autocomplete="email"
+                    autocomplete="email webauthn"
                     placeholder="email@example.com"
                 />
                 <InputError :message="errors.email" />
@@ -79,17 +92,10 @@ defineProps<{
                 <InputError :message="errors.password" />
             </div>
 
-            <div class="flex items-center justify-between">
-                <Label for="remember" class="flex items-center space-x-3">
-                    <Checkbox id="remember" name="remember" :tabindex="3" />
-                    <span>Angemeldet bleiben</span>
-                </Label>
-            </div>
-
             <Button
                 type="submit"
                 class="mt-4 w-full"
-                :tabindex="4"
+                :tabindex="3"
                 :disabled="processing"
                 data-test="login-button"
             >
@@ -98,4 +104,30 @@ defineProps<{
             </Button>
         </div>
     </Form>
+
+    <div class="my-6 flex items-center gap-3 text-sm text-muted-foreground">
+        <div class="h-px flex-1 bg-border" />
+        oder
+        <div class="h-px flex-1 bg-border" />
+    </div>
+
+    <Button
+        type="button"
+        variant="outline"
+        class="w-full"
+        :disabled="!passkeySupported || passkeyLoading"
+        @click="verifyPasskey"
+    >
+        <KeyRound class="size-4" />
+        {{ passkeyLoading ? 'Passkey wird geprüft …' : 'Mit Passkey anmelden' }}
+    </Button>
+    <p v-if="passkeyError" class="mt-2 text-sm text-destructive">
+        {{ passkeyError }}
+    </p>
+    <p
+        v-else-if="!passkeySupported"
+        class="mt-2 text-center text-sm text-muted-foreground"
+    >
+        Passkeys werden von diesem Browser nicht unterstützt.
+    </p>
 </template>

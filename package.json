@@ -14,7 +14,12 @@
     "dependencies": {
         "@inertiajs/vite": "^3.0.0",
         "@inertiajs/vue3": "^3.0.0",
+        "@laravel/passkeys": "^0.4.0",
         "@lucide/vue": "^1.17.0",
+        "@tiptap/extension-image": "^3.31.3",
+        "@tiptap/extension-text-align": "^3.31.3",
+        "@tiptap/starter-kit": "^3.31.3",
+        "@tiptap/vue-3": "^3.31.3",
         "@vueuse/core": "^12.8.2",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",

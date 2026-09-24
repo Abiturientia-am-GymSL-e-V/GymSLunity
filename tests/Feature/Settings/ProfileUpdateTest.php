@@ -4,6 +4,9 @@ namespace Tests\Feature\Settings;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class ProfileUpdateTest extends TestCase
@@ -59,6 +62,50 @@ class ProfileUpdateTest extends TestCase
             ->assertRedirect(route('profile.edit'));
 
         $this->assertNotNull($user->refresh()->email_verified_at);
+    }
+
+    public function test_user_can_store_view_and_remove_a_profile_signature(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $this->get(route('profile.edit'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('hasProfileSignature', false));
+
+        $this->post(route('profile.signature.store'), [
+            'signature' => UploadedFile::fake()->image('unterschrift.png', 500, 150),
+        ])->assertSessionHasNoErrors()->assertRedirect(route('profile.edit'));
+
+        $user->refresh();
+        $this->assertTrue($user->hasProfileSignature());
+        $this->assertStringStartsWith("\x89PNG", $user->profileSignature());
+        $this->assertStringNotContainsString("\x89PNG", DB::table('users')->where('id', $user->id)->value('encrypted_signature'));
+        $this->get(route('profile.signature.show'))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/png')
+            ->assertHeader('Cache-Control', 'no-store, private');
+
+        $this->delete(route('profile.signature.destroy'))
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('profile.edit'));
+        $this->assertFalse($user->refresh()->hasProfileSignature());
+        $this->get(route('profile.signature.show'))->assertNotFound();
+    }
+
+    public function test_profile_signature_upload_only_accepts_bounded_images(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $this->post(route('profile.signature.store'), [
+            'signature' => UploadedFile::fake()->create('unterschrift.svg', 10, 'image/svg+xml'),
+        ])->assertSessionHasErrors('signature');
+
+        $this->post(route('profile.signature.store'), [
+            'signature' => UploadedFile::fake()->image('unterschrift.png', 2500, 200),
+        ])->assertSessionHasErrors('signature');
+
+        $this->assertFalse($user->refresh()->hasProfileSignature());
     }
 
     public function test_user_can_delete_their_account()

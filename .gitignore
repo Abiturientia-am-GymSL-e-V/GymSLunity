@@ -48,5 +48,6 @@ yarn-error.log
 /.env.*
 !/.env.example
 /var/
+/dist/
 /.tools/
 !/.env.testing.example

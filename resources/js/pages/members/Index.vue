@@ -22,8 +22,10 @@ import {
 } from 'vue';
 import { columnsFor } from '@/components/members/columns';
 import type { MemberColumnKey } from '@/components/members/columns';
+import BulkEditMembers from '@/components/members/BulkEditMembers.vue';
 import MemberExport from '@/components/members/MemberExport.vue';
 import MemberFilter from '@/components/members/MemberFilter.vue';
+import MembersNav from '@/components/members/MembersNav.vue';
 import MemberTable from '@/components/members/MemberTable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -62,10 +64,17 @@ const props = defineProps<{
     filterOptions: MemberFilterOptions;
     totalMembers: number;
     fieldDefinitions: MemberField[];
+    configurationVersion: number;
+    canBulkEdit: boolean;
 }>();
 
 defineOptions({
-    layout: { breadcrumbs: [{ title: 'Mitglieder', href: index() }] },
+    layout: {
+        breadcrumbs: [
+            { title: 'Mitglieder', href: index() },
+            { title: 'Verzeichnis' },
+        ],
+    },
 });
 
 const memberColumns = computed(() => columnsFor(props.fieldDefinitions));
@@ -307,20 +316,18 @@ const pages = computed(() => {
 
 <template>
     <Head title="Mitglieder" />
-    <div class="flex min-w-0 flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
+    <div class="mx-auto w-full max-w-[1200px] space-y-6 p-4 sm:p-6">
         <header class="flex flex-wrap items-start justify-between gap-4">
             <div>
                 <div class="flex items-center gap-3">
-                    <h1
-                        class="text-2xl font-semibold tracking-tight sm:text-3xl"
-                    >
+                    <h1 class="text-2xl font-semibold tracking-tight">
                         Mitglieder
                     </h1>
                     <Badge variant="secondary" class="tabular-nums">{{
                         number.format(totalMembers)
                     }}</Badge>
                 </div>
-                <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
+                <p class="mt-1 text-sm text-muted-foreground">
                     Kontaktdaten, Mitgliedschaften und Vereinsfunktionen im
                     Überblick.
                 </p>
@@ -332,6 +339,8 @@ const pages = computed(() => {
                 Mitgliederverzeichnis
             </div>
         </header>
+
+        <MembersNav />
 
         <section
             class="rounded-xl border bg-card p-4 sm:p-5"
@@ -589,14 +598,24 @@ const pages = computed(() => {
                         >Auswahl aufheben</Button
                     >
                 </div>
-                <MemberExport
-                    :filters="filters"
-                    :selected="selection.numbers"
-                    :columns="visibleColumns"
-                    :fields="fieldDefinitions"
-                    :total="members.total"
-                    :disabled="loading"
-                />
+                <div class="flex flex-wrap items-start justify-end gap-2">
+                    <BulkEditMembers
+                        v-if="canBulkEdit"
+                        :selected="selection.numbers"
+                        :fields="fieldDefinitions"
+                        :configuration-version="configurationVersion"
+                        @updated="selection.numbers = []"
+                    />
+                    <MemberExport
+                        :filters="filters"
+                        :selected="selection.numbers"
+                        :columns="visibleColumns"
+                        :all-columns="memberColumns"
+                        :fields="fieldDefinitions"
+                        :total="members.total"
+                        :disabled="loading"
+                    />
+                </div>
             </div>
             <MemberTable
                 :members="members.data"

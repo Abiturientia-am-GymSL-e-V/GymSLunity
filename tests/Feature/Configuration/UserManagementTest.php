@@ -41,7 +41,24 @@ class UserManagementTest extends TestCase
         $audit = DB::table('configuration_changes')->sole();
         $this->assertStringNotContainsString('Long-test-password', $audit->after);
         $this->assertStringNotContainsString($target->password, $audit->after);
+        $this->assertDatabaseHas('security_audit_events', [
+            'event' => 'roles_changed', 'outcome' => 'success', 'user_id' => auth()->id(),
+            'subject_type' => User::class, 'subject_id' => (string) $target->id,
+        ]);
         $this->get(route('configuration.users.index', ['q' => 'TEST@']))->assertInertia(fn (Assert $page) => $page->where('users.total', 1)->where('users.data.0.roles', ['mv'])->missing('users.data.0.password')->missing('users.data.0.two_factor_secret')->missing('users.data.0.remember_token'));
+    }
+
+    public function test_user_management_exposes_the_areas_for_each_role(): void
+    {
+        $this->admin();
+
+        $this->get(route('configuration.users.index'))->assertInertia(fn (Assert $page) => $page
+            ->where('areas.admin', ['Mitglieder', 'Beiträge', 'Auswertungen', 'Buchhaltung', 'Formulare', 'Spenden', 'Inventar', 'Kommunikation', 'Konfiguration'])
+            ->where('areas.vereinsverwaltung', ['Mitglieder', 'Auswertungen', 'Formulare', 'Inventar', 'Kommunikation'])
+            ->where('areas.mv', ['Mitglieder', 'Auswertungen', 'Formulare', 'Kommunikation'])
+            ->where('areas.bh', ['Auswertungen', 'Buchhaltung', 'Spenden'])
+            ->where('areas.bv', ['Beiträge', 'Auswertungen'])
+            ->where('areas.kp', ['Auswertungen', 'Buchhaltung']));
     }
 
     public function test_role_validation_unique_email_and_password_rules_are_enforced(): void

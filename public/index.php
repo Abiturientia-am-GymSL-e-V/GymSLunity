@@ -5,6 +5,14 @@ use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
 
+// The release archive can bootstrap its initial .env without Composer or a
+// working database. Once .env exists, every request uses Laravel normally.
+if (! is_file(__DIR__.'/../.env')) {
+    require __DIR__.'/../installer/bootstrap.php';
+
+    exit;
+}
+
 // Determine if the application is in maintenance mode...
 if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
     require $maintenance;

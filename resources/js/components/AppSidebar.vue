@@ -8,6 +8,11 @@ import {
     Settings2,
     MessageSquareText,
     HandCoins,
+    ChartNoAxesCombined,
+    Landmark,
+    FileText,
+    HeartHandshake,
+    Boxes,
     Info,
 } from '@lucide/vue';
 import { computed } from 'vue';
@@ -25,7 +30,16 @@ import {
     SidebarMenuItem,
     SidebarSeparator,
 } from '@/components/ui/sidebar';
-import { dashboard, helloWorld, payments } from '@/routes';
+import {
+    dashboard,
+    donations,
+    finance,
+    forms,
+    inventory,
+    kommunikation,
+    payments,
+    statistics,
+} from '@/routes';
 import { index as members } from '@/routes/members';
 import { edit as clubSettings } from '@/routes/configuration/club';
 import type { NavItem } from '@/types';
@@ -43,10 +57,46 @@ const mainNavItems = computed<NavItem[]>(() => [
     ...(page.props.can.viewPayments
         ? [{ title: 'Beiträge', href: payments(), icon: HandCoins }]
         : []),
-    ...(page.props.can.manageConfiguration
-        ? [{ title: 'Konfiguration', href: clubSettings(), icon: Settings2 }]
+    ...(page.props.can.viewStatistics
+        ? [
+              {
+                  title: 'Auswertungen',
+                  href: statistics(),
+                  icon: ChartNoAxesCombined,
+              },
+          ]
         : []),
-    { title: 'Hallo Welt', href: helloWorld(), icon: MessageSquareText },
+    ...(page.props.can.viewFinance
+        ? [{ title: 'Buchhaltung', href: finance(), icon: Landmark }]
+        : []),
+    ...(page.props.can.viewForms
+        ? [{ title: 'Formulare', href: forms(), icon: FileText }]
+        : []),
+    ...(page.props.can.viewDonations
+        ? [{ title: 'Spenden', href: donations(), icon: HeartHandshake }]
+        : []),
+    ...(page.props.can.viewInventory
+        ? [{ title: 'Inventar', href: inventory(), icon: Boxes }]
+        : []),
+    ...(page.props.can.viewCommunication
+        ? [
+              {
+                  title: 'Kommunikation',
+                  href: kommunikation(),
+                  icon: MessageSquareText,
+              },
+          ]
+        : []),
+    ...(page.props.can.manageConfiguration
+        ? [
+              {
+                  title: 'Konfiguration',
+                  href: clubSettings(),
+                  icon: Settings2,
+                  isActive: page.url.startsWith('/konfiguration'),
+              },
+          ]
+        : []),
 ]);
 
 const footerNavItems: NavItem[] = [
@@ -54,11 +104,6 @@ const footerNavItems: NavItem[] = [
         title: 'Über GymSLunity',
         href: '/ueber-gymslunity',
         icon: Info,
-    },
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/vue-starter-kit',
-        icon: FolderGit2,
     },
     {
         title: 'Dokumentation',

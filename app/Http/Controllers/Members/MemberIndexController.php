@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Members\IndexMembersRequest;
 use App\Members\MemberDirectory;
 use App\Members\MemberFields;
+use App\Models\ClubSetting;
 use App\Models\Member;
 use App\Models\MemberFieldDefinition;
 use Illuminate\Support\Arr;
@@ -47,6 +48,8 @@ class MemberIndexController extends Controller
                 'clubRoles' => $this->options('club_role'),
             ],
             'fieldDefinitions' => fn () => MemberFields::directoryFields(),
+            'configurationVersion' => fn () => ClubSetting::current()->fields_version,
+            'canBulkEdit' => $request->user()?->can('updateAny', Member::class) ?? false,
         ]);
     }
 

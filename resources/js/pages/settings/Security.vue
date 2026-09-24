@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form, Head } from '@inertiajs/vue3';
+import { Form, Head, router } from '@inertiajs/vue3';
 import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
@@ -9,14 +9,36 @@ import { Label } from '@/components/ui/label';
 import { edit } from '@/routes/security';
 import type { Props as ManageTwoFactorProps } from '@/components/ManageTwoFactor.vue';
 import ManageTwoFactor from '@/components/ManageTwoFactor.vue';
+import ManagePasskeys, {
+    type PasskeyItem,
+} from '@/components/ManagePasskeys.vue';
 
 // oxfmt-ignore
 type Props = {
     passwordRules: string;
+    canManagePasskeys: boolean;
+    passkeys: PasskeyItem[];
+    sessions: Array<{
+        id: string;
+        ip_address: string | null;
+        user_agent: string;
+        last_active_at: string;
+        current: boolean;
+    }>;
 } &
     ManageTwoFactorProps;
 
 const props = defineProps<Props>();
+
+const endSession = (id: string) =>
+    router.delete(`/settings/security/sessions/${encodeURIComponent(id)}`, {
+        preserveScroll: true,
+    });
+
+const endOtherSessions = () =>
+    router.delete('/settings/security/sessions/others', {
+        preserveScroll: true,
+    });
 
 defineOptions({
     layout: {
@@ -32,8 +54,6 @@ defineOptions({
 
 <template>
     <Head title="Sicherheitseinstellungen" />
-
-    <h1 class="sr-only">Sicherheitseinstellungen</h1>
 
     <div class="space-y-6">
         <Heading
@@ -110,4 +130,62 @@ defineOptions({
         :requiresConfirmation="requiresConfirmation"
         :twoFactorEnabled="twoFactorEnabled"
     />
+
+    <ManagePasskeys
+        :can-manage-passkeys="canManagePasskeys"
+        :passkeys="passkeys"
+    />
+
+    <section class="space-y-4">
+        <Heading
+            variant="small"
+            title="Aktive Sitzungen"
+            description="Beende Zugriffe auf Geräten, die du nicht mehr verwendest. Privilegierte Sitzungen enden nach 30 Minuten Inaktivität."
+        />
+        <div v-if="sessions.length" class="divide-y rounded-lg border">
+            <div
+                v-for="session in sessions"
+                :key="session.id"
+                class="flex flex-wrap items-center justify-between gap-3 p-4"
+            >
+                <div class="min-w-0 text-sm">
+                    <p class="font-medium">
+                        {{ session.user_agent }}
+                        <span
+                            v-if="session.current"
+                            class="text-green-700 dark:text-green-400"
+                        >
+                            · Diese Sitzung</span
+                        >
+                    </p>
+                    <p class="text-muted-foreground">
+                        {{ session.ip_address ?? 'IP unbekannt' }} · zuletzt
+                        aktiv
+                        {{
+                            new Date(session.last_active_at).toLocaleString(
+                                'de-DE',
+                            )
+                        }}
+                    </p>
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    @click="endSession(session.id)"
+                >
+                    Beenden
+                </Button>
+            </div>
+        </div>
+        <p v-else class="text-sm text-muted-foreground">
+            Die Sitzungsverwaltung benötigt den Datenbank-Sitzungstreiber.
+        </p>
+        <Button
+            v-if="sessions.some((session) => !session.current)"
+            variant="outline"
+            @click="endOtherSessions"
+        >
+            Alle anderen Sitzungen beenden
+        </Button>
+    </section>
 </template>

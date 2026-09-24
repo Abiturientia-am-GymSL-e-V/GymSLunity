@@ -10,16 +10,21 @@ const props = defineProps<{
     filters: MemberFilters;
     selected: number[];
     columns: MemberColumn[];
+    allColumns: MemberColumn[];
     fields: MemberField[];
     total: number;
     disabled: boolean;
 }>();
 const format = ref('csv');
 const scope = ref('selected');
+const columnScope = ref<'visible' | 'all'>('visible');
 const busy = ref(false);
 const error = ref('');
 const exportScope = computed(() =>
     props.selected.length ? scope.value : 'filtered',
+);
+const exportColumns = computed(() =>
+    columnScope.value === 'all' ? props.allColumns : props.columns,
 );
 const columnKeys = computed(() => {
     const groups: Record<string, string[]> = {
@@ -36,7 +41,7 @@ const columnKeys = computed(() => {
         'member_number',
         ...props.fields.map((field) => field.key),
     ]);
-    return props.columns
+    return exportColumns.value
         .flatMap((column) => groups[column.key] || [column.key])
         .filter((key) => active.has(key));
 });
@@ -138,6 +143,17 @@ async function download(requestedFormat = format.value) {
                 </option>
                 <option value="filtered">Gefilterte Liste ({{ total }})</option>
             </select>
+            <Label class="sr-only" for="export-columns">Spaltenumfang</Label>
+            <select
+                id="export-columns"
+                v-model="columnScope"
+                :disabled="disabled || busy"
+                class="h-9 rounded-md border bg-background px-2 text-sm"
+                data-test="export-columns"
+            >
+                <option value="visible">Nur sichtbare Spalten</option>
+                <option value="all">Alle Spalten</option>
+            </select>
             <Label class="sr-only" for="export-format">Dateiformat</Label>
             <select
                 id="export-format"
@@ -171,7 +187,11 @@ async function download(requestedFormat = format.value) {
             >
         </div>
         <p class="text-xs text-muted-foreground">
-            Exportiert die sichtbaren Spalten, auch über mehrere Seiten.
+            {{
+                columnScope === 'all'
+                    ? 'Exportiert alle verfügbaren Spalten, auch über mehrere Seiten.'
+                    : 'Exportiert nur die sichtbaren Spalten, auch über mehrere Seiten.'
+            }}
         </p>
         <p v-if="error" role="alert" class="text-sm text-destructive">
             {{ error }}

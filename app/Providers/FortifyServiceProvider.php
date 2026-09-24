@@ -14,6 +14,7 @@ use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
+use Laravel\Passkeys\Passkeys;
 
 class FortifyServiceProvider extends ServiceProvider
 {
@@ -33,6 +34,8 @@ class FortifyServiceProvider extends ServiceProvider
         $this->configureActions();
         $this->configureViews();
         $this->configureRateLimiting();
+
+        Passkeys::authorizeLoginUsing(fn (Request $request, $user): bool => $user instanceof User && $user->is_active);
     }
 
     /**
@@ -89,14 +92,29 @@ class FortifyServiceProvider extends ServiceProvider
     private function configureRateLimiting(): void
     {
         RateLimiter::for('two-factor', function (Request $request) {
-            return Limit::perMinute(5)->by($request->session()->get('login.id'));
+            return [
+                Limit::perMinute(5)->by('2fa-account:'.$request->session()->get('login.id')),
+                Limit::perMinute(20)->by('2fa-ip:'.$request->ip()),
+            ];
         });
 
         RateLimiter::for('login', function (Request $request) {
-            $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())).'|'.$request->ip());
+            $account = Str::transliterate(Str::lower((string) $request->input(Fortify::username())));
 
-            return Limit::perMinute(5)->by($throttleKey);
+            return [
+                Limit::perMinute(5)->by('login-account:'.$account),
+                Limit::perMinute(20)->by('login-ip:'.$request->ip()),
+            ];
         });
 
+        RateLimiter::for('passkeys', fn (Request $request) => [
+            Limit::perMinute(6)->by('passkey-account:'.($request->user()?->getAuthIdentifier() ?? $request->session()->getId())),
+            Limit::perMinute(20)->by('passkey-ip:'.$request->ip()),
+        ]);
+
+        RateLimiter::for('sensitive', fn (Request $request) => [
+            Limit::perMinute(20)->by('sensitive-account:'.($request->user()?->getAuthIdentifier() ?? 'guest')),
+            Limit::perMinute(60)->by('sensitive-ip:'.$request->ip()),
+        ]);
     }
 }

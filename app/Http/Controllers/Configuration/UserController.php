@@ -7,6 +7,7 @@ use App\Configuration\UserRoles;
 use App\Http\Controllers\Controller;
 use App\Models\ClubSetting;
 use App\Models\User;
+use App\Security\SecurityAudit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -20,6 +21,8 @@ use Inertia\Response;
 
 class UserController extends Controller
 {
+    public function __construct(private readonly SecurityAudit $securityAudit) {}
+
     public function index(Request $request): Response
     {
         $data = $request->validate(['q' => ['nullable', 'string', 'max:120']]);
@@ -32,7 +35,7 @@ class UserController extends Controller
 
         return Inertia::render('configuration/Users', [
             'users' => $query->orderBy('name')->orderBy('id')->paginate(25)->withQueryString(), 'q' => $q,
-            'roles' => UserRoles::LABELS, 'descriptions' => UserRoles::DESCRIPTIONS,
+            'roles' => UserRoles::LABELS, 'descriptions' => UserRoles::DESCRIPTIONS, 'areas' => UserRoles::AREAS,
         ]);
     }
 
@@ -51,7 +54,7 @@ class UserController extends Controller
         $request->merge(['email' => Str::lower(trim($request->string('email')->toString()))]);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'], 'email' => ['required', 'email:rfc', 'max:255', Rule::unique('users')->ignore($user)],
-            'password' => [$user ? 'nullable' : 'required', 'string', 'min:12', 'max:72', 'confirmed', Password::min(12)],
+            'password' => [$user ? 'nullable' : 'required', 'string', 'max:72', 'confirmed', Password::default()],
             'roles' => ['present', 'array', 'max:7'], 'roles.*' => ['required', 'string', 'distinct', Rule::in(array_keys(UserRoles::LABELS))],
             'is_active' => ['required', 'boolean'], 'verified' => ['required', 'boolean'],
             'lock_version' => [$user ? 'required' : 'nullable', 'integer', 'min:0'],
@@ -72,11 +75,12 @@ class UserController extends Controller
             $current->forceFill(Arr::only($data, ['roles', 'is_active']));
             $current->email_verified_at = $data['verified'] ? ($current->email_verified_at ?? now()) : null;
             $passwordChanged = ! empty($data['password']);
+            $rolesChanged = $current->exists && ($before['roles'] ?? []) !== $data['roles'];
             if ($passwordChanged) {
                 $current->password = $data['password'];
             }
             $current->lock_version = ($current->lock_version ?? 0) + 1;
-            if ($passwordChanged || ! $data['is_active']) {
+            if ($passwordChanged || $rolesChanged || ! $data['is_active']) {
                 $current->remember_token = Str::random(60);
             }
             $current->save();
@@ -85,7 +89,13 @@ class UserController extends Controller
                 $after['password_changed'] = true;
             }
             ConfigurationAudit::record($request->user(), 'Benutzer: '.$current->getKey(), $before, $after);
-            if ($passwordChanged || ! $data['is_active']) {
+            if (($before['roles'] ?? []) !== ($after['roles'] ?? [])) {
+                $this->securityAudit->record('roles_changed', 'success', $request, $request->user(), [
+                    'before' => $before['roles'] ?? [],
+                    'after' => $after['roles'] ?? [],
+                ], User::class, $current->getKey());
+            }
+            if ($passwordChanged || $rolesChanged || ! $data['is_active']) {
                 DB::table('sessions')->where('user_id', $current->getKey())->where('id', '<>', $request->session()->getId())->delete();
                 DB::table('password_reset_tokens')->where('email', $current->email)->delete();
             }

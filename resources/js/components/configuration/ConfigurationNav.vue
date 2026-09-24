@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { Building2, ListFilter, UsersRound } from '@lucide/vue';
+import {
+    Building2,
+    HandHeart,
+    ListFilter,
+    Mail,
+    ServerCog,
+    ShieldCheck,
+    UsersRound,
+} from '@lucide/vue';
 import { edit } from '@/routes/configuration/club';
 import { index as fields } from '@/routes/configuration/fields';
 import { index as users } from '@/routes/configuration/users';
@@ -9,6 +17,19 @@ const links = [
     { label: 'Vereinsdaten', url: edit.url(), icon: Building2 },
     { label: 'Mitgliedsfelder', url: fields.url(), icon: ListFilter },
     { label: 'Benutzer & Rechte', url: users.url(), icon: UsersRound },
+    { label: 'E-Mail-Versand', url: '/konfiguration/email', icon: Mail },
+    {
+        label: 'Selfservice & Formulare',
+        url: '/konfiguration/selfservice',
+        icon: UsersRound,
+    },
+    { label: 'Spenden', url: '/konfiguration/spenden', icon: HandHeart },
+    {
+        label: 'Sicherheitsprotokoll',
+        url: '/konfiguration/sicherheitsprotokoll',
+        icon: ShieldCheck,
+    },
+    { label: 'System', url: '/konfiguration/system', icon: ServerCog },
 ];
 </script>
 

@@ -9,6 +9,7 @@ use App\Members\MemberReportWriter;
 use App\Models\ClubSetting;
 use App\Models\Member;
 use App\Models\MemberChange;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -22,6 +23,7 @@ class MemberCardController extends Controller
         Gate::authorize('view', $member);
         $data = $request->validate(['format' => ['nullable', Rule::in(['print', 'pdf'])]]);
         $format = $data['format'] ?? 'print';
+        $timezone = config('app.display_timezone');
         $snapshot = MemberFields::snapshot($member);
         $sections = [];
         $defined = [];
@@ -37,10 +39,14 @@ class MemberCardController extends Controller
         if ($unknown !== []) {
             $sections[] = ['title' => 'Weitere gespeicherte Angaben', 'rows' => array_map(fn (string $key): array => ['label' => $key, 'value' => MemberReportValue::format($snapshot[$key])], $unknown)];
         }
-        $documents = DB::table('member_documents')->where('member_id', $member->getKey())->whereIn('kind', ['application', 'sepa'])->get(['kind', 'submitted_online', 'created_at']);
+        $documents = DB::table('member_documents')->where('member_id', $member->getKey())->whereIn('kind', ['application', 'sepa'])->get(['kind', 'submitted_online', 'created_at'])->map(function (object $document) use ($timezone): object {
+            $document->created_at = CarbonImmutable::parse($document->created_at, config('app.timezone'))->setTimezone($timezone)->format('d.m.Y H:i T');
+
+            return $document;
+        });
         $history = MemberChange::query()->where('member_id', $member->getKey())->orderBy('version')->get();
         $labels = collect(MemberFields::directoryFields())->keyBy('key');
-        $changes = $history->map(function (MemberChange $change) use ($labels): array {
+        $changes = $history->map(function (MemberChange $change) use ($labels, $timezone): array {
             $rows = [];
             foreach ($change->changed_fields as $key) {
                 $field = $change->field_schema[$key] ?? $labels[$key] ?? ['key' => $key, 'label' => $key];
@@ -51,10 +57,13 @@ class MemberCardController extends Controller
                 ];
             }
 
-            return ['actor' => $change->actor_name, 'date' => $change->created_at->format('d.m.Y H:i T'), 'version' => $change->version, 'rows' => $rows];
+            return ['actor' => $change->actor_name, 'date' => $change->created_at->setTimezone($timezone)->format('d.m.Y H:i T'), 'version' => $change->version, 'rows' => $rows];
         });
-        $club = ClubSetting::current()->data;
-        $html = view('exports.card', compact('member', 'sections', 'documents', 'changes', 'club') + ['pdf' => $format === 'pdf'])->render();
+        $settings = ClubSetting::current();
+        $club = $settings->data;
+        $logo = $settings->logoDataUri();
+        $printedAt = now()->setTimezone($timezone);
+        $html = view('exports.card', compact('member', 'sections', 'documents', 'changes', 'club', 'logo', 'printedAt', 'timezone') + ['pdf' => $format === 'pdf'])->render();
         if ($format === 'pdf') {
             return response(MemberReportWriter::pdf($html), 200, [
                 'Content-Type' => 'application/pdf',
@@ -66,7 +75,7 @@ class MemberCardController extends Controller
         return response($html, 200, [
             'Content-Type' => 'text/html; charset=UTF-8', 'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
-            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'",
         ]);
     }
 }

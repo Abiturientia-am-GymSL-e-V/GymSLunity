@@ -9,6 +9,7 @@ use App\Models\Member;
 use App\Models\MemberChange;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -124,6 +125,35 @@ class MemberDetailTest extends TestCase
                 ->assertHeader('X-Content-Type-Options', 'nosniff')->assertContent($pdf.$kind);
         }
         $this->assertStringNotContainsString('binary', json_encode(MemberChange::sole()->toArray()));
+    }
+
+    public function test_editor_can_upload_and_replace_member_documents(): void
+    {
+        $this->signIn();
+        $member = Member::factory()->create();
+        $url = route('members.documents.store', ['member' => $member->member_number, 'kind' => 'application']);
+
+        $first = "%PDF-1.4\nfirst\n%%EOF";
+        $this->post($url, ['document' => UploadedFile::fake()->createWithContent('antrag.pdf', $first)])
+            ->assertSessionHasNoErrors()->assertRedirect();
+        $stored = DB::table('member_documents')->where('member_id', $member->id)->where('kind', 'application')->first();
+        $this->assertTrue((bool) $stored->encrypted);
+        $this->assertSame(hash('sha256', $first), $stored->content_sha256);
+        $this->assertNotSame($first, $stored->contents);
+        $this->get(route('members.document', ['member' => $member->member_number, 'kind' => 'application']))->assertOk()->assertContent($first);
+
+        $replacement = "%PDF-1.4\nreplacement\n%%EOF";
+        $this->post($url, ['document' => UploadedFile::fake()->createWithContent('neu.pdf', $replacement)])
+            ->assertSessionHasNoErrors();
+        $this->assertNotSame($replacement, DB::table('member_documents')->where('member_id', $member->id)->where('kind', 'application')->value('contents'));
+        $this->get(route('members.document', ['member' => $member->member_number, 'kind' => 'application']))->assertOk()->assertContent($replacement);
+        $this->assertDatabaseCount('member_documents', 1);
+
+        $this->postJson($url, ['document' => UploadedFile::fake()->createWithContent('notiz.txt', 'not a pdf')])
+            ->assertUnprocessable()->assertJsonValidationErrors('document');
+        $this->post(route('members.documents.store', ['member' => $member->member_number, 'kind' => 'unknown']), [
+            'document' => UploadedFile::fake()->createWithContent('datei.pdf', "%PDF-1.4\ninvalid kind"),
+        ])->assertNotFound();
     }
 
     public function test_rejects_manipulated_protected_fields_and_missing_version(): void

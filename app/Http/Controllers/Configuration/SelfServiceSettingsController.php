@@ -1,0 +1,55 @@
+<?php
+
+namespace App\Http\Controllers\Configuration;
+
+use App\Configuration\ConfigurationAudit;
+use App\Http\Controllers\Controller;
+use App\Models\ClubSetting;
+use App\SelfService\FormTemplates;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class SelfServiceSettingsController extends Controller
+{
+    public function edit(): Response
+    {
+        $settings = ClubSetting::current();
+
+        return Inertia::render('configuration/SelfService', [
+            'settings' => array_replace(['selfservice_enabled' => false, 'public_join_enabled' => false, 'membership_activation' => 'immediate'], FormTemplates::defaults(), Arr::only($settings->data, ['selfservice_enabled', 'public_join_enabled', 'membership_activation', ...array_keys(FormTemplates::defaults())])),
+            'version' => $settings->version, 'defaults' => FormTemplates::defaults(), 'placeholders' => FormTemplates::placeholders(),
+        ]);
+    }
+
+    public function update(Request $request): RedirectResponse
+    {
+        $values = $request->validate([
+            'version' => ['required', 'integer'], 'selfservice_enabled' => ['required', 'boolean'], 'public_join_enabled' => ['required', 'boolean'],
+            'membership_activation' => ['required', Rule::in(['immediate', 'approval'])],
+            'application_text' => ['required', 'string', 'max:12000'], 'sepa_text' => ['required', 'string', 'max:12000'], 'guardian_text' => ['required', 'string', 'max:6000'],
+            'receipt_notes' => ['required', 'string', 'max:12000'],
+            'receipt_donation_notes' => ['required', 'string', 'max:12000'],
+        ]);
+        foreach (array_keys(FormTemplates::defaults()) as $key) {
+            FormTemplates::validate($values[$key]);
+        }
+        DB::transaction(function () use ($request, $values): void {
+            $settings = ClubSetting::query()->whereKey(1)->lockForUpdate()->firstOrFail();
+            if ($settings->version !== (int) $values['version']) {
+                throw ValidationException::withMessages(['version' => 'Die Konfiguration wurde inzwischen geändert. Bitte lade die Seite neu.']);
+            }
+            $data = array_replace($settings->data, Arr::except($values, 'version'));
+            ConfigurationAudit::record($request->user(), 'Selfservice & Formulare', $settings->data, $data);
+            $settings->update(['data' => $data, 'version' => $settings->version + 1]);
+        });
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Selfservice-Konfiguration gespeichert.']);
+
+        return back();
+    }
+}

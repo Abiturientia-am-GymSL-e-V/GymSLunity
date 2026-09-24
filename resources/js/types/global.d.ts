@@ -4,7 +4,6 @@ import type { Auth } from '@/types/auth';
 // Extend ImportMeta interface for Vite...
 declare module 'vite/client' {
     interface ImportMetaEnv {
-        readonly VITE_APP_NAME: string;
         [key: string]: string | boolean | undefined;
     }
 
@@ -23,11 +22,22 @@ declare module '@inertiajs/core' {
             auth: Auth;
             can: {
                 viewMembers: boolean;
+                createMembers: boolean;
                 manageConfiguration: boolean;
                 viewPayments: boolean;
+                viewStatistics: boolean;
+                viewFinance: boolean;
+                viewForms: boolean;
+                viewDonations: boolean;
+                viewInventory: boolean;
+                viewCommunication: boolean;
             };
             defaultCountry: string;
             sidebarOpen: boolean;
+            navigationBreadcrumb?: {
+                title: string;
+                href: string;
+            };
             [key: string]: unknown;
         };
     }

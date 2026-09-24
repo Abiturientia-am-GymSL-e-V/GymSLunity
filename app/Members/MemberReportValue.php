@@ -8,7 +8,7 @@ final class MemberReportValue
     public static function format(mixed $value, array $field = []): string
     {
         if ($value === null || $value === '') {
-            return $field['emptyLabel'] ?? 'Nicht hinterlegt';
+            return '';
         }
         if (is_bool($value)) {
             return $value ? 'Ja' : 'Nein';

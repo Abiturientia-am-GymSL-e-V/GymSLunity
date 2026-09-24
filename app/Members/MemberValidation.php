@@ -5,6 +5,7 @@ namespace App\Members;
 use App\Models\Member;
 use App\Rules\Iban;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 final class MemberValidation
 {
@@ -62,5 +63,25 @@ final class MemberValidation
             'decimal' => ':attribute darf höchstens zwei Nachkommastellen enthalten.',
             'numeric' => ':attribute muss eine Zahl sein.',
         ];
+    }
+
+    /** @param array<string, mixed> $data */
+    public static function validateDates(array $data): void
+    {
+        $errors = [];
+        if (($data['birth_date'] ?? null) && $data['birth_date'] > now()->toDateString()) {
+            $errors['birth_date'] = 'Das Geburtsdatum darf nicht in der Zukunft liegen.';
+        }
+        foreach (['joined_at' => 'Eintritt', 'deceased_at' => 'Tod', 'left_at' => 'Austritt'] as $key => $label) {
+            if (($data['birth_date'] ?? null) && ($data[$key] ?? null) && $data[$key] < $data['birth_date']) {
+                $errors[$key] = $label.' kann nicht vor der Geburt liegen.';
+            }
+        }
+        if (($data['joined_at'] ?? null) && ($data['left_at'] ?? null) && $data['left_at'] < $data['joined_at']) {
+            $errors['left_at'] = 'Der Austritt kann nicht vor dem Eintritt liegen.';
+        }
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
     }
 }

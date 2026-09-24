@@ -67,7 +67,7 @@ final class MemberReportWriter
     /** @param list<string> $headers
      * @param  list<list<string>>  $rows
      */
-    public static function word(array $headers, array $rows, string $title): void
+    public static function word(array $headers, array $rows, string $title, ?string $logoPath = null): void
     {
         Settings::setOutputEscapingEnabled(true);
         $document = new PhpWord;
@@ -78,8 +78,11 @@ final class MemberReportWriter
                 array_unshift($columns, 0);
             }
             $section = $document->addSection(['orientation' => 'landscape', 'marginLeft' => 600, 'marginRight' => 600, 'marginTop' => 600, 'marginBottom' => 600]);
+            if ($logoPath) {
+                $section->addImage($logoPath, ['height' => 42]);
+            }
             $section->addText($title, ['bold' => true, 'size' => 16]);
-            $section->addText(count($rows).' Mitglieder · Stand '.now()->format('d.m.Y H:i T'));
+            $section->addText(count($rows).' Mitglieder · Stand '.now()->setTimezone(config('app.display_timezone'))->format('d.m.Y H:i T'));
             $table = $section->addTable(['borderSize' => 4, 'borderColor' => 'D1D5DB', 'cellMargin' => 80]);
             $table->addRow(null, ['tblHeader' => true]);
             foreach ($columns as $column) {

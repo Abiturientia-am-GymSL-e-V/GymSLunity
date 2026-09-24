@@ -51,7 +51,7 @@ final class UpdateMember
             }
             $current->custom_values = $custom;
             $after = MemberFields::snapshot($current);
-            $this->validateDates($after);
+            MemberValidation::validateDates($after);
             // Eloquent normalizes dates, decimals and booleans before comparison.
             $changed = array_values(array_filter(array_keys($values), fn (string $key): bool => ($before[$key] ?? null) !== ($after[$key] ?? null)));
             if ($changed === []) {
@@ -68,25 +68,5 @@ final class UpdateMember
 
             return true;
         }, attempts: 3);
-    }
-
-    /** @param array<string, mixed> $data */
-    private function validateDates(array $data): void
-    {
-        $errors = [];
-        if ($data['birth_date'] && $data['birth_date'] > now()->toDateString()) {
-            $errors['birth_date'] = 'Das Geburtsdatum darf nicht in der Zukunft liegen.';
-        }
-        foreach (['joined_at' => 'Eintritt', 'deceased_at' => 'Tod', 'left_at' => 'Austritt'] as $key => $label) {
-            if ($data['birth_date'] && $data[$key] && $data[$key] < $data['birth_date']) {
-                $errors[$key] = $label.' kann nicht vor der Geburt liegen.';
-            }
-        }
-        if ($data['joined_at'] && $data['left_at'] && $data['left_at'] < $data['joined_at']) {
-            $errors['left_at'] = 'Der Austritt kann nicht vor dem Eintritt liegen.';
-        }
-        if ($errors !== []) {
-            throw ValidationException::withMessages($errors);
-        }
     }
 }

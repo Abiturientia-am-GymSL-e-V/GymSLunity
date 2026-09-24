@@ -76,4 +76,19 @@ class ProvisioningTest extends TestCase
 
         $this->assertDatabaseCount('users', 0);
     }
+
+    public function test_install_command_can_run_safely_without_rotating_the_key_or_creating_a_user(): void
+    {
+        $key = config('app.key');
+
+        $this->artisan('app:install', [
+            '--force' => true,
+            '--no-user' => true,
+            '--skip-migrations' => true,
+            '--skip-storage-link' => true,
+        ])->assertSuccessful();
+
+        $this->assertSame($key, config('app.key'));
+        $this->assertDatabaseCount('users', 0);
+    }
 }

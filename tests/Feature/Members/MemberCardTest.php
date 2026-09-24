@@ -2,10 +2,14 @@
 
 namespace Tests\Feature\Members;
 
+use App\Models\ClubSetting;
 use App\Models\Member;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class MemberCardTest extends TestCase
@@ -14,8 +18,13 @@ class MemberCardTest extends TestCase
 
     public function test_card_contains_all_current_fields_archived_values_history_and_document_references(): void
     {
+        $this->travelTo(CarbonImmutable::parse('2026-09-22 20:15:00 UTC'));
         $actor = User::factory()->create(['roles' => ['mv'], 'name' => 'Frühere Bearbeitung']);
         $this->actingAs($actor);
+        Storage::fake('local');
+        $logoPath = 'branding/logo-22222222-2222-2222-2222-222222222222.png';
+        Storage::disk('local')->put($logoPath, UploadedFile::fake()->image('logo.png', 120, 60)->get());
+        ClubSetting::current()->update(['data' => ['name' => 'Turnverein Musterstadt', 'logo_path' => $logoPath]]);
         $member = Member::factory()->create(['city' => 'Alter Ort', 'custom_values' => ['custom_graduation_year' => 2010, 'custom_graduation' => 'Abitur']]);
         DB::table('member_documents')->insert(['member_id' => $member->id, 'kind' => 'application', 'contents' => '%PDF-1.4 private', 'submitted_online' => true, 'created_at' => now(), 'updated_at' => now()]);
         $this->patch(route('members.update', $member->member_number), ['lock_version' => 0, 'city' => 'Neuer Ort'])->assertSessionHasNoErrors();
@@ -28,6 +37,8 @@ class MemberCardTest extends TestCase
         foreach (['Karteiblatt', 'Neuer Ort', 'Alter Ort', 'Abitur', '2010', 'Mitgliedsantrag', 'Frühere Bearbeitung', 'IBAN', 'Änderungshistorie'] as $value) {
             $this->assertStringContainsString($value, $print);
         }
+        $this->assertStringContainsString('<img class="report-logo" src="data:image/png;base64,', $print);
+        $this->assertStringContainsString('22.09.2026 22:15 CEST', $print);
         $this->assertStringNotContainsString('%PDF-1.4 private', $print);
         $this->assertDatabaseHas('member_changes', ['actor_id' => null, 'actor_name' => 'Frühere Bearbeitung']);
         $pdf = $this->get(route('members.card', ['member' => $member->member_number, 'format' => 'pdf']))->assertOk();

@@ -8,7 +8,9 @@ use App\Members\MemberDirectory;
 use App\Members\MemberFields;
 use App\Members\MemberReportValue;
 use App\Members\MemberReportWriter;
+use App\Models\ClubSetting;
 use App\Models\Member;
+use App\Security\SafeCsv;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
@@ -37,7 +39,7 @@ class MemberExportController extends Controller
             }
             if ($csv) {
                 fwrite($output, "\xEF\xBB\xBF");
-                fputcsv($output, array_map(fn (string $key): string => $this->safeCsv($key === 'member_number' ? 'Mitgliedsnummer' : $fields[$key]['label']), $columns), ';', '"', '', "\r\n");
+                fputcsv($output, array_map(fn (string $key): string => SafeCsv::value($key === 'member_number' ? 'Mitgliedsnummer' : $fields[$key]['label']), $columns), ';', '"', '', "\r\n");
             } else {
                 fwrite($output, '[');
             }
@@ -50,7 +52,7 @@ class MemberExportController extends Controller
                     $value = $values[$key] ?? null;
                     if ($csv) {
                         $value = is_bool($value) ? ($value ? 'Ja' : 'Nein') : ($fields[$key]['options'][$value ?? ''] ?? $value ?? '');
-                        $row[$key] = $this->safeCsv((string) $value);
+                        $row[$key] = SafeCsv::value($value);
                     } else {
                         $row[$key] = $value;
                     }
@@ -90,32 +92,30 @@ class MemberExportController extends Controller
             $snapshot['member_number'] = $member->member_number;
             $rows[] = array_map(fn (string $key): string => MemberReportValue::format($snapshot[$key] ?? null, $key === 'member_number' ? [] : $fields[$key]), $columns);
         }
-        $title = 'Mitgliederliste';
+        $settings = ClubSetting::current();
+        $club = $settings->data;
+        $logo = $settings->logoDataUri();
+        $printedAt = now()->setTimezone(config('app.display_timezone'));
+        $title = ($club['name'] ?? config('app.name')).' · Mitgliederliste';
         if ($format === 'print' || $format === 'pdf') {
-            $html = view('exports.list', compact('title', 'headers', 'rows') + ['pdf' => $format === 'pdf'])->render();
+            $html = view('exports.list', compact('title', 'headers', 'rows', 'logo', 'printedAt') + ['pdf' => $format === 'pdf'])->render();
             if ($format === 'print') {
-                return response($html, 200, ['Content-Type' => 'text/html; charset=UTF-8', 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff', 'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"]);
+                return response($html, 200, ['Content-Type' => 'text/html; charset=UTF-8', 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff', 'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"]);
             }
             $bytes = MemberReportWriter::pdf($html, true);
 
             return response($bytes, 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'attachment; filename="mitglieder-'.now()->format('Y-m-d-His').'.pdf"', 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
         }
 
-        return response()->streamDownload(function () use ($format, $headers, $rows, $title): void {
+        return response()->streamDownload(function () use ($format, $headers, $rows, $title, $settings): void {
             if ($format === 'xlsx') {
                 MemberReportWriter::excel($headers, $rows);
             } else {
-                MemberReportWriter::word($headers, $rows, $title);
+                MemberReportWriter::word($headers, $rows, $title, $settings->logoPath());
             }
         }, 'mitglieder-'.now()->format('Y-m-d-His').'.'.$format, [
             'Content-Type' => $format === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
         ]);
-    }
-
-    private function safeCsv(string $value): string
-    {
-        // Escape formulas, including values preceded by control characters or whitespace.
-        return preg_match('/^[\s\x00-\x1F]*[=+@-]|^[\t\r\n]/u', $value) ? "'".$value : $value;
     }
 }

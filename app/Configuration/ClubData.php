@@ -26,7 +26,6 @@ final class ClubData
             $field('tax_office', 'Finanzamt', 'Register & Steuern'),
             $field('vat_id', 'Umsatzsteuer-ID', 'Register & Steuern'),
             $field('is_nonprofit', 'Gemeinnützig', 'Register & Steuern', 'boolean'),
-            $field('nonprofit_purpose', 'Gemeinnütziger Zweck', 'Register & Steuern'),
             $field('account_holder', 'Kontoinhaber', 'Bankverbindung'),
             $field('iban', 'IBAN', 'Bankverbindung'),
             $field('bic', 'BIC', 'Bankverbindung'),

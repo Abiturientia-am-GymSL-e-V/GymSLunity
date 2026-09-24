@@ -49,8 +49,15 @@ class HandleInertiaRequests extends Middleware
             ],
             'can' => [
                 'viewMembers' => $request->user()?->can('viewAny', Member::class) ?? false,
+                'createMembers' => $request->user()?->can('create', Member::class) ?? false,
                 'manageConfiguration' => $request->user()?->can('manage-configuration') ?? false,
                 'viewPayments' => $request->user()?->can('view-payments') ?? false,
+                'viewStatistics' => $request->user()?->can('view-statistics') ?? false,
+                'viewFinance' => $request->user()?->can('view-finance') ?? false,
+                'viewForms' => $request->user()?->can('view-forms') ?? false,
+                'viewDonations' => $request->user()?->can('view-donations') ?? false,
+                'viewInventory' => $request->user()?->can('view-inventory') ?? false,
+                'viewCommunication' => $request->user()?->can('view-communication') ?? false,
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];

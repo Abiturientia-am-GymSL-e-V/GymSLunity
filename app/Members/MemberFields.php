@@ -94,7 +94,9 @@ final class MemberFields
     /** @return list<array<string, mixed>> */
     public static function directoryFields(): array
     {
-        return array_values(MemberFieldDefinition::query()->where('is_active', true)->orderBy('position')->orderBy('id')->get()
-            ->map(fn (MemberFieldDefinition $field): array => self::descriptor($field))->all());
+        return array_merge(...array_map(
+            fn (array $section): array => $section['fields'],
+            self::sections(),
+        ));
     }
 }

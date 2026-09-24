@@ -14,7 +14,7 @@ defineProps<{
     items: NavItem[];
 }>();
 
-const { isCurrentUrl } = useCurrentUrl();
+const { isCurrentOrParentUrl } = useCurrentUrl();
 </script>
 
 <template>
@@ -24,7 +24,9 @@ const { isCurrentUrl } = useCurrentUrl();
             <SidebarMenuItem v-for="item in items" :key="item.title">
                 <SidebarMenuButton
                     as-child
-                    :is-active="isCurrentUrl(item.href)"
+                    :is-active="
+                        item.isActive ?? isCurrentOrParentUrl(item.href)
+                    "
                     :tooltip="item.title"
                 >
                     <Link :href="item.href">

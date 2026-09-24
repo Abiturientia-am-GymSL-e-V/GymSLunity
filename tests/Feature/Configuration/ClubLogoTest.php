@@ -45,4 +45,26 @@ class ClubLogoTest extends TestCase
         $this->post(route('configuration.club.logo.store'), ['version' => 0, 'logo' => UploadedFile::fake()->create('logo.svg', 1, 'image/svg+xml')])->assertSessionHasErrors('logo');
         $this->assertSame([], Storage::disk('local')->files('branding'));
     }
+
+    public function test_logo_data_uri_contains_the_stored_file_and_handles_missing_logos(): void
+    {
+        Storage::fake('local');
+        $settings = ClubSetting::current();
+        $this->assertNull($settings->logoDataUri());
+        $path = 'branding/logo-12345678-1234-1234-1234-123456789abc.png';
+        $contents = UploadedFile::fake()->image('logo.png')->getContent();
+        Storage::disk('local')->put($path, $contents);
+        $settings->data = [...$settings->data, 'logo_path' => $path];
+        $this->assertSame('data:image/png;base64,'.base64_encode($contents), $settings->logoDataUri());
+        Storage::disk('local')->delete($path);
+        $this->assertNull($settings->logoDataUri());
+    }
+
+    public function test_logo_read_failure_after_path_resolution_returns_null(): void
+    {
+        Storage::fake('local');
+        $settings = \Mockery::mock(ClubSetting::class)->makePartial();
+        $settings->shouldReceive('logoPath')->once()->andReturn(Storage::disk('local')->path('removed-logo.png'));
+        $this->assertNull($settings->logoDataUri());
+    }
 }

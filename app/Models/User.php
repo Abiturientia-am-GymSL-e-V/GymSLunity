@@ -10,6 +10,9 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Crypt;
+use Laravel\Fortify\Contracts\PasskeyUser;
+use Laravel\Fortify\PasskeyAuthenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
 /**
@@ -18,6 +21,8 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property string $email
  * @property CarbonInterface|null $email_verified_at
  * @property string $password
+ * @property string|null $encrypted_signature
+ * @property string|null $signature_mime
  * @property list<string>|null $roles
  * @property bool $is_active
  * @property int $lock_version
@@ -29,13 +34,13 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property CarbonInterface|null $updated_at
  */
 #[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
-class User extends Authenticatable implements MustVerifyEmail
+#[Hidden(['password', 'encrypted_signature', 'signature_mime', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
+class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
 {
     protected $attributes = ['is_active' => true, 'lock_version' => 0];
 
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, TwoFactorAuthenticatable;
+    use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
 
     /**
      * Get the attributes that should be cast.
@@ -57,5 +62,26 @@ class User extends Authenticatable implements MustVerifyEmail
     public function isAdministrator(): bool
     {
         return $this->is_active && in_array('admin', $this->roles ?? [], true);
+    }
+
+    public function hasRequiredSecondFactor(): bool
+    {
+        return $this->two_factor_confirmed_at !== null || $this->hasPasskeysEnabled();
+    }
+
+    public function hasProfileSignature(): bool
+    {
+        return is_string($this->encrypted_signature) && $this->encrypted_signature !== '';
+    }
+
+    public function profileSignature(): ?string
+    {
+        if (! $this->hasProfileSignature()) {
+            return null;
+        }
+
+        $signature = base64_decode(Crypt::decryptString($this->encrypted_signature), true);
+
+        return is_string($signature) ? $signature : null;
     }
 }

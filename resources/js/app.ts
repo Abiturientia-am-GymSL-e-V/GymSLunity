@@ -6,7 +6,7 @@ import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { initializeFlashToast } from '@/lib/flashToast';
 import { initializeNavigationGuard } from '@/lib/navigationGuard';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = 'GymSLunity';
 
 initializeNavigationGuard();
 
@@ -15,6 +15,7 @@ void createInertiaApp({
     layout: (name) => {
         switch (true) {
             case name === 'Welcome':
+            case name.startsWith('selfservice/'):
                 return null;
             case name.startsWith('auth/'):
                 return AuthLayout;

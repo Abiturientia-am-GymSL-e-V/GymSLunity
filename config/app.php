@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => 'GymSLunity',
 
     /*
     |--------------------------------------------------------------------------
@@ -66,6 +66,18 @@ return [
     */
 
     'timezone' => 'UTC',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Display Timezone
+    |--------------------------------------------------------------------------
+    |
+    | Dates are stored in UTC and converted to this timezone for people-facing
+    | output such as printable reports.
+    |
+    */
+
+    'display_timezone' => env('APP_DISPLAY_TIMEZONE', 'Europe/Berlin'),
 
     /*
     |--------------------------------------------------------------------------

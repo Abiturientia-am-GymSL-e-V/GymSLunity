@@ -117,6 +117,9 @@ function stringValue(key: string): string | null {
         v-else
         :id="`member-${field.key}`"
         :name="field.key"
+        :class="{
+            'block max-w-full appearance-none': field.type === 'date',
+        }"
         :model-value="value == null ? '' : String(value)"
         :type="field.type === 'decimal' ? 'text' : field.type"
         :inputmode="field.type === 'decimal' ? 'decimal' : undefined"

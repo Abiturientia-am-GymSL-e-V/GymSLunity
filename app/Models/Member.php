@@ -3,11 +3,35 @@
 namespace App\Models;
 
 use App\Members\MemberFields;
+use Carbon\CarbonImmutable;
 use Database\Factories\MemberFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
-/** @property array<string, string|int|float|bool|null>|null $custom_values */
+/**
+ * @property int $id
+ * @property int $member_number
+ * @property string $first_name
+ * @property string|null $middle_name
+ * @property string $last_name
+ * @property string|null $email
+ * @property string|null $street
+ * @property string|null $postal_code
+ * @property string|null $city
+ * @property CarbonImmutable|null $birth_date
+ * @property CarbonImmutable|null $joined_at
+ * @property CarbonImmutable|null $left_at
+ * @property CarbonImmutable|null $deceased_at
+ * @property string|null $payment_method
+ * @property string|null $iban
+ * @property string|null $mandate_reference
+ * @property CarbonImmutable|null $mandate_signed_at
+ * @property string|null $account_holder_first_name
+ * @property string|null $account_holder_last_name
+ * @property string|null $sponsor_contribution
+ * @property array<string, string|int|float|bool|null>|null $custom_values
+ */
 class Member extends Model
 {
     /** @use HasFactory<MemberFactory> */
@@ -47,5 +71,18 @@ class Member extends Model
             'sponsor_contribution' => 'decimal:2',
             'lock_version' => 'integer',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::created(function (Member $member): void {
+            $member->contributionAccount()->create(['balance_cents' => 0]);
+        });
+    }
+
+    /** @return HasOne<ContributionAccount, $this> */
+    public function contributionAccount(): HasOne
+    {
+        return $this->hasOne(ContributionAccount::class);
     }
 }

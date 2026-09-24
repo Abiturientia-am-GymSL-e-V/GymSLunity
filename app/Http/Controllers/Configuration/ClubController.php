@@ -43,7 +43,8 @@ class ClubController extends Controller
             if ($settings->version !== (int) $data['version']) {
                 throw ValidationException::withMessages(['version' => 'Die Vereinsdaten wurden inzwischen geändert. Bitte lade die Seite neu.']);
             }
-            $values = [...Arr::only($settings->data, ['logo_path']), ...Arr::except($data, 'version')];
+            $clubKeys = array_column(ClubData::fields(), 'key');
+            $values = [...Arr::except($settings->data, $clubKeys), ...Arr::except($data, 'version')];
             ConfigurationAudit::record($request->user(), 'Vereinsdaten', $settings->data, $values);
             $settings->update(['data' => $values, 'version' => $settings->version + 1]);
         });

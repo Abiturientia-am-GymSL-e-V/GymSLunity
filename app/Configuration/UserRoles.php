@@ -10,11 +10,21 @@ final class UserRoles
     ];
 
     public const DESCRIPTIONS = [
-        'admin' => 'Mitglieder lesen und bearbeiten, Vereinsdaten, Felder und Benutzer verwalten.',
-        'vereinsverwaltung' => 'Mitglieder lesen und bearbeiten.', 'mv' => 'Mitglieder lesen und bearbeiten.',
+        'admin' => 'Vollzugriff auf alle Verwaltungsbereiche.',
+        'vereinsverwaltung' => 'Mitglieder und die allgemeine Vereinsorganisation verwalten.', 'mv' => 'Mitglieder lesen und bearbeiten.',
         'auditor' => 'Mitglieder, Dokumente und Änderungshistorie lesen.',
-        'bh' => 'Bestehende Fachrolle; derzeit ohne eigenen freigeschalteten Bereich.',
-        'beitragsverwaltung' => 'Beiträge festlegen, einziehen, als bezahlt markieren, etc.', 'bv' => 'Beiträge festlegen, einziehen, als bezahlt markieren, etc.',
-        'kp' => 'Bestehende Fachrolle; derzeit ohne eigenen freigeschalteten Bereich.',
+        'bh' => 'Finanzen und Spenden verwalten sowie Auswertungen einsehen.',
+        'beitragsverwaltung' => 'Beiträge festlegen, einziehen und verbuchen.', 'bv' => 'Beiträge festlegen, einziehen und verbuchen.',
+        'kp' => 'Buchhaltung und Auswertungen prüfen.',
+    ];
+
+    public const AREAS = [
+        'admin' => ['Mitglieder', 'Beiträge', 'Auswertungen', 'Buchhaltung', 'Formulare', 'Spenden', 'Inventar', 'Kommunikation', 'Konfiguration'],
+        'vereinsverwaltung' => ['Mitglieder', 'Auswertungen', 'Formulare', 'Inventar', 'Kommunikation'],
+        'mv' => ['Mitglieder', 'Auswertungen', 'Formulare', 'Kommunikation'],
+        'auditor' => ['Mitglieder (Lesen)', 'Auswertungen'],
+        'bh' => ['Auswertungen', 'Buchhaltung', 'Spenden'],
+        'bv' => ['Beiträge', 'Auswertungen'],
+        'kp' => ['Auswertungen', 'Buchhaltung'],
     ];
 }

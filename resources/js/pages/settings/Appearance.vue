@@ -19,8 +19,6 @@ defineOptions({
 <template>
     <Head title="Erscheinungsbild" />
 
-    <h1 class="sr-only">Erscheinungsbild</h1>
-
     <div class="space-y-6">
         <Heading
             variant="small"

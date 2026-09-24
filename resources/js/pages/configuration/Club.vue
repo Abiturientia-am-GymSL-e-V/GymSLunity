@@ -37,11 +37,31 @@ function fieldId(key: string) {
     return (
         (
             {
-                register_number: 'verein-registerkennung',
-                tax_number: 'verein-steuerkennung',
-                vat_id: 'verein-umsatzsteuerkennung',
+                register_number: 'club-reference-01',
+                tax_number: 'club-reference-02',
+                vat_id: 'club-reference-03',
+                account_holder: 'club-reference-04',
+                iban: 'club-reference-05',
+                bic: 'club-reference-06',
+                bank_name: 'club-reference-07',
+                creditor_id: 'club-reference-08',
             } as Record<string, string>
         )[key] || `club-${key}`
+    );
+}
+function fieldAutocomplete(key: string) {
+    return (
+        (
+            {
+                name: 'section-club organization',
+                street: 'section-club street-address',
+                postal_code: 'section-club postal-code',
+                city: 'section-club address-level2',
+                email: 'section-club email',
+                phone: 'section-club tel',
+                website: 'section-club url',
+            } as Record<string, string>
+        )[key] || 'off'
     );
 }
 const groups = computed(() => [
@@ -96,7 +116,7 @@ function save() {
 
 <template>
     <Head title="Vereinsdaten" />
-    <div class="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-6">
+    <div class="mx-auto w-full max-w-[1200px] space-y-6 p-4 sm:p-6">
         <div>
             <h1 class="text-2xl font-semibold tracking-tight">Konfiguration</h1>
             <p class="mt-1 text-sm text-muted-foreground">
@@ -195,6 +215,7 @@ function save() {
                         <CountryInput
                             v-if="field.type === 'country'"
                             :id="fieldId(field.key)"
+                            :name="fieldId(field.key)"
                             :model-value="String(form[field.key] || '')"
                             :disabled="form.processing"
                             @update:model-value="form[field.key] = $event"
@@ -202,6 +223,8 @@ function save() {
                         <PostalCityInput
                             v-else-if="field.key === 'city'"
                             :id="fieldId(field.key)"
+                            :name="fieldId(field.key)"
+                            :autocomplete="fieldAutocomplete(field.key)"
                             :model-value="String(form[field.key] || '')"
                             :postal-code="String(form.postal_code || '')"
                             :country="String(form.country || 'DE')"
@@ -229,7 +252,7 @@ function save() {
                             :model-value="String(form[field.key] ?? '')"
                             :type="field.type"
                             :name="fieldId(field.key)"
-                            autocomplete="off"
+                            :autocomplete="fieldAutocomplete(field.key)"
                             data-lpignore="true"
                             data-1p-ignore
                             maxlength="255"
