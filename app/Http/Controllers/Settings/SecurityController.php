@@ -7,6 +7,7 @@ use App\Http\Requests\Settings\PasswordUpdateRequest;
 use App\Http\Requests\Settings\TwoFactorAuthenticationRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -14,6 +15,7 @@ use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Inertia\Response;
 use Laravel\Fortify\Features;
+use Laravel\Passkeys\Passkey;
 
 class SecurityController extends Controller
 {
@@ -141,15 +143,19 @@ class SecurityController extends Controller
             return [];
         }
 
-        return $request->user()->passkeys()
+        /** @var Collection<int, Passkey> $passkeys */
+        $passkeys = $request->user()->passkeys()
             ->orderBy('name')
-            ->get(['id', 'name', 'last_used_at', 'created_at'])
-            ->map(fn ($passkey): array => [
+            ->get(['id', 'name', 'last_used_at', 'created_at']);
+
+        return array_values($passkeys
+            ->map(fn (Passkey $passkey): array => [
                 'id' => (string) $passkey->getKey(),
                 'name' => $passkey->name,
                 'last_used_at' => $passkey->last_used_at?->toIso8601String(),
                 'created_at' => $passkey->created_at?->toIso8601String(),
-            ])->all();
+            ])
+            ->all());
     }
 
     private function browserLabel(string $userAgent): string
