@@ -46,7 +46,7 @@ find "$app_dir/bootstrap/cache" -type f ! -name '.gitignore' -delete
 
 archive="$output_dir/$release_name.tar.gz"
 tar -C "$work_dir" -czf "$archive" "$release_name"
-sha256sum "$archive" > "$archive.sha256"
+(cd "$output_dir" && sha256sum "$(basename "$archive")") > "$archive.sha256"
 
 echo "$archive"
 echo "$archive.sha256"
