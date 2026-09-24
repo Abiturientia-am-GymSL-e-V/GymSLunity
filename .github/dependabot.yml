@@ -10,6 +10,8 @@ updates:
     groups:
       php-dependencies:
         patterns: ["*"]
+    cooldown:
+      default-days: 7
   - package-ecosystem: npm
     directory: /
     schedule:
@@ -20,6 +22,8 @@ updates:
     groups:
       frontend-dependencies:
         patterns: ["*"]
+    cooldown:
+      default-days: 7
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -28,4 +32,4 @@ updates:
       time: "06:00"
       timezone: Europe/Berlin
     cooldown:
-      default-days: 5
+      default-days: 7

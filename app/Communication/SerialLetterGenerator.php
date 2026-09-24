@@ -32,7 +32,7 @@ final class SerialLetterGenerator
         }
         $archive = new ZipArchive;
         if ($archive->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            @unlink($path);
+            File::delete($path);
             throw new RuntimeException('Das ZIP-Archiv konnte nicht geöffnet werden.');
         }
         try {
@@ -48,7 +48,7 @@ final class SerialLetterGenerator
             }
         } catch (\Throwable $exception) {
             $archive->close();
-            @unlink($path);
+            File::delete($path);
 
             throw $exception;
         }
