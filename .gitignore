@@ -50,4 +50,10 @@ yarn-error.log
 /var/
 /dist/
 /.tools/
+
+# Local planning notes and reference material must never be published.
+/TODO/
+/TODO-Bilder/
+/TODO.md
+/TODOS.md
 !/.env.testing.example
