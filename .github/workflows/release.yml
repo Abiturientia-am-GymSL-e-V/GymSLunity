@@ -31,13 +31,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz" \
-            "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz.sha256" \
-            --verify-tag \
-            --prerelease \
-            --title "GymSLunity ${GITHUB_REF_NAME}" \
-            --notes-file - <<'NOTES'
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" \
+              "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz" \
+              "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz.sha256" \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz" \
+              "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz.sha256" \
+              --verify-tag \
+              --prerelease \
+              --title "GymSLunity ${GITHUB_REF_NAME}" \
+              --notes-file - <<'NOTES'
           Erstes öffentliches Alpha-Release von GymSLunity.
 
           Enthalten sind unter anderem Mitgliederverwaltung, Beiträge und Zahlungen, Spenden, Quittungen, Kommunikation, Auswertungen, Inventar, Selfservice sowie rollenbasierte Sicherheitsfunktionen. Privilegierte Konten müssen TOTP oder einen Passkey einrichten.
@@ -46,3 +52,8 @@ jobs:
 
           Dieses Release ist eine Alpha-Version und sollte vor produktivem Einsatz mit eigenen Testdaten geprüft werden.
           NOTES
+          fi
+
+          published_tag="published-$GITHUB_REF_NAME"
+          git tag -f "$published_tag"
+          git push --force origin "$published_tag"
