@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: ctype, curl, dom, fileinfo, mbstring, openssl, pdo_sqlite, xml, zip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Build release archive
+        run: scripts/build-release.sh
+
+      - name: Publish GitHub prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz" \
+            "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz.sha256" \
+            --verify-tag \
+            --prerelease \
+            --title "GymSLunity ${GITHUB_REF_NAME}" \
+            --notes-file - <<'NOTES'
+          Erstes öffentliches Alpha-Release von GymSLunity.
+
+          Enthalten sind unter anderem Mitgliederverwaltung, Beiträge und Zahlungen, Spenden, Quittungen, Kommunikation, Auswertungen, Inventar, Selfservice sowie rollenbasierte Sicherheitsfunktionen. Privilegierte Konten müssen TOTP oder einen Passkey einrichten.
+
+          Das tar.gz-Archiv enthält bereits PHP-Abhängigkeiten und gebaute Frontend-Dateien. Nach dem Entpacken und Einrichten des Webservers kann die Installation über /install im Browser abgeschlossen werden. Alternativ sind Installation und Updates per Git möglich; die vollständigen Schritte stehen in README.md und docs/installation.md.
+
+          Dieses Release ist eine Alpha-Version und sollte vor produktivem Einsatz mit eigenen Testdaten geprüft werden.
+          NOTES
