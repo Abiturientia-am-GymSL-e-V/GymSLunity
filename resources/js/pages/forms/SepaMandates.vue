@@ -1,7 +1,16 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { Ban, List, Mail, PenLine, Plus, Search, Signature } from '@lucide/vue';
-import { ref } from 'vue';
+import {
+    Ban,
+    Download,
+    List,
+    Mail,
+    PenLine,
+    Plus,
+    Search,
+    Signature,
+} from '@lucide/vue';
+import { computed, ref } from 'vue';
 import CountryInput from '@/components/CountryInput.vue';
 import IbanInput from '@/components/IbanInput.vue';
 import InputError from '@/components/InputError.vue';
@@ -46,6 +55,13 @@ const props = defineProps<{
         prev_page_url: string | null;
     };
     search: string;
+    filters: {
+        search: string;
+        from: string;
+        to: string;
+        status: 'all' | 'pending' | 'signed' | 'revoked';
+        mandate_type: 'all' | 'recurring' | 'one_off';
+    };
     creationKey: string;
     today: string;
     defaultCountry: string;
@@ -59,7 +75,41 @@ defineOptions({
         ],
     },
 });
-const search = ref(props.search);
+const search = ref(props.filters.search);
+const from = ref(props.filters.from);
+const to = ref(props.filters.to);
+const status = ref(props.filters.status);
+const mandateType = ref(props.filters.mandate_type);
+const reportUrl = computed(() => {
+    const query = new URLSearchParams();
+    if (search.value.trim()) query.set('search', search.value.trim());
+    if (from.value) query.set('from', from.value);
+    if (to.value) query.set('to', to.value);
+    if (status.value !== 'all') query.set('status', status.value);
+    if (mandateType.value !== 'all')
+        query.set('mandate_type', mandateType.value);
+    return `/formulare/sepa-mandate/mandatsbuch.pdf?${query.toString()}`;
+});
+const applyFilters = () =>
+    router.get(
+        '/formulare/sepa-mandate',
+        {
+            search: search.value || undefined,
+            from: from.value || undefined,
+            to: to.value || undefined,
+            status: status.value,
+            mandate_type: mandateType.value,
+        },
+        { preserveState: true, replace: true },
+    );
+const resetFilters = () => {
+    search.value = '';
+    from.value = '';
+    to.value = '';
+    status.value = 'all';
+    mandateType.value = 'all';
+    applyFilters();
+};
 const createForm = useForm({
     creation_key: props.creationKey,
     debtor_name: '',
@@ -161,29 +211,98 @@ function revoke() {
         </nav>
 
         <template v-if="activeTab === 'overview'">
-            <form
-                class="flex gap-3"
-                @submit.prevent="
-                    router.get(
-                        '/formulare/sepa-mandate',
-                        { search },
-                        { preserveState: true },
-                    )
-                "
-            >
-                <div class="relative flex-1">
-                    <Search
-                        class="pointer-events-none absolute top-2.5 left-3 size-4 text-muted-foreground"
-                    /><Input
-                        v-model="search"
-                        class="pl-9"
-                        placeholder="Referenz, Name oder E-Mail"
-                        aria-label="Mandate suchen"
-                    />
-                </div>
-                <Button variant="outline">Suchen</Button>
-            </form>
             <section class="overflow-hidden rounded-xl border bg-card">
+                <div class="border-b px-5 py-4">
+                    <div
+                        class="flex flex-wrap items-start justify-between gap-3"
+                    >
+                        <div>
+                            <h2 class="font-semibold">SEPA-Mandatsbuch</h2>
+                            <p class="mt-1 text-sm text-muted-foreground">
+                                Mandate filtern und als Liste ausgeben.
+                            </p>
+                        </div>
+                        <Button as-child variant="outline">
+                            <a :href="reportUrl"
+                                ><Download class="size-4" />PDF</a
+                            >
+                        </Button>
+                    </div>
+                </div>
+                <form
+                    class="grid gap-3 border-b p-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,.65fr)_minmax(0,.65fr)_minmax(0,.8fr)_minmax(0,.8fr)_auto] xl:items-end"
+                    @submit.prevent="applyFilters"
+                >
+                    <div class="min-w-0 space-y-2">
+                        <Label for="mandate-filter-search">Suche</Label>
+                        <div class="relative">
+                            <Search
+                                class="pointer-events-none absolute top-2.5 left-3 size-4 text-muted-foreground"
+                                aria-hidden="true"
+                            />
+                            <Input
+                                id="mandate-filter-search"
+                                v-model="search"
+                                class="pl-9"
+                                placeholder="Referenz, Name oder E-Mail"
+                            />
+                        </div>
+                    </div>
+                    <div class="min-w-0 space-y-2">
+                        <Label for="mandate-filter-from">Angelegt von</Label>
+                        <Input
+                            id="mandate-filter-from"
+                            v-model="from"
+                            type="date"
+                        />
+                    </div>
+                    <div class="min-w-0 space-y-2">
+                        <Label for="mandate-filter-to">Angelegt bis</Label>
+                        <Input
+                            id="mandate-filter-to"
+                            v-model="to"
+                            type="date"
+                            :min="from || undefined"
+                        />
+                    </div>
+                    <div class="min-w-0 space-y-2">
+                        <Label for="mandate-filter-type">Mandatsart</Label>
+                        <select
+                            id="mandate-filter-type"
+                            v-model="mandateType"
+                            class="h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm"
+                        >
+                            <option value="all">Alle Mandatsarten</option>
+                            <option value="recurring">Wiederkehrend</option>
+                            <option value="one_off">Einmalig</option>
+                        </select>
+                    </div>
+                    <div class="min-w-0 space-y-2">
+                        <Label for="mandate-filter-status">Status</Label>
+                        <select
+                            id="mandate-filter-status"
+                            v-model="status"
+                            class="h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm"
+                        >
+                            <option value="all">Alle Status</option>
+                            <option value="pending">Unterschrift offen</option>
+                            <option value="signed">Unterschrieben</option>
+                            <option value="revoked">Widerrufen</option>
+                        </select>
+                    </div>
+                    <div
+                        class="flex flex-wrap gap-2 sm:col-span-2 xl:col-span-1"
+                    >
+                        <Button type="submit">Anwenden</Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            @click="resetFilters"
+                        >
+                            Zurücksetzen
+                        </Button>
+                    </div>
+                </form>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="bg-muted/50">

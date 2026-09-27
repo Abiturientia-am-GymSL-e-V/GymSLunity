@@ -183,6 +183,47 @@ class FormModulesTest extends TestCase
             ->where('search', ''));
     }
 
+    public function test_mandate_book_filters_and_exports_the_same_scope_as_pdf(): void
+    {
+        $this->post(route('forms.mandates.store'), [
+            'creation_key' => (string) Str::uuid(), 'debtor_name' => 'Ada Beispiel',
+            'debtor_street' => 'Kundenweg 5', 'debtor_postal_code' => '54321', 'debtor_city' => 'Hamburg',
+            'debtor_country' => 'DE', 'debtor_email' => 'ada@example.test',
+            'iban' => 'DE12500105170648489890', 'mandate_type' => 'recurring',
+        ])->assertSessionHasNoErrors();
+        $pending = FinanceMandate::query()->sole();
+
+        $this->post(route('forms.mandates.store'), [
+            'creation_key' => (string) Str::uuid(), 'debtor_name' => 'Max Einmalig',
+            'debtor_street' => 'Nebenweg 2', 'debtor_postal_code' => '12345', 'debtor_city' => 'Berlin',
+            'debtor_country' => 'DE', 'debtor_email' => 'max@example.test',
+            'iban' => 'DE12500105170648489890', 'mandate_type' => 'one_off',
+        ])->assertSessionHasNoErrors();
+        $signed = FinanceMandate::query()->latest('id')->firstOrFail();
+        $this->post(route('forms.mandates.signed', $signed), [
+            'signed_by_name' => 'Max Einmalig', 'signed_at' => now()->toDateString(),
+        ])->assertSessionHasNoErrors();
+
+        $filters = [
+            'search' => 'Ada',
+            'from' => now()->toDateString(),
+            'to' => now()->toDateString(),
+            'status' => 'pending',
+            'mandate_type' => 'recurring',
+        ];
+        $this->get(route('forms.mandates.index', $filters))->assertInertia(fn (Assert $page) => $page
+            ->where('filters', $filters)
+            ->where('mandates.total', 1)
+            ->where('mandates.data.0.id', $pending->id));
+
+        $response = $this->get(route('forms.mandates.report', $filters))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertSee('%PDF-', false);
+        $this->assertStringStartsWith('attachment; filename="mandatsbuch-', (string) $response->headers->get('Content-Disposition'));
+        $this->get(route('forms.mandates.report', ['status' => 'invalid']))->assertSessionHasErrors('status');
+    }
+
     public function test_paper_signature_can_be_confirmed_manually(): void
     {
         $this->post(route('forms.mandates.store'), [

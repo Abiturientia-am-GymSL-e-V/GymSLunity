@@ -157,6 +157,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['module:forms', 'can:view-forms'])->prefix('formulare/sepa-mandate')->name('forms.mandates.')->group(function () {
         Route::get('/', [FinanceMandateController::class, 'index'])->defaults('tab', 'overview')->name('index');
         Route::get('anlegen', [FinanceMandateController::class, 'index'])->defaults('tab', 'create')->name('create');
+        Route::get('mandatsbuch.pdf', [FinanceMandateController::class, 'report'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('report');
         Route::post('/', [FinanceMandateController::class, 'store'])->middleware('throttle:10,1')->name('store');
         Route::get('{mandate}/pdf', [FinanceMandateController::class, 'document'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('document');
         Route::post('{mandate}/versenden', [FinanceMandateController::class, 'send'])->middleware('throttle:5,1')->name('send');
