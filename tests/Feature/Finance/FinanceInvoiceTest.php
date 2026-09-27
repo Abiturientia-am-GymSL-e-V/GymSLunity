@@ -201,6 +201,44 @@ class FinanceInvoiceTest extends TestCase
             ->where('invoices.total', 0));
     }
 
+    public function test_invoice_book_filters_and_exports_the_same_scope_as_pdf(): void
+    {
+        $this->post('/buchhaltung/rechnungen', $this->data())->assertSessionHasNoErrors();
+        $paid = FinanceInvoice::query()->sole();
+        $this->patch(route('finance.invoices.paid', $paid))->assertSessionHasNoErrors();
+
+        $older = [
+            ...$this->data(),
+            'creation_key' => (string) Str::uuid(),
+            'recipient_name' => 'Andere Kundin',
+            'recipient_email' => 'andere@example.test',
+            'buyer_reference' => 'ALT-21',
+            'issue_date' => now()->subDays(10)->toDateString(),
+            'service_date' => now()->subDays(11)->toDateString(),
+            'due_date' => now()->subDays(2)->toDateString(),
+        ];
+        $this->post('/buchhaltung/rechnungen', $older)->assertSessionHasNoErrors();
+
+        $filters = [
+            'search' => 'Ada',
+            'from' => now()->toDateString(),
+            'to' => now()->toDateString(),
+            'status' => 'paid',
+            'document_type' => 'invoice',
+        ];
+        $this->get(route('finance.invoices.index', $filters))->assertInertia(fn (Assert $page) => $page
+            ->where('filters', $filters)
+            ->where('invoices.total', 1)
+            ->where('invoices.data.0.id', $paid->id));
+
+        $response = $this->get(route('finance.invoices.report', $filters))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertSee('%PDF-', false);
+        $this->assertStringStartsWith('attachment; filename="rechnungsbuch-', (string) $response->headers->get('Content-Disposition'));
+        $this->get(route('finance.invoices.report', ['status' => 'invalid']))->assertSessionHasErrors('status');
+    }
+
     public function test_pdf_and_xrechnung_are_sent_together_and_delivery_is_recorded(): void
     {
         Mail::fake();

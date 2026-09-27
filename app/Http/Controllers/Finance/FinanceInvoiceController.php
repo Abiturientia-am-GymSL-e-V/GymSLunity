@@ -7,9 +7,11 @@ use App\Finance\CancelFinanceInvoice;
 use App\Finance\IssueFinanceInvoice;
 use App\Http\Controllers\Controller;
 use App\Mail\FinanceInvoiceMail;
+use App\Members\MemberReportWriter;
 use App\Models\ClubSetting;
 use App\Models\FinanceInvoice;
 use App\Models\FinanceMandate;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -29,23 +31,27 @@ class FinanceInvoiceController extends Controller
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', Rule::in(['all', 'open', 'paid', 'cancelled'])],
+            'document_type' => ['nullable', Rule::in(['all', 'invoice', 'cancellation'])],
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
         $search = trim($filters['search'] ?? '');
         $status = $filters['status'] ?? 'all';
-        $query = FinanceInvoice::query()
+        $documentType = $filters['document_type'] ?? 'all';
+        $normalizedFilters = [
+            'search' => $search,
+            'status' => $status,
+            'document_type' => $documentType,
+            'from' => $filters['from'] ?? '',
+            'to' => $filters['to'] ?? '',
+        ];
+        $query = $this->filteredQuery($normalizedFilters)
             ->select(['id', 'invoice_number', 'document_type', 'original_invoice_id', 'recipient_name', 'recipient_email', 'issue_date', 'due_date', 'payment_method', 'currency', 'total_cents', 'status', 'paid_at', 'cancellation_reason', 'snapshot', 'created_at'])
             ->with([
                 'originalInvoice:id,invoice_number',
                 'cancellations:id,original_invoice_id,snapshot',
-            ])
-            ->when($search !== '', fn ($query) => $query->where(function ($query) use ($search): void {
-                $query->where('invoice_number', 'like', '%'.$search.'%')
-                    ->orWhere('recipient_name', 'like', '%'.$search.'%')
-                    ->orWhere('recipient_email', 'like', '%'.$search.'%')
-                    ->orWhere('buyer_reference', 'like', '%'.$search.'%');
-            }))
-            ->when($status !== 'all', fn ($query) => $query->where('status', $status));
+            ]);
         $invoices = $query->latest('id')->paginate(20)->withQueryString();
         $invoices->through(function (FinanceInvoice $invoice) use ($cancel): array {
             $cancellableItems = $cancel->cancellableItems($invoice);
@@ -79,13 +85,45 @@ class FinanceInvoiceController extends Controller
 
         return Inertia::render('Finance', [
             'invoices' => $invoices,
-            'filters' => ['search' => $search, 'status' => $status],
+            'filters' => $normalizedFilters,
             'summary' => [
                 'count' => FinanceInvoice::query()->where('document_type', 'invoice')->count(),
                 'open_count' => $openInvoices->filter(fn (FinanceInvoice $invoice): bool => $invoice->total_cents > (int) $invoice->cancellations_sum_total_cents)->count(),
                 'open_cents' => (int) $openInvoices->sum(fn (FinanceInvoice $invoice): int => max(0, $invoice->total_cents - (int) $invoice->cancellations_sum_total_cents)),
                 'paid_cents' => (int) FinanceInvoice::query()->where('document_type', 'invoice')->whereNotNull('paid_at')->sum('total_cents'),
             ],
+        ]);
+    }
+
+    public function report(Request $request): HttpResponse
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', Rule::in(['open', 'paid', 'cancelled'])],
+            'document_type' => ['nullable', Rule::in(['invoice', 'cancellation'])],
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+        ]);
+        $filters['search'] = trim($filters['search'] ?? '');
+        $query = $this->filteredQuery($filters)
+            ->select(['id', 'invoice_number', 'document_type', 'recipient_name', 'recipient_email', 'issue_date', 'due_date', 'payment_method', 'currency', 'total_cents', 'status'])
+            ->latest('issue_date')->latest('id');
+        if ((clone $query)->count() > 5000) {
+            throw ValidationException::withMessages(['scope' => 'Der Bericht ist auf 5.000 Belege begrenzt. Bitte den Zeitraum oder die Filter einschränken.']);
+        }
+        $invoices = $query->get();
+        $settings = ClubSetting::current();
+        $club = $settings->data;
+        $logo = $settings->logoDataUri();
+        $printedAt = now()->setTimezone(config('app.display_timezone'));
+        $html = view('finance.invoice-report', compact('invoices', 'filters', 'club', 'logo', 'printedAt'))->render();
+        $pdf = MemberReportWriter::pdf($html, true);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="rechnungsbuch-'.now()->format('Y-m-d-His').'.pdf"',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
         ]);
     }
 
@@ -282,5 +320,28 @@ class FinanceInvoiceController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => $message]);
 
         return back();
+    }
+
+    /** @param array<string, mixed> $filters
+     * @return Builder<FinanceInvoice>
+     */
+    private function filteredQuery(array $filters): Builder
+    {
+        $search = trim((string) ($filters['search'] ?? ''));
+
+        return FinanceInvoice::query()
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $term = '%'.addcslashes($search, '%_\\').'%';
+                $query->where(function (Builder $query) use ($term): void {
+                    $query->where('invoice_number', 'like', $term)
+                        ->orWhere('recipient_name', 'like', $term)
+                        ->orWhere('recipient_email', 'like', $term)
+                        ->orWhere('buyer_reference', 'like', $term);
+                });
+            })
+            ->when(! empty($filters['from']), fn (Builder $query) => $query->whereDate('issue_date', '>=', $filters['from']))
+            ->when(! empty($filters['to']), fn (Builder $query) => $query->whereDate('issue_date', '<=', $filters['to']))
+            ->when(! empty($filters['status']) && $filters['status'] !== 'all', fn (Builder $query) => $query->where('status', $filters['status']))
+            ->when(! empty($filters['document_type']) && $filters['document_type'] !== 'all', fn (Builder $query) => $query->where('document_type', $filters['document_type']));
     }
 }

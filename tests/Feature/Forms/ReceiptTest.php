@@ -259,6 +259,41 @@ class ReceiptTest extends TestCase
         $receipt->fresh()->pdf('original');
     }
 
+    public function test_receipt_book_filters_and_exports_the_same_scope_as_pdf(): void
+    {
+        $this->signIn();
+        $this->post('/formulare/quittungen', $this->data())->assertSessionHasNoErrors();
+        $exported = Receipt::query()->sole();
+        $this->get(route('receipts.document', [$exported, 'original']))->assertOk();
+
+        $older = [
+            ...$this->data(),
+            'creation_key' => (string) Str::uuid(),
+            'receipt_date' => now()->subDays(10)->toDateString(),
+            'payer' => "Andere Person\nNebenstraße 2",
+            'payer_email' => 'andere@example.com',
+        ];
+        $this->post('/formulare/quittungen', $older)->assertSessionHasNoErrors();
+
+        $filters = [
+            'search' => 'Ada',
+            'from' => now()->toDateString(),
+            'to' => now()->toDateString(),
+            'status' => 'exported',
+        ];
+        $this->get(route('receipts.index', $filters))->assertInertia(fn (Assert $page) => $page
+            ->where('filters', $filters)
+            ->where('receipts.total', 1)
+            ->where('receipts.data.0.id', $exported->id));
+
+        $response = $this->get(route('receipts.report', $filters))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertSee('%PDF-', false);
+        $this->assertStringStartsWith('attachment; filename="quittungsbuch-', (string) $response->headers->get('Content-Disposition'));
+        $this->get(route('receipts.report', ['status' => 'invalid']))->assertSessionHasErrors('status');
+    }
+
     public function test_failed_mail_delivery_keeps_receipt_and_does_not_record_success(): void
     {
         $this->signIn();

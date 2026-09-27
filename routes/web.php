@@ -121,6 +121,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['module:finance', 'can:view-finance'])->prefix('buchhaltung')->group(function () {
         Route::inertia('/', 'finance/Overview')->name('finance');
         Route::get('rechnungen', [FinanceInvoiceController::class, 'index'])->name('finance.invoices.index');
+        Route::get('rechnungen/rechnungsbuch.pdf', [FinanceInvoiceController::class, 'report'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('finance.invoices.report');
         Route::get('rechnungen/anlegen', [FinanceInvoiceController::class, 'create'])->name('finance.invoices.create');
         Route::post('rechnungen', [FinanceInvoiceController::class, 'store'])->name('finance.invoices.store');
         Route::get('rechnungen/sepa-export', [FinanceSepaExportController::class, 'index'])->name('finance.invoices.sepa.index');
@@ -142,6 +143,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [ReceiptController::class, 'index'])->defaults('tab', 'list')->name('index');
         Route::get('anlegen', [ReceiptController::class, 'index'])->defaults('tab', 'create')->name('create');
         Route::get('archiv', [ReceiptController::class, 'index'])->defaults('tab', 'list')->name('archive');
+        Route::get('quittungsbuch.pdf', [ReceiptController::class, 'report'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('report');
         Route::post('/', [ReceiptController::class, 'store'])->middleware('throttle:10,1')->name('store');
         Route::get('{receipt}', [ReceiptController::class, 'show'])->name('show');
         Route::get('{receipt}/pdf/{edition}', [ReceiptController::class, 'document'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('document');

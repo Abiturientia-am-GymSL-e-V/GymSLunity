@@ -3,6 +3,7 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
     Ban,
     CheckCircle2,
+    Download,
     FileCode2,
     Mail,
     Printer,
@@ -60,7 +61,13 @@ const props = defineProps<{
         next_page_url: string | null;
         prev_page_url: string | null;
     };
-    filters: { search: string; status: 'all' | 'open' | 'paid' | 'cancelled' };
+    filters: {
+        search: string;
+        status: 'all' | 'open' | 'paid' | 'cancelled';
+        document_type: 'all' | 'invoice' | 'cancellation';
+        from: string;
+        to: string;
+    };
     summary: {
         count: number;
         open_count: number;
@@ -78,19 +85,45 @@ defineOptions({
 });
 const search = ref(props.filters.search);
 const status = ref(props.filters.status);
+const documentType = ref(props.filters.document_type);
+const from = ref(props.filters.from);
+const to = ref(props.filters.to);
 let timer: ReturnType<typeof setTimeout> | undefined;
-watch([search, status], () => {
+watch([search, status, documentType, from, to], () => {
     clearTimeout(timer);
     timer = setTimeout(
         () =>
             router.get(
                 '/buchhaltung/rechnungen',
-                { search: search.value || undefined, status: status.value },
+                {
+                    search: search.value || undefined,
+                    status: status.value,
+                    document_type: documentType.value,
+                    from: from.value || undefined,
+                    to: to.value || undefined,
+                },
                 { preserveState: true, replace: true },
             ),
         250,
     );
 });
+const reportUrl = computed(() => {
+    const query = new URLSearchParams();
+    if (search.value.trim()) query.set('search', search.value.trim());
+    if (status.value !== 'all') query.set('status', status.value);
+    if (documentType.value !== 'all')
+        query.set('document_type', documentType.value);
+    if (from.value) query.set('from', from.value);
+    if (to.value) query.set('to', to.value);
+    return `/buchhaltung/rechnungen/rechnungsbuch.pdf?${query.toString()}`;
+});
+const resetFilters = () => {
+    search.value = '';
+    status.value = 'all';
+    documentType.value = 'all';
+    from.value = '';
+    to.value = '';
+};
 const page = usePage();
 const errors = computed(() => Object.values(page.props.errors ?? {}));
 const money = (cents: number, currency = 'EUR') =>
@@ -228,29 +261,83 @@ const cancelInvoice = () => {
             </section>
         </div>
         <section class="overflow-hidden rounded-xl border bg-card">
-            <div class="grid gap-3 border-b p-4 sm:grid-cols-[1fr_220px]">
-                <label class="relative"
-                    ><Search
-                        class="pointer-events-none absolute top-2.5 left-3 size-4 text-muted-foreground"
-                        aria-hidden="true" /><span class="sr-only"
-                        >Rechnungen suchen</span
-                    ><Input
-                        v-model="search"
-                        class="pl-9"
-                        placeholder="Nummer, Empfänger oder Referenz suchen"
-                /></label>
-                <label
-                    ><span class="sr-only">Status filtern</span
-                    ><select
+            <div class="border-b px-5 py-4">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h2 class="font-semibold">Rechnungsbuch</h2>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            Rechnungen und Stornobelege durchsuchen und als
+                            gefilterte Liste ausgeben.
+                        </p>
+                    </div>
+                    <Button as-child variant="outline">
+                        <a :href="reportUrl"><Download class="size-4" />PDF</a>
+                    </Button>
+                </div>
+            </div>
+            <div
+                class="grid gap-3 border-b p-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,.65fr)_minmax(0,.65fr)_minmax(0,.8fr)_minmax(0,.8fr)_auto] xl:items-end"
+            >
+                <div class="min-w-0 space-y-2">
+                    <Label for="invoice-filter-search">Suche</Label>
+                    <div class="relative">
+                        <Search
+                            class="pointer-events-none absolute top-2.5 left-3 size-4 text-muted-foreground"
+                            aria-hidden="true"
+                        />
+                        <Input
+                            id="invoice-filter-search"
+                            v-model="search"
+                            class="pl-9"
+                            placeholder="Nummer, Empfänger oder Referenz suchen"
+                        />
+                    </div>
+                </div>
+                <div class="min-w-0 space-y-2">
+                    <Label for="invoice-filter-from">Von</Label>
+                    <Input
+                        id="invoice-filter-from"
+                        v-model="from"
+                        type="date"
+                    />
+                </div>
+                <div class="min-w-0 space-y-2">
+                    <Label for="invoice-filter-to">Bis</Label>
+                    <Input
+                        id="invoice-filter-to"
+                        v-model="to"
+                        type="date"
+                        :min="from || undefined"
+                    />
+                </div>
+                <div class="min-w-0 space-y-2">
+                    <Label for="invoice-filter-type">Belegart</Label>
+                    <select
+                        id="invoice-filter-type"
+                        v-model="documentType"
+                        class="h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm"
+                    >
+                        <option value="all">Alle Belegarten</option>
+                        <option value="invoice">Rechnungen</option>
+                        <option value="cancellation">Stornorechnungen</option>
+                    </select>
+                </div>
+                <div class="min-w-0 space-y-2">
+                    <Label for="invoice-filter-status">Status</Label>
+                    <select
+                        id="invoice-filter-status"
                         v-model="status"
-                        class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        class="h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm"
                     >
                         <option value="all">Alle Belege</option>
                         <option value="open">Offene Forderungen</option>
                         <option value="paid">Bezahlte Rechnungen</option>
                         <option value="cancelled">Stornierte Belege</option>
-                    </select></label
-                >
+                    </select>
+                </div>
+                <Button variant="outline" type="button" @click="resetFilters">
+                    Zurücksetzen
+                </Button>
             </div>
             <div v-if="!invoices.data.length" class="p-10 text-center">
                 <p class="font-medium">Keine Belege gefunden</p>

@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { List, ReceiptText } from '@lucide/vue';
+import { Download, List, ReceiptText } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import SignaturePad from '@/components/SignaturePad.vue';
 import StatusAlert from '@/components/StatusAlert.vue';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 type Row = {
     id: number;
@@ -28,7 +29,12 @@ const props = defineProps<{
         next_page_url: string | null;
         prev_page_url: string | null;
     };
-    search: string;
+    filters: {
+        search: string;
+        from: string;
+        to: string;
+        status: 'all' | 'available' | 'exported' | 'cancelled';
+    };
     creationKey: string;
     club: Record<string, string | null>;
     hasProfileSignature: boolean;
@@ -42,7 +48,36 @@ defineOptions({
         ],
     },
 });
-const search = ref(props.search);
+const search = ref(props.filters.search);
+const from = ref(props.filters.from);
+const to = ref(props.filters.to);
+const status = ref(props.filters.status);
+const reportUrl = computed(() => {
+    const query = new URLSearchParams();
+    if (search.value.trim()) query.set('search', search.value.trim());
+    if (from.value) query.set('from', from.value);
+    if (to.value) query.set('to', to.value);
+    if (status.value !== 'all') query.set('status', status.value);
+    return `/formulare/quittungen/quittungsbuch.pdf?${query.toString()}`;
+});
+const applyFilters = () =>
+    router.get(
+        '/formulare/quittungen',
+        {
+            search: search.value || undefined,
+            from: from.value || undefined,
+            to: to.value || undefined,
+            status: status.value,
+        },
+        { preserveState: true, replace: true },
+    );
+const resetFilters = () => {
+    search.value = '';
+    from.value = '';
+    to.value = '';
+    status.value = 'all';
+    applyFilters();
+};
 const signatureKey = ref(0);
 const page = usePage();
 const form = useForm({
@@ -479,23 +514,76 @@ function reset() {
             </div>
         </form>
         <section v-else class="space-y-4">
-            <form
-                class="flex gap-3"
-                @submit.prevent="
-                    router.get(
-                        '/formulare/quittungen',
-                        { search },
-                        { preserveState: true },
-                    )
-                "
-            >
-                <Input
-                    v-model="search"
-                    aria-label="Quittungen suchen"
-                    placeholder="Nummer, Name oder Zahlungsgrund"
-                /><Button variant="outline">Suchen</Button>
-            </form>
             <section class="overflow-hidden rounded-xl border bg-card">
+                <div class="border-b px-5 py-4">
+                    <div
+                        class="flex flex-wrap items-start justify-between gap-3"
+                    >
+                        <div>
+                            <h2 class="font-semibold">Quittungsbuch</h2>
+                            <p class="mt-1 text-sm text-muted-foreground">
+                                Ausgestellte Quittungen filtern und als Liste
+                                ausgeben.
+                            </p>
+                        </div>
+                        <Button as-child variant="outline">
+                            <a :href="reportUrl"
+                                ><Download class="size-4" />PDF</a
+                            >
+                        </Button>
+                    </div>
+                </div>
+                <form
+                    class="grid gap-3 border-b p-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,.7fr)_minmax(0,.7fr)_minmax(0,1fr)_auto_auto] xl:items-end"
+                    @submit.prevent="applyFilters"
+                >
+                    <div class="min-w-0 space-y-2">
+                        <Label for="receipt-filter-search">Suche</Label>
+                        <Input
+                            id="receipt-filter-search"
+                            v-model="search"
+                            placeholder="Nummer, Name oder Zahlungsgrund"
+                        />
+                    </div>
+                    <div class="min-w-0 space-y-2">
+                        <Label for="receipt-filter-from">Von</Label>
+                        <Input
+                            id="receipt-filter-from"
+                            v-model="from"
+                            type="date"
+                        />
+                    </div>
+                    <div class="min-w-0 space-y-2">
+                        <Label for="receipt-filter-to">Bis</Label>
+                        <Input
+                            id="receipt-filter-to"
+                            v-model="to"
+                            type="date"
+                            :min="from || undefined"
+                        />
+                    </div>
+                    <div class="min-w-0 space-y-2">
+                        <Label for="receipt-filter-status">Status</Label>
+                        <select
+                            id="receipt-filter-status"
+                            v-model="status"
+                            class="h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm"
+                        >
+                            <option value="all">Alle Status</option>
+                            <option value="available">Nicht ausgegeben</option>
+                            <option value="exported">Ausgegeben</option>
+                            <option value="cancelled">Storniert</option>
+                        </select>
+                    </div>
+                    <Button type="submit">Anwenden</Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        @click="resetFilters"
+                    >
+                        Zurücksetzen
+                    </Button>
+                </form>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="bg-muted/50">

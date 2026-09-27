@@ -6,9 +6,11 @@ use App\Configuration\MailConfigurator;
 use App\Documents\SignatureImage;
 use App\Http\Controllers\Controller;
 use App\Mail\ReceiptMail;
+use App\Members\MemberReportWriter;
 use App\Models\ClubSetting;
 use App\Models\Receipt;
 use App\Receipts\IssueReceipt;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -32,22 +34,62 @@ class ReceiptController extends Controller
             'create' => ['Quittung erstellen', route('receipts.create')],
         ];
         abort_unless(isset($tabs[$tab]), 404);
-        $filters = $request->validate(['search' => ['nullable', 'string', 'max:100'], 'page' => ['nullable', 'integer', 'min:1']]);
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+            'status' => ['nullable', Rule::in(['all', 'available', 'exported', 'cancelled'])],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
         $search = trim($filters['search'] ?? '');
-        $receipts = Receipt::query()->select(['id', 'receipt_number', 'receipt_date', 'amount_cents', 'currency', 'payer', 'payee', 'purpose', 'created_by_name', 'exported_at', 'cancelled_at'])
-            ->when($search !== '', fn ($query) => $query->where(function ($query) use ($search): void {
-                foreach (['receipt_number', 'payer', 'payee', 'purpose'] as $column) {
-                    $query->orWhere($column, 'like', '%'.$search.'%');
-                }
-            }))->latest('id')->paginate(20)->withQueryString();
+        $normalizedFilters = [
+            'search' => $search,
+            'from' => $filters['from'] ?? '',
+            'to' => $filters['to'] ?? '',
+            'status' => $filters['status'] ?? 'all',
+        ];
+        $receipts = $this->filteredQuery($normalizedFilters)
+            ->select(['id', 'receipt_number', 'receipt_date', 'amount_cents', 'currency', 'payer', 'payee', 'purpose', 'created_by_name', 'exported_at', 'cancelled_at'])
+            ->latest('receipt_date')->latest('id')->paginate(20)->withQueryString();
 
         return Inertia::render('forms/Receipts', [
             'activeTab' => $tab,
             'navigationBreadcrumb' => ['title' => $tabs[$tab][0], 'href' => $tabs[$tab][1]],
-            'receipts' => $receipts, 'search' => $search, 'creationKey' => (string) Str::uuid(),
+            'receipts' => $receipts, 'filters' => $normalizedFilters, 'creationKey' => (string) Str::uuid(),
             'club' => Arr::only(ClubSetting::current()->data, ['name', 'street', 'postal_code', 'city', 'email']),
             'hasProfileSignature' => $request->user()->hasProfileSignature(),
             'today' => now()->toDateString(),
+        ]);
+    }
+
+    public function report(Request $request): HttpResponse
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+            'status' => ['nullable', Rule::in(['available', 'exported', 'cancelled'])],
+        ]);
+        $filters['search'] = trim($filters['search'] ?? '');
+        $query = $this->filteredQuery($filters)
+            ->select(['id', 'receipt_number', 'receipt_date', 'amount_cents', 'currency', 'payer', 'payee', 'purpose', 'exported_at', 'cancelled_at'])
+            ->latest('receipt_date')->latest('id');
+        if ((clone $query)->count() > 5000) {
+            throw ValidationException::withMessages(['scope' => 'Der Bericht ist auf 5.000 Quittungen begrenzt. Bitte den Zeitraum oder die Filter einschränken.']);
+        }
+        $receipts = $query->get();
+        $settings = ClubSetting::current();
+        $club = $settings->data;
+        $logo = $settings->logoDataUri();
+        $printedAt = now()->setTimezone(config('app.display_timezone'));
+        $html = view('receipts.ledger-report', compact('receipts', 'filters', 'club', 'logo', 'printedAt'))->render();
+        $pdf = MemberReportWriter::pdf($html, true);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="quittungsbuch-'.now()->format('Y-m-d-His').'.pdf"',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
         ]);
     }
 
@@ -170,5 +212,28 @@ class ReceiptController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Quittung '.$receipt->receipt_number.' wurde storniert.']);
 
         return back();
+    }
+
+    /** @param array<string, mixed> $filters
+     * @return Builder<Receipt>
+     */
+    private function filteredQuery(array $filters): Builder
+    {
+        $search = trim((string) ($filters['search'] ?? ''));
+
+        return Receipt::query()
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $term = '%'.addcslashes($search, '%_\\').'%';
+                $query->where(function (Builder $query) use ($term): void {
+                    foreach (['receipt_number', 'payer', 'payee', 'purpose'] as $column) {
+                        $query->orWhere($column, 'like', $term);
+                    }
+                });
+            })
+            ->when(! empty($filters['from']), fn (Builder $query) => $query->whereDate('receipt_date', '>=', $filters['from']))
+            ->when(! empty($filters['to']), fn (Builder $query) => $query->whereDate('receipt_date', '<=', $filters['to']))
+            ->when(($filters['status'] ?? null) === 'available', fn (Builder $query) => $query->whereNull('exported_at')->whereNull('cancelled_at'))
+            ->when(($filters['status'] ?? null) === 'exported', fn (Builder $query) => $query->whereNotNull('exported_at')->whereNull('cancelled_at'))
+            ->when(($filters['status'] ?? null) === 'cancelled', fn (Builder $query) => $query->whereNotNull('cancelled_at'));
     }
 }
