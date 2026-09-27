@@ -419,8 +419,8 @@ const adult = computed(() => {
             title="SEPA-Mandat wird widerrufen"
         >
             Beim Speichern wird das aktive Mandat widerrufen und aus den
-            aktuellen Bankdaten entfernt. Das PDF bleibt in der Mandatshistorie
-            der Verwaltung erhalten.
+            aktuellen Bankdaten entfernt. Das PDF bleibt in der internen
+            Mandatshistorie erhalten.
         </StatusAlert>
 
         <div

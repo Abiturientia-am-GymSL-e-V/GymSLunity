@@ -69,7 +69,7 @@ TEXT,
             'welcome_mail_subject' => 'Willkommen bei {{verein.name}}',
             'welcome_mail_text' => "Hallo,\n\nvielen Dank für deinen Mitgliedsantrag bei {{verein.name}}. Deinen digital eingereichten Antrag findest du als PDF im Anhang.\n\nWir melden uns, falls noch etwas zu klären ist.",
             'contribution_invoice_mail_subject' => 'Deine Beitragsrechnung von {{verein.name}}',
-            'contribution_invoice_mail_text' => "Hallo,\n\nim Anhang erhältst du deine Beitragsrechnung von {{verein.name}} als PDF. Bitte beachte das dort angegebene Fälligkeitsdatum und den Zahlungsweg.\n\nBei Rückfragen wende dich bitte an die Vereinsverwaltung.",
+            'contribution_invoice_mail_text' => "Hallo,\n\nim Anhang erhältst du deine Beitragsrechnung von {{verein.name}} als PDF. Bitte beachte das dort angegebene Fälligkeitsdatum und den Zahlungsweg.\n\nBei Rückfragen wende dich bitte an den Vorstand.",
         ];
     }
 

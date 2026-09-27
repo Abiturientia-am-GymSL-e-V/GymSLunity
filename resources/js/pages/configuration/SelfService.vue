@@ -103,8 +103,8 @@ const templates = [
                         Mitglieder und Kontakte melden sich über einen
                         einmaligen E-Mail-Link an. Der öffentliche Beitritt
                         bestätigt zuerst die E-Mail-Adresse. Für Personen ohne
-                        hinterlegte E-Mail-Adresse pflegt die Verwaltung
-                        zunächst eine Adresse ein.
+                        hinterlegte E-Mail-Adresse pflegt der Vorstand zunächst
+                        eine Adresse ein.
                     </p>
                 </div>
             </section>

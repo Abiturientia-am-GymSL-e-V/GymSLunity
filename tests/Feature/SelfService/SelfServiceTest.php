@@ -384,6 +384,7 @@ class SelfServiceTest extends TestCase
                 $mail->assertSeeInHtml(
                     CarbonImmutable::parse($leftAt)->format('d.m.Y'),
                 );
+                $mail->assertSeeInHtml('an den Vorstand');
 
                 return $mail->hasTo($member->email)
                     && $mail->exitDate === $leftAt;
@@ -766,6 +767,7 @@ class SelfServiceTest extends TestCase
         $this->get('/konfiguration/startseite')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('configuration/PublicPages')
             ->where('defaults.imprint_text', PublicPageTemplates::defaults()['imprint_text']));
+        $this->assertStringContainsString('an den Vorstand', PublicPageTemplates::defaults()['contribution_invoice_mail_text']);
         $values = [...PublicPageTemplates::defaults(), 'version' => 0, 'imprint_text' => 'Impressum von {{verein.name}}'];
         $this->patch('/konfiguration/startseite', $values)->assertSessionHasNoErrors();
         $this->assertSame('Impressum von {{verein.name}}', ClubSetting::current()->data['imprint_text']);

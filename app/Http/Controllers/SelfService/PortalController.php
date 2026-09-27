@@ -215,14 +215,14 @@ class PortalController extends Controller
             abort_unless($this->isActiveMember($current) && $current->left_at === null && $current->deceased_at === null, 403);
             $this->checkVersion($current, (int) $values['lock_version']);
             if (DB::table('membership_cancellations')->where('member_id', $current->id)->whereNull('confirmed_at')->whereNull('withdrawn_at')->exists()) {
-                throw ValidationException::withMessages(['cancellation' => FormOfAddress::choose('Deine Kündigung wurde bereits an die Vereinsverwaltung übermittelt.', 'Ihre Kündigung wurde bereits an die Vereinsverwaltung übermittelt.')]);
+                throw ValidationException::withMessages(['cancellation' => FormOfAddress::choose('Deine Kündigung wurde bereits an den Vorstand übermittelt.', 'Ihre Kündigung wurde bereits an den Vorstand übermittelt.')]);
             }
             DB::table('membership_cancellations')->insert([
                 'member_id' => $current->id,
                 'requested_at' => now(),
             ]);
         });
-        Inertia::flash('toast', ['type' => 'success', 'message' => FormOfAddress::choose('Deine Kündigung wurde an die Vereinsverwaltung übermittelt.', 'Ihre Kündigung wurde an die Vereinsverwaltung übermittelt.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => FormOfAddress::choose('Deine Kündigung wurde an den Vorstand übermittelt.', 'Ihre Kündigung wurde an den Vorstand übermittelt.')]);
 
         return back();
     }
@@ -450,7 +450,7 @@ class PortalController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => $kind === 'application'
             ? ($savedMember->joined_at
                 ? FormOfAddress::choose('Dein Beitritt wurde gespeichert. Du kannst jetzt dein SEPA-Mandat anlegen.', 'Ihr Beitritt wurde gespeichert. Sie können jetzt Ihr SEPA-Mandat anlegen.')
-                : FormOfAddress::choose('Dein Antrag wurde gespeichert und wartet auf Freigabe durch die Verwaltung.', 'Ihr Antrag wurde gespeichert und wartet auf Freigabe durch die Verwaltung.'))
+                : FormOfAddress::choose('Dein Antrag wurde gespeichert und wartet auf Freigabe durch den Vorstand.', 'Ihr Antrag wurde gespeichert und wartet auf Freigabe durch den Vorstand.'))
             : FormOfAddress::choose('Dein SEPA-Mandat wurde gespeichert.', 'Ihr SEPA-Mandat wurde gespeichert.')]);
 
         return redirect('/selfservice');

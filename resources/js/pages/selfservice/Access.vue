@@ -74,8 +74,8 @@ onMounted(() => {
                 <StatusAlert v-if="sent" type="info" title="Anfrage erhalten">
                     {{
                         $address(
-                            'Wenn ein Zugang möglich ist, erhältst du eine E-Mail. Prüfe auch den Spamordner. Ohne hinterlegte Adresse oder bei Zuordnungsproblemen hilft dir die Vereinsverwaltung.',
-                            'Wenn ein Zugang möglich ist, erhalten Sie eine E-Mail. Prüfen Sie auch den Spamordner. Ohne hinterlegte Adresse oder bei Zuordnungsproblemen hilft Ihnen die Vereinsverwaltung.',
+                            'Wenn ein Zugang möglich ist, erhältst du eine E-Mail. Prüfe auch den Spamordner. Ohne hinterlegte Adresse oder bei Zuordnungsproblemen hilft dir der Vorstand.',
+                            'Wenn ein Zugang möglich ist, erhalten Sie eine E-Mail. Prüfen Sie auch den Spamordner. Ohne hinterlegte Adresse oder bei Zuordnungsproblemen hilft Ihnen der Vorstand.',
                         )
                     }}
                 </StatusAlert>

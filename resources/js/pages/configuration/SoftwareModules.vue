@@ -56,7 +56,7 @@ const baseModules = [
         key: 'dashboard',
         label: 'Dashboard',
         description:
-            'Persönliche Übersicht und Einstiegspunkt der Vereinsverwaltung.',
+            'Persönliche Übersicht und Einstiegspunkt für die Vorstandsarbeit.',
         areas: ['Übersicht'],
         icon: LayoutGrid,
     },

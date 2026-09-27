@@ -208,7 +208,7 @@ const date = (value: string) =>
                 <AlertDescription>
                     {{ $address('Dein', 'Ihr') }} Antrag für „{{
                         pendingApplication.membership_type
-                    }}“ wartet auf Freigabe durch die Verwaltung.
+                    }}“ wartet auf Freigabe durch den Vorstand.
                     {{ $address('Deine', 'Ihre') }}
                     Mitgliedschaft beginnt mit der Freigabe.
                 </AlertDescription>
@@ -219,7 +219,7 @@ const date = (value: string) =>
                 <AlertDescription>
                     {{ $address('Deine', 'Ihre') }} Kündigung ist am
                     {{ date(pendingCancellation.requested_at.slice(0, 10)) }}
-                    bei der Vereinsverwaltung eingegangen. Nach der Bearbeitung
+                    beim Vorstand eingegangen. Nach der Bearbeitung
                     {{ $address('erhältst du', 'erhalten Sie') }} eine
                     Bestätigung mit dem Austrittsdatum per E-Mail.
                     <span class="mt-3 block">
@@ -512,8 +512,8 @@ const date = (value: string) =>
                 <AlertDescription>
                     Beim Speichern wird {{ $address('dein', 'Ihr') }} aktuelles
                     SEPA-Mandat widerrufen. Das Mandat kann anschließend nicht
-                    mehr im Mitgliederportal heruntergeladen werden. Die
-                    Vereinsverwaltung bewahrt es in der Mandatshistorie auf.
+                    mehr im Mitgliederportal heruntergeladen werden. Der
+                    Vorstand bewahrt es in der Mandatshistorie auf.
                 </AlertDescription>
             </Alert>
             <section
@@ -611,10 +611,9 @@ const date = (value: string) =>
                 <DialogHeader>
                     <DialogTitle>Kündigung anfragen</DialogTitle>
                     <DialogDescription>
-                        {{ $address('Deine', 'Ihre') }} Kündigung wird an die
-                        Vereinsverwaltung übermittelt. Dort wird das
-                        Austrittsdatum festgelegt und anschließend per E-Mail
-                        bestätigt.
+                        {{ $address('Deine', 'Ihre') }} Kündigung wird an den
+                        Vorstand übermittelt. Dort wird das Austrittsdatum
+                        festgelegt und anschließend per E-Mail bestätigt.
                     </DialogDescription>
                 </DialogHeader>
                 <form class="space-y-4" @submit.prevent="cancelMembership">

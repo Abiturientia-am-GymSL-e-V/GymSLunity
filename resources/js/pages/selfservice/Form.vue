@@ -132,9 +132,8 @@ function submit() {
             type="info"
             title="Freigabe erforderlich"
         >
-            {{ $address('Dein', 'Ihr') }} unterschriebener Antrag wird von der
-            Verwaltung geprüft. Die Mitgliedschaft beginnt erst mit der
-            Freigabe.
+            {{ $address('Dein', 'Ihr') }} unterschriebener Antrag wird vom
+            Vorstand geprüft. Die Mitgliedschaft beginnt erst mit der Freigabe.
         </StatusAlert>
         <StatusAlert
             v-if="!application && hasActiveMandate"
@@ -144,7 +143,7 @@ function submit() {
             Mit dem Absenden werden die neuen Kontodaten und
             {{ $address('deine', 'Ihre') }} neue Unterschrift als eigenes Mandat
             gespeichert. Das bisherige Mandat wird widerrufen und bleibt nur in
-            der Verwaltungshistorie erhalten.
+            der internen Mandatshistorie erhalten.
         </StatusAlert>
         <form class="space-y-6" @submit.prevent="submit">
             <section class="space-y-4 rounded-xl border p-5">

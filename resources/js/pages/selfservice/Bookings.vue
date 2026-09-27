@@ -180,7 +180,7 @@ function cancel(booking: Booking) {
                             {{
                                 selected.automatic
                                     ? 'Wird automatisch bestätigt'
-                                    : 'Bestätigung durch die Verwaltung erforderlich'
+                                    : 'Bestätigung durch den Vorstand erforderlich'
                             }}
                         </p>
                     </div>
@@ -247,7 +247,7 @@ function cancel(booking: Booking) {
                 </div>
                 <div class="min-w-0 space-y-2 sm:col-span-2">
                     <Label for="portal-booking-notes"
-                        >Hinweise an die Verwaltung</Label
+                        >Hinweise an den Vorstand</Label
                     >
                     <Textarea id="portal-booking-notes" v-model="form.notes" />
                     <InputError :message="form.errors.notes" />
