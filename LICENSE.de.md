@@ -276,4 +276,3 @@ gewährten Rechte gewährleisten und den erfassten Quellcode vor ausschließlich
 
 — Alle sonstigen Änderungen oder Ergänzungen dieses Anhangs bedürfen der Ausarbeitung einer neuen Version der
 EUPL.
-
