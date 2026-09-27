@@ -6,6 +6,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Crypt;
 use LogicException;
 
@@ -16,11 +17,13 @@ use LogicException;
  * @property string $encrypted_pdf
  * @property string $pdf_sha256
  * @property array<string, mixed> $snapshot
+ * @property string|null $encrypted_signature_image
  * @property int|null $signed_by
  * @property string $signed_by_name
  * @property CarbonImmutable $signed_at
  * @property CarbonImmutable $created_at
  * @property Donation $donation
+ * @property DonationCertificateRevocation|null $revocation
  */
 class DonationCertificate extends Model
 {
@@ -28,7 +31,7 @@ class DonationCertificate extends Model
 
     protected $guarded = ['id'];
 
-    protected $hidden = ['encrypted_pdf'];
+    protected $hidden = ['encrypted_pdf', 'encrypted_signature_image'];
 
     protected function casts(): array
     {
@@ -55,6 +58,19 @@ class DonationCertificate extends Model
     public function deliveries(): HasMany
     {
         return $this->hasMany(DonationCertificateDelivery::class, 'certificate_id');
+    }
+
+    /** @return HasOne<DonationCertificateRevocation, $this> */
+    public function revocation(): HasOne
+    {
+        return $this->hasOne(DonationCertificateRevocation::class, 'certificate_id');
+    }
+
+    public function signatureImage(): ?string
+    {
+        return $this->encrypted_signature_image === null
+            ? null
+            : Crypt::decryptString($this->encrypted_signature_image);
     }
 
     public function pdf(): string

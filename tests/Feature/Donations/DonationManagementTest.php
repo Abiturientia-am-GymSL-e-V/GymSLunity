@@ -6,6 +6,7 @@ use App\Mail\DonationCertificateMail;
 use App\Models\ClubSetting;
 use App\Models\Donation;
 use App\Models\DonationCertificate;
+use App\Models\DonationCertificateRevocation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -78,6 +79,7 @@ class DonationManagementTest extends TestCase
         $this->signIn();
         ClubSetting::current()->update(['data' => $this->readyClubData()]);
         $this->post(route('donations.store'), $this->donationData())->assertSessionHasNoErrors();
+        $receiptNumber = Donation::sole()->receipt_number;
 
         $this->get(route('donations'))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('Donations')
@@ -85,6 +87,11 @@ class DonationManagementTest extends TestCase
             ->where('summary.open_count', 1)
             ->where('donations.0.donor_email', 'erika@example.invalid')
             ->where('donations.0.certificate', null));
+        $this->get(route('donations.open'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('summary.open_count', 1)
+            ->has('openDonations', 1)
+            ->where('openDonations.0.receipt_number', $receiptNumber)
+            ->has('donations', 0));
     }
 
     public function test_money_donation_can_be_signed_stored_downloaded_and_emailed(): void
@@ -177,6 +184,114 @@ class DonationManagementTest extends TestCase
         $this->assertSame('drawn', $certificate->snapshot['signature_method']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $certificate->snapshot['signature_image_sha256']);
         $this->assertStringStartsWith('%PDF-', $certificate->pdf());
+    }
+
+    public function test_certificate_uses_club_seat_and_print_mode_when_machine_generated_documents_are_not_notified(): void
+    {
+        $this->signIn();
+        $club = $this->readyClubData();
+        $club['city'] = 'Vereinssitz';
+        $club['tax_office'] = 'Finanzamtsort';
+        $club['certificate_location'] = 'Veralteter Ausstellungsort';
+        $club['certificate_machine_generated_notified'] = false;
+        ClubSetting::current()->update(['data' => $club]);
+        $this->post(route('donations.store'), $this->donationData())->assertSessionHasNoErrors();
+        $donation = Donation::sole();
+
+        $this->post(route('donations.certificates.issue', $donation), [
+            'signature_method' => 'digital',
+        ])->assertSessionHasErrors('signature_method');
+
+        $this->post(route('donations.certificates.issue', $donation), [
+            'signature_method' => 'print',
+        ])->assertSessionHasNoErrors();
+
+        $certificate = DonationCertificate::sole();
+        $this->assertSame('print', $certificate->snapshot['signature_method']);
+        $this->assertSame('Vereinssitz', $certificate->snapshot['club']['certificate_location']);
+        $this->assertFalse($certificate->snapshot['club']['machine_generated_notified']);
+        $this->post(route('donations.certificates.send', $certificate))->assertSessionHasErrors('email');
+    }
+
+    public function test_certificate_can_be_revoked_and_subsequent_pdf_is_marked_as_revoked(): void
+    {
+        $this->signIn();
+        ClubSetting::current()->update(['data' => $this->readyClubData()]);
+        $this->post(route('donations.store'), $this->donationData())->assertSessionHasNoErrors();
+        $this->post(route('donations.certificates.issue', Donation::sole()), [
+            'signature_method' => 'digital',
+        ])->assertSessionHasNoErrors();
+        $certificate = DonationCertificate::sole();
+        $originalPdf = $certificate->pdf();
+
+        $this->post(route('donations.certificates.revoke', $certificate), [
+            'reason' => 'Spenderdaten waren unzutreffend.',
+            'originals_recovered' => false,
+        ])->assertSessionHasErrors('originals_recovered');
+        $this->assertDatabaseCount('donation_certificate_revocations', 0);
+
+        $this->post(route('donations.certificates.revoke', $certificate), [
+            'reason' => 'Spenderdaten waren unzutreffend.',
+            'originals_recovered' => true,
+        ])->assertSessionHasNoErrors();
+
+        $revocation = DonationCertificateRevocation::sole();
+        $this->assertTrue($revocation->originals_recovered);
+        $this->assertSame('Spenderdaten waren unzutreffend.', $revocation->reason);
+        $this->assertStringStartsWith('%PDF-', $revocation->pdf());
+        $this->assertNotSame($originalPdf, $revocation->pdf());
+        $this->assertSame(hash('sha256', $revocation->pdf()), $revocation->pdf_sha256);
+        $this->assertDatabaseHas('donation_audits', [
+            'donation_id' => $certificate->donation_id,
+            'event' => 'certificate_revoked',
+        ]);
+
+        $this->get(route('donations.certificates.document', $certificate))
+            ->assertOk()
+            ->assertHeader('Content-Disposition', 'attachment; filename="'.$certificate->certificate_number.'-WIDERRUFEN.pdf"');
+        Mail::fake();
+        $this->post(route('donations.certificates.send', $certificate))->assertSessionHasErrors('email');
+        Mail::assertNothingSent();
+        $this->get(route('donations'))->assertInertia(fn (Assert $page) => $page
+            ->where('summary.revoked_count', 1)
+            ->where('donations.0.certificate.revocation_reason', 'Spenderdaten waren unzutreffend.'));
+    }
+
+    public function test_filtered_donation_ledger_can_be_exported_as_pdf(): void
+    {
+        $this->signIn();
+        ClubSetting::current()->update(['data' => $this->readyClubData()]);
+        $this->post(route('donations.store'), $this->donationData())->assertSessionHasNoErrors();
+        $this->post(route('donations.store'), $this->donationData([
+            'donor_name' => 'Andere Person',
+            'donor_email' => 'andere@example.invalid',
+            'amount' => '10,00',
+            'donated_at' => '2026-08-01',
+        ]))->assertSessionHasNoErrors();
+
+        $this->get(route('donations.report', [
+            'from' => '2026-09-01',
+            'to' => '2026-09-30',
+            'q' => 'Erika',
+            'donation_type' => 'money',
+            'certificate_status' => 'open',
+        ]))->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('Content-Disposition');
+
+        $audit = DB::table('donation_audits')->where('event', 'donation_ledger_exported')->sole();
+        $payload = json_decode($audit->payload, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame(1, $payload['row_count']);
+    }
+
+    public function test_donor_country_must_be_a_supported_country(): void
+    {
+        $this->signIn();
+        ClubSetting::current()->update(['data' => $this->readyClubData()]);
+
+        $this->post(route('donations.store'), $this->donationData(['donor_country' => 'XX']))
+            ->assertSessionHasErrors('donor_country');
+        $this->assertDatabaseCount('donations', 0);
     }
 
     public function test_profile_signature_method_requires_a_stored_signature(): void

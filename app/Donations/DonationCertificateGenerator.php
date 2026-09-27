@@ -29,7 +29,6 @@ final class DonationCertificateGenerator
             'tax_number' => 'Steuernummer',
             'tax_privilege_notice_type' => 'Art des Steuerbescheids',
             'tax_privilege_notice_date' => 'Datum des Steuerbescheids',
-            'certificate_location' => 'Ausstellungsort',
         ];
         $errors = [];
         foreach ($required as $key => $label) {
@@ -46,9 +45,6 @@ final class DonationCertificateGenerator
         if (! is_array($purposeCodes) || count($purposeCodes) === 0) {
             $errors[] = 'Mindestens ein steuerbegünstigter Zweck fehlt.';
         }
-        if (! (bool) ($club['certificate_machine_generated_notified'] ?? false)) {
-            $errors[] = 'Die Anzeige des Verfahrens für maschinell erstellte Zuwendungsbestätigungen beim Finanzamt ist nicht bestätigt.';
-        }
         if (is_string($club['tax_privilege_notice_date'] ?? null)) {
             try {
                 $noticeDate = CarbonImmutable::parse($club['tax_privilege_notice_date'])->startOfDay();
@@ -64,10 +60,16 @@ final class DonationCertificateGenerator
         return array_values(array_unique($errors));
     }
 
+    /** @param array<string, mixed> $club */
+    public static function digitalDeliveryAllowed(array $club): bool
+    {
+        return (bool) ($club['certificate_machine_generated_notified'] ?? false);
+    }
+
     public function issue(Donation $donation, User $actor, string $signatureMethod = 'digital', ?string $signatureImage = null): DonationCertificate
     {
-        if (! in_array($signatureMethod, ['digital', 'profile', 'drawn'], true)
-            || ($signatureMethod !== 'digital' && ! is_string($signatureImage))) {
+        if (! in_array($signatureMethod, ['digital', 'profile', 'drawn', 'print'], true)
+            || (in_array($signatureMethod, ['profile', 'drawn'], true) && ! is_string($signatureImage))) {
             throw ValidationException::withMessages(['signature_method' => 'Bitte eine gültige Unterschriftsart wählen.']);
         }
 
@@ -78,7 +80,8 @@ final class DonationCertificateGenerator
                 return $existing;
             }
 
-            $club = ClubSetting::current()->data;
+            $settings = ClubSetting::current();
+            $club = $settings->data;
             $errors = self::configurationErrors($club);
             if ($errors !== []) {
                 throw ValidationException::withMessages(['certificate' => $errors]);
@@ -89,6 +92,11 @@ final class DonationCertificateGenerator
             $purposeCodes = is_array($club['donation_purpose_codes'] ?? null) ? $club['donation_purpose_codes'] : [];
             if (! in_array($locked->purpose_code, $purposeCodes, true)) {
                 throw ValidationException::withMessages(['certificate' => 'Der Zweck der Spende ist im aktuellen Steuerbescheid nicht freigegeben.']);
+            }
+            if (! self::digitalDeliveryAllowed($club) && $signatureMethod !== 'print') {
+                throw ValidationException::withMessages([
+                    'signature_method' => 'Ohne Anzeige des maschinellen Verfahrens beim Finanzamt darf die Bestätigung nur zum Ausdrucken und eigenhändigen Unterzeichnen erstellt werden.',
+                ]);
             }
 
             $signedAt = now();
@@ -108,19 +116,14 @@ final class DonationCertificateGenerator
                 json_encode($snapshot, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 (string) config('app.key'),
             );
-            $html = view('donations.certificate', [
-                'snapshot' => $snapshot,
-                'amountWords' => $this->amountWords($locked->amount_cents),
-                'taxStatement' => $this->taxStatement($club, $locked->purpose_label),
-                'signatureImage' => is_string($signatureImage) ? 'data:image/png;base64,'.base64_encode($signatureImage) : null,
-            ])->render();
-            $pdf = MemberReportWriter::pdf($html);
+            $pdf = $this->render($snapshot, $settings->logoDataUri(), $signatureImage);
             $certificate = DonationCertificate::query()->create([
                 'donation_id' => $locked->id,
                 'certificate_number' => $certificateNumber,
                 'encrypted_pdf' => Crypt::encryptString(base64_encode($pdf)),
                 'pdf_sha256' => hash('sha256', $pdf),
                 'snapshot' => $snapshot,
+                'encrypted_signature_image' => is_string($signatureImage) ? Crypt::encryptString($signatureImage) : null,
                 'signed_by' => $actor->id,
                 'signed_by_name' => $actor->name,
                 'signed_at' => $signedAt,
@@ -136,6 +139,16 @@ final class DonationCertificateGenerator
 
             return $certificate;
         });
+    }
+
+    public function revokedPdf(DonationCertificate $certificate, string $reason, string $revokedAt): string
+    {
+        return $this->render(
+            $certificate->snapshot,
+            ClubSetting::current()->logoDataUri(),
+            $certificate->signatureImage(),
+            ['reason' => $reason, 'revoked_at' => $revokedAt],
+        );
     }
 
     /**
@@ -183,14 +196,40 @@ final class DonationCertificateGenerator
                 'notice_date' => $club['tax_privilege_notice_date'],
                 'assessment_period' => $club['tax_privilege_assessment_period'] ?? null,
                 'contributions_tax_deductible' => (bool) ($club['contributions_tax_deductible'] ?? false),
-                'certificate_location' => $club['certificate_location'],
-                'machine_generated_notified' => (bool) $club['certificate_machine_generated_notified'],
+                'certificate_location' => $club['city'],
+                'machine_generated_notified' => self::digitalDeliveryAllowed($club),
             ],
             'signed_by' => $actor->name,
             'signed_at' => $signedAt,
             'signature_method' => $signatureMethod,
             'signature_image_sha256' => is_string($signatureImage) ? hash('sha256', $signatureImage) : null,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $snapshot
+     * @param  array{reason: string, revoked_at: string}|null  $revocation
+     */
+    private function render(array $snapshot, ?string $logo, ?string $signatureImage, ?array $revocation = null): string
+    {
+        $donation = $snapshot['donation'];
+        $club = $snapshot['club'];
+        $html = view('donations.certificate', [
+            'snapshot' => $snapshot,
+            'amountWords' => $this->amountWords((int) $donation['amount_cents']),
+            'taxStatement' => $this->taxStatement([
+                'tax_privilege_notice_type' => $club['notice_type'],
+                'tax_office' => $club['tax_office'],
+                'tax_number' => $club['tax_number'],
+                'tax_privilege_notice_date' => $club['notice_date'],
+                'tax_privilege_assessment_period' => $club['assessment_period'],
+            ], (string) $donation['purpose_label']),
+            'signatureImage' => is_string($signatureImage) ? 'data:image/png;base64,'.base64_encode($signatureImage) : null,
+            'logo' => $logo,
+            'revocation' => $revocation,
+        ])->render();
+
+        return MemberReportWriter::pdf($html);
     }
 
     /** @param array<string, mixed> $club */

@@ -8,6 +8,10 @@
         * { box-sizing: border-box; }
         body { color: #111827; font-family: "DejaVu Sans", sans-serif; font-size: 8.3pt; line-height: 1.3; margin: 0; }
         .issuer { border: 1px solid #4b5563; min-height: 15mm; padding: 2.5mm; margin-bottom: 4mm; }
+        .issuer-table { border-collapse: collapse; width: 100%; }
+        .issuer-table td { border: 0; padding: 0; vertical-align: middle; }
+        .issuer-logo-cell { text-align: right; width: 42mm; }
+        .issuer-logo { display: inline-block; max-height: 14mm; max-width: 40mm; }
         .issuer-label, .field-label { color: #4b5563; font-size: 7pt; }
         h1 { font-size: 14pt; line-height: 1.2; margin: 0 0 1.5mm; }
         .subtitle { font-size: 8.5pt; margin: 0 0 4mm; }
@@ -22,6 +26,8 @@
         .signature-image { display: block; margin: 1mm 0; max-height: 13mm; max-width: 55mm; }
         .signature-code { font-family: "DejaVu Sans Mono", monospace; font-size: 6.5pt; word-break: break-all; }
         .notice { border-top: 1px solid #111827; font-size: 7pt; line-height: 1.22; margin-top: 4mm; padding-top: 2mm; }
+        .revocation-watermark { color: #b91c1c; font-size: 42pt; font-weight: 700; left: 24mm; opacity: .17; position: fixed; text-align: center; top: 118mm; transform: rotate(-28deg); width: 160mm; z-index: 10; }
+        .revocation-notice { border: 2px solid #b91c1c; color: #991b1b; font-size: 9pt; margin-bottom: 4mm; padding: 2.5mm; }
         p { margin: 0 0 2.2mm; }
         strong { font-weight: 700; }
     </style>
@@ -29,10 +35,22 @@
 <body>
 @php($donation = $snapshot['donation'])
 @php($club = $snapshot['club'])
+@if($revocation)
+    <div class="revocation-watermark">WIDERRUFEN</div>
+    <div class="revocation-notice">
+        <strong>Diese Zuwendungsbestätigung wurde am {{ \Carbon\CarbonImmutable::parse($revocation['revoked_at'])->format('d.m.Y H:i') }} Uhr widerrufen und darf nicht mehr verwendet werden.</strong><br>
+        Grund: {{ $revocation['reason'] }}
+    </div>
+@endif
 <div class="issuer">
-    <div class="issuer-label">Aussteller (Bezeichnung und Anschrift der steuerbegünstigten Einrichtung)</div>
-    <strong>{{ $club['name'] }}</strong>, {{ $club['street'] }}, {{ $club['postal_code'] }} {{ $club['city'] }}
-    @if($club['register_number'])<br>Vereinsregister: {{ $club['register_number'] }}@if($club['register_court']), {{ $club['register_court'] }}@endif @endif
+    <table class="issuer-table"><tr>
+        <td>
+            <div class="issuer-label">Aussteller (Bezeichnung und Anschrift der steuerbegünstigten Einrichtung)</div>
+            <strong>{{ $club['name'] }}</strong>, {{ $club['street'] }}, {{ $club['postal_code'] }} {{ $club['city'] }}
+            @if($club['register_number'])<br>Vereinsregister: {{ $club['register_number'] }}@if($club['register_court']), {{ $club['register_court'] }}@endif @endif
+        </td>
+        @if($logo)<td class="issuer-logo-cell"><img class="issuer-logo" src="{{ $logo }}" alt=""></td>@endif
+    </tr></table>
 </div>
 
 @if($donation['donation_type'] === 'material')
@@ -78,7 +96,10 @@
 
 <div class="signature">
     <strong>{{ $club['certificate_location'] }}, {{ \Carbon\CarbonImmutable::parse($snapshot['signed_at'])->format('d.m.Y') }}</strong><br>
-    @if($signatureImage)
+    @if($snapshot['signature_method'] === 'print')
+        <br><br>____________________________________________________________<br>
+        <span class="field-label">Eigenhändige Unterschrift des Zuwendungsempfängers</span><br>
+    @elseif($signatureImage)
         <img class="signature-image" src="{{ $signatureImage }}" alt="Unterschrift">
         {{ $snapshot['signature_method'] === 'profile' ? 'Mit der Profil-Unterschrift' : 'Eigenhändig auf dem Gerät' }} unterzeichnet durch {{ $snapshot['signed_by'] }} am {{ \Carbon\CarbonImmutable::parse($snapshot['signed_at'])->format('d.m.Y H:i') }} Uhr<br>
     @else

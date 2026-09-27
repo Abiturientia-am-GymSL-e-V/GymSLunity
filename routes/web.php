@@ -165,10 +165,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [DonationController::class, 'index'])->defaults('tab', 'ledger')->name('donations');
         Route::get('anlegen', [DonationController::class, 'index'])->defaults('tab', 'create')->name('donations.create');
         Route::get('offene-bestaetigungen', [DonationController::class, 'index'])->defaults('tab', 'open')->name('donations.open');
+        Route::get('spendenbuch.pdf', [DonationController::class, 'report'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('donations.report');
         Route::post('/', [DonationController::class, 'store'])->name('donations.store');
         Route::post('{donation}/ausstellen', [DonationController::class, 'issue'])->name('donations.certificates.issue');
         Route::get('bestaetigungen/{certificate}', [DonationController::class, 'document'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('donations.certificates.document');
         Route::post('bestaetigungen/{certificate}/versenden', [DonationController::class, 'send'])->name('donations.certificates.send');
+        Route::post('bestaetigungen/{certificate}/widerrufen', [DonationController::class, 'revoke'])->name('donations.certificates.revoke');
     });
     Route::middleware(['module:inventory', 'can:view-inventory'])->prefix('inventar')->group(function () {
         Route::get('/', [InventoryController::class, 'index'])->defaults('tab', 'overview')->name('inventory');

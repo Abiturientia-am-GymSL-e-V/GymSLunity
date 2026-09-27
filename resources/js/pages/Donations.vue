@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import {
+    Ban,
     BookOpen,
     Download,
     FileClock,
     FilePlus2,
     Mail,
     PenLine,
+    RotateCcw,
     Settings2,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import CountryInput from '@/components/CountryInput.vue';
 import InputError from '@/components/InputError.vue';
+import SearchableDropdown from '@/components/SearchableDropdown.vue';
 import SignaturePad from '@/components/SignaturePad.vue';
 import StatusAlert from '@/components/StatusAlert.vue';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +30,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
 
 type Certificate = {
     id: number;
@@ -34,6 +39,10 @@ type Certificate = {
     signed_by: string;
     sent_at: string | null;
     sent_to: string | null;
+    revoked_at: string | null;
+    revoked_by: string | null;
+    revocation_reason: string | null;
+    print_only: boolean;
 };
 type Donation = {
     id: number;
@@ -50,11 +59,13 @@ type Donation = {
 const props = defineProps<{
     activeTab: 'ledger' | 'create' | 'open';
     donations: Donation[];
+    openDonations: Donation[];
     purposes: Array<{ value: string; label: string }>;
     configuration: {
         ready: boolean;
         errors: string[];
         contributions_tax_deductible: boolean;
+        digital_delivery_allowed: boolean;
     };
     hasProfileSignature: boolean;
     summary: {
@@ -62,6 +73,7 @@ const props = defineProps<{
         amount_cents: number;
         open_count: number;
         issued_count: number;
+        revoked_count: number;
     };
 }>();
 defineOptions({
@@ -78,9 +90,6 @@ const tabs = [
         '/spenden/offene-bestaetigungen',
     ],
 ] as const;
-const openDonations = computed(() =>
-    props.donations.filter((donation) => !donation.certificate),
-);
 const money = (cents: number) =>
     new Intl.NumberFormat('de-DE', {
         style: 'currency',
@@ -98,6 +107,79 @@ const typeLabels: Record<Donation['donation_type'], string> = {
     membership_fee: 'Mitgliedsbeitrag',
     expense_waiver: 'Aufwandsspende',
 };
+const donationTypeOptions = Object.entries(typeLabels).map(
+    ([value, label]) => ({
+        value,
+        label,
+    }),
+);
+const assetOriginOptions = [
+    { value: 'private', label: 'Privatvermögen' },
+    { value: 'business', label: 'Betriebsvermögen' },
+    { value: 'unknown', label: 'Keine Angabe trotz Aufforderung' },
+];
+const filterTypeOptions = [
+    { value: 'all', label: 'Alle Spendenarten' },
+    ...donationTypeOptions,
+];
+const filterStatusOptions = [
+    { value: 'all', label: 'Alle Bestätigungsstatus' },
+    { value: 'open', label: 'Offen' },
+    { value: 'issued', label: 'Ausgestellt' },
+    { value: 'revoked', label: 'Widerrufen' },
+];
+const ledgerFilters = ref({
+    q: '',
+    from: '',
+    to: '',
+    donation_type: 'all',
+    certificate_status: 'all',
+});
+const filteredDonations = computed(() => {
+    const query = ledgerFilters.value.q.trim().toLocaleLowerCase('de');
+    return props.donations.filter((donation) => {
+        const status = !donation.certificate
+            ? 'open'
+            : donation.certificate.revoked_at
+              ? 'revoked'
+              : 'issued';
+        return (
+            (!query ||
+                [
+                    donation.receipt_number,
+                    donation.donor_name,
+                    donation.donor_email ?? '',
+                ]
+                    .join(' ')
+                    .toLocaleLowerCase('de')
+                    .includes(query)) &&
+            (!ledgerFilters.value.from ||
+                donation.donated_at >= ledgerFilters.value.from) &&
+            (!ledgerFilters.value.to ||
+                donation.donated_at <= ledgerFilters.value.to) &&
+            (ledgerFilters.value.donation_type === 'all' ||
+                donation.donation_type === ledgerFilters.value.donation_type) &&
+            (ledgerFilters.value.certificate_status === 'all' ||
+                status === ledgerFilters.value.certificate_status)
+        );
+    });
+});
+const reportUrl = computed(() => {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(ledgerFilters.value)) {
+        if (value && value !== 'all') query.set(key, value);
+    }
+    return `/spenden/spendenbuch.pdf?${query.toString()}`;
+});
+function resetLedgerFilters() {
+    ledgerFilters.value = {
+        q: '',
+        from: '',
+        to: '',
+        donation_type: 'all',
+        certificate_status: 'all',
+    };
+}
 const today = new Date().toISOString().slice(0, 10);
 const createForm = useForm({
     donor_name: '',
@@ -122,7 +204,7 @@ function store() {
         },
     });
 }
-type SignatureMethod = 'digital' | 'profile' | 'drawn';
+type SignatureMethod = 'digital' | 'profile' | 'drawn' | 'print';
 const issueDialogOpen = ref(false);
 const selectedDonation = ref<Donation | null>(null);
 const issueForm = useForm<{
@@ -132,6 +214,9 @@ const issueForm = useForm<{
 function issue(donation: Donation) {
     selectedDonation.value = donation;
     issueForm.reset();
+    issueForm.signature_method = props.configuration.digital_delivery_allowed
+        ? 'digital'
+        : 'print';
     issueForm.clearErrors();
     issueDialogOpen.value = true;
 }
@@ -147,6 +232,29 @@ function submitIssue() {
     });
 }
 const sendForm = useForm({});
+const revokeDialogOpen = ref(false);
+const selectedCertificate = ref<Certificate | null>(null);
+const revokeForm = useForm({ reason: '', originals_recovered: false });
+function startRevoke(certificate: Certificate) {
+    selectedCertificate.value = certificate;
+    revokeForm.reset();
+    revokeForm.clearErrors();
+    revokeDialogOpen.value = true;
+}
+function submitRevoke() {
+    if (!selectedCertificate.value) return;
+    revokeForm.post(
+        `/spenden/bestaetigungen/${selectedCertificate.value.id}/widerrufen`,
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                revokeDialogOpen.value = false;
+                selectedCertificate.value = null;
+                revokeForm.reset();
+            },
+        },
+    );
+}
 const issueError = computed(() => {
     const errors = issueForm.errors as Record<string, string>;
 
@@ -155,7 +263,11 @@ const issueError = computed(() => {
     );
 });
 const actionError = computed(
-    () => issueError.value || (sendForm.errors as Record<string, string>).email,
+    () =>
+        issueError.value ||
+        (sendForm.errors as Record<string, string>).email ||
+        revokeForm.errors.reason ||
+        revokeForm.errors.originals_recovered,
 );
 function send(certificate: Certificate) {
     sendForm.post(`/spenden/bestaetigungen/${certificate.id}/versenden`, {
@@ -205,6 +317,12 @@ function send(certificate: Certificate) {
                 <p class="mt-1 text-2xl font-semibold">
                     {{ summary.issued_count }}
                 </p>
+                <p
+                    v-if="summary.revoked_count"
+                    class="text-sm text-muted-foreground"
+                >
+                    davon {{ summary.revoked_count }} widerrufen
+                </p>
             </div>
         </div>
 
@@ -214,6 +332,18 @@ function send(certificate: Certificate) {
             title="Vor der ersten Ausstellung fehlen Stammdaten"
         >
             {{ configuration.errors.join(' ') }}
+        </StatusAlert>
+        <StatusAlert
+            v-if="
+                configuration.ready && !configuration.digital_delivery_allowed
+            "
+            type="info"
+            title="Bestätigungen werden nur zum Drucken erstellt"
+        >
+            Das maschinelle Verfahren wurde dem Finanzamt nicht als angezeigt
+            bestätigt. Neue Belege erhalten deshalb ein freies Feld für die
+            eigenhändige Unterschrift und können nicht per E-Mail versendet
+            werden.
         </StatusAlert>
         <StatusAlert
             v-if="actionError"
@@ -232,7 +362,6 @@ function send(certificate: Certificate) {
                 :key="tab[0]"
                 :href="tab[3]"
                 :aria-current="activeTab === tab[0] ? 'page' : undefined"
-                prefetch
                 class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
                 :class="
                     activeTab === tab[0]
@@ -253,10 +382,77 @@ function send(certificate: Certificate) {
             aria-label="Spendenbuch"
         >
             <div class="border-b px-5 py-4">
-                <h2 class="font-semibold">Spendenbuch</h2>
-                <p class="mt-1 text-sm text-muted-foreground">
-                    Fortlaufende, nach Zuwendungsdatum sortierte Aufzeichnung.
-                </p>
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h2 class="font-semibold">Spendenbuch</h2>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            Fortlaufende, nach Zuwendungsdatum sortierte
+                            Aufzeichnung.
+                        </p>
+                    </div>
+                    <Button as-child variant="outline">
+                        <a :href="reportUrl"><Download class="size-4" />PDF</a>
+                    </Button>
+                </div>
+            </div>
+            <div
+                class="grid gap-3 border-b p-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,.7fr)_minmax(0,.7fr)_minmax(0,1fr)_minmax(0,1fr)_auto] xl:items-end"
+            >
+                <div class="min-w-0 space-y-2">
+                    <Label for="donation-filter-query">Suche</Label>
+                    <Input
+                        id="donation-filter-query"
+                        v-model="ledgerFilters.q"
+                        placeholder="Name, E-Mail oder Nummer"
+                    />
+                </div>
+                <div class="min-w-0 space-y-2">
+                    <Label for="donation-filter-from">Von</Label>
+                    <Input
+                        id="donation-filter-from"
+                        v-model="ledgerFilters.from"
+                        type="date"
+                    />
+                </div>
+                <div class="min-w-0 space-y-2">
+                    <Label for="donation-filter-to">Bis</Label>
+                    <Input
+                        id="donation-filter-to"
+                        v-model="ledgerFilters.to"
+                        type="date"
+                        :min="ledgerFilters.from || undefined"
+                    />
+                </div>
+                <div class="min-w-0 space-y-2">
+                    <Label for="donation-filter-type">Spendenart</Label>
+                    <SearchableDropdown
+                        id="donation-filter-type"
+                        v-model="ledgerFilters.donation_type"
+                        :options="filterTypeOptions"
+                        search-placeholder="Spendenart suchen"
+                        empty-text="Keine Spendenart gefunden"
+                        aria-label="Spendenart filtern"
+                    />
+                </div>
+                <div class="min-w-0 space-y-2">
+                    <Label for="donation-filter-status"
+                        >Bestätigungsstatus</Label
+                    >
+                    <SearchableDropdown
+                        id="donation-filter-status"
+                        v-model="ledgerFilters.certificate_status"
+                        :options="filterStatusOptions"
+                        search-placeholder="Status suchen"
+                        empty-text="Kein Status gefunden"
+                        aria-label="Bestätigungsstatus filtern"
+                    />
+                </div>
+                <Button
+                    type="button"
+                    variant="outline"
+                    @click="resetLedgerFilters"
+                    ><RotateCcw class="size-4" />Zurücksetzen</Button
+                >
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full min-w-[1050px] text-sm">
@@ -276,7 +472,10 @@ function send(certificate: Certificate) {
                         </tr>
                     </thead>
                     <tbody class="divide-y">
-                        <tr v-for="donation in donations" :key="donation.id">
+                        <tr
+                            v-for="donation in filteredDonations"
+                            :key="donation.id"
+                        >
                             <td class="px-4 py-3 font-mono text-xs">
                                 {{ donation.receipt_number }}
                             </td>
@@ -310,11 +509,37 @@ function send(certificate: Certificate) {
                                     class="space-y-2"
                                 >
                                     <div>
-                                        <Badge>Ja</Badge>
+                                        <Badge
+                                            :variant="
+                                                donation.certificate.revoked_at
+                                                    ? 'destructive'
+                                                    : 'default'
+                                            "
+                                            >{{
+                                                donation.certificate.revoked_at
+                                                    ? 'Widerrufen'
+                                                    : 'Ja'
+                                            }}</Badge
+                                        >
                                         <span class="ml-1 text-xs">{{
                                             donation.certificate.number
                                         }}</span>
                                     </div>
+                                    <p
+                                        v-if="donation.certificate.revoked_at"
+                                        class="max-w-64 text-xs text-destructive"
+                                    >
+                                        {{
+                                            date(
+                                                donation.certificate.revoked_at,
+                                            )
+                                        }}
+                                        ·
+                                        {{
+                                            donation.certificate
+                                                .revocation_reason
+                                        }}
+                                    </p>
                                     <div class="flex flex-wrap gap-2">
                                         <a
                                             :href="`/spenden/bestaetigungen/${donation.certificate.id}`"
@@ -322,7 +547,13 @@ function send(certificate: Certificate) {
                                             ><Download class="size-3.5" />PDF</a
                                         >
                                         <button
-                                            v-if="donation.donor_email"
+                                            v-if="
+                                                donation.donor_email &&
+                                                configuration.digital_delivery_allowed &&
+                                                !donation.certificate
+                                                    .print_only &&
+                                                !donation.certificate.revoked_at
+                                            "
                                             type="button"
                                             class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline disabled:opacity-50"
                                             :disabled="sendForm.processing"
@@ -333,6 +564,20 @@ function send(certificate: Certificate) {
                                                     ? 'Erneut senden'
                                                     : 'Senden'
                                             }}
+                                        </button>
+                                        <button
+                                            v-if="
+                                                !donation.certificate.revoked_at
+                                            "
+                                            type="button"
+                                            class="inline-flex items-center gap-1 text-xs font-medium text-destructive hover:underline"
+                                            @click="
+                                                startRevoke(
+                                                    donation.certificate,
+                                                )
+                                            "
+                                        >
+                                            <Ban class="size-3.5" />Widerrufen
                                         </button>
                                     </div>
                                 </div>
@@ -352,12 +597,12 @@ function send(certificate: Certificate) {
                                 </div>
                             </td>
                         </tr>
-                        <tr v-if="donations.length === 0">
+                        <tr v-if="filteredDonations.length === 0">
                             <td
                                 colspan="7"
                                 class="px-4 py-10 text-center text-muted-foreground"
                             >
-                                Noch keine Spenden erfasst.
+                                Keine Spenden entsprechen den gewählten Filtern.
                             </td>
                         </tr>
                     </tbody>
@@ -422,13 +667,11 @@ function send(certificate: Certificate) {
                         /><InputError :message="createForm.errors.donor_city" />
                     </div>
                     <div class="space-y-2">
-                        <Label for="donor-country">Ländercode *</Label
-                        ><Input
+                        <Label for="donor-country">Land *</Label
+                        ><CountryInput
                             id="donor-country"
                             v-model="createForm.donor_country"
-                            maxlength="2"
                             required
-                            class="uppercase"
                         /><InputError
                             :message="createForm.errors.donor_country"
                         />
@@ -458,25 +701,21 @@ function send(certificate: Certificate) {
                 <div class="grid gap-5 p-5 sm:grid-cols-2">
                     <div class="space-y-2">
                         <Label for="donation-type">Typ *</Label
-                        ><select
+                        ><SearchableDropdown
                             id="donation-type"
                             v-model="createForm.donation_type"
-                            class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                        >
-                            <option value="money">Geldzuwendung</option>
-                            <option value="material">Sachzuwendung</option>
-                            <option value="expense_waiver">
-                                Aufwandsspende / Erstattungsverzicht
-                            </option>
-                            <option
-                                v-if="
-                                    configuration.contributions_tax_deductible
-                                "
-                                value="membership_fee"
-                            >
-                                Mitgliedsbeitrag
-                            </option></select
-                        ><InputError
+                            :options="
+                                donationTypeOptions.filter(
+                                    (option) =>
+                                        option.value !== 'membership_fee' ||
+                                        configuration.contributions_tax_deductible,
+                                )
+                            "
+                            search-placeholder="Spendenart suchen"
+                            empty-text="Keine Spendenart gefunden"
+                            aria-label="Spendenart auswählen"
+                            trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                        /><InputError
                             :message="createForm.errors.donation_type"
                         />
                     </div>
@@ -502,20 +741,16 @@ function send(certificate: Certificate) {
                     </div>
                     <div class="space-y-2">
                         <Label for="purpose">Steuerbegünstigter Zweck *</Label
-                        ><select
+                        ><SearchableDropdown
                             id="purpose"
                             v-model="createForm.purpose_code"
-                            class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                        >
-                            <option value="" disabled>Zweck auswählen</option>
-                            <option
-                                v-for="purpose in purposes"
-                                :key="purpose.value"
-                                :value="purpose.value"
-                            >
-                                {{ purpose.label }}
-                            </option></select
-                        ><InputError
+                            :options="purposes"
+                            placeholder="Zweck auswählen"
+                            search-placeholder="Zweck suchen"
+                            empty-text="Kein Zweck gefunden"
+                            aria-label="Steuerbegünstigten Zweck auswählen"
+                            trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                        /><InputError
                             :message="createForm.errors.purpose_code"
                         />
                         <p
@@ -531,12 +766,11 @@ function send(certificate: Certificate) {
                             <Label for="description"
                                 >Genaue Bezeichnung, Alter, Zustand, Kaufpreis
                                 *</Label
-                            ><textarea
+                            ><Textarea
                                 id="description"
                                 v-model="createForm.description"
                                 rows="3"
                                 maxlength="600"
-                                class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                 required
                             /><InputError
                                 :message="createForm.errors.description"
@@ -544,19 +778,15 @@ function send(certificate: Certificate) {
                         </div>
                         <div class="space-y-2">
                             <Label for="asset-origin">Herkunft *</Label
-                            ><select
+                            ><SearchableDropdown
                                 id="asset-origin"
                                 v-model="createForm.asset_origin"
-                                class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                            >
-                                <option value="private">Privatvermögen</option>
-                                <option value="business">
-                                    Betriebsvermögen
-                                </option>
-                                <option value="unknown">
-                                    Keine Angabe trotz Aufforderung
-                                </option></select
-                            ><InputError
+                                :options="assetOriginOptions"
+                                search-placeholder="Herkunft suchen"
+                                empty-text="Keine Herkunft gefunden"
+                                aria-label="Herkunft der Sachzuwendung auswählen"
+                                trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                            /><InputError
                                 :message="createForm.errors.asset_origin"
                             />
                         </div>
@@ -641,8 +871,11 @@ function send(certificate: Certificate) {
                         variant="outline"
                         :disabled="issueForm.processing || !configuration.ready"
                         @click="issue(donation)"
-                        ><PenLine class="size-4" />Ausstellen &
-                        unterzeichnen</Button
+                        ><PenLine class="size-4" />{{
+                            configuration.digital_delivery_allowed
+                                ? 'Ausstellen & unterzeichnen'
+                                : 'Druckversion erstellen'
+                        }}</Button
                     >
                 </div>
                 <p
@@ -657,12 +890,20 @@ function send(certificate: Certificate) {
         <Dialog v-model:open="issueDialogOpen">
             <DialogContent class="sm:max-w-xl">
                 <DialogHeader>
-                    <DialogTitle
-                        >Zuwendungsbestätigung unterzeichnen</DialogTitle
-                    >
+                    <DialogTitle>{{
+                        configuration.digital_delivery_allowed
+                            ? 'Zuwendungsbestätigung unterzeichnen'
+                            : 'Zuwendungsbestätigung zum Drucken erstellen'
+                    }}</DialogTitle>
                     <DialogDescription>
-                        {{ $address('Wähle', 'Wählen Sie') }} die
-                        Unterschriftsart für
+                        <template v-if="configuration.digital_delivery_allowed"
+                            >{{ $address('Wähle', 'Wählen Sie') }} die
+                            Unterschriftsart für</template
+                        >
+                        <template v-else
+                            >Erstelle eine Druckversion mit freiem
+                            Unterschriftsfeld für</template
+                        >
                         <strong>{{ selectedDonation?.donor_name }}</strong
                         >. Die Bestätigung wird danach unveränderlich
                         ausgestellt.
@@ -671,32 +912,48 @@ function send(certificate: Certificate) {
 
                 <form class="space-y-4" @submit.prevent="submitIssue">
                     <fieldset class="space-y-2">
-                        <legend class="text-sm font-medium">
+                        <legend
+                            v-if="configuration.digital_delivery_allowed"
+                            class="text-sm font-medium"
+                        >
                             Unterschriftsart
                         </legend>
 
-                        <label
-                            class="flex cursor-pointer gap-3 rounded-lg border p-3 has-checked:border-primary has-checked:bg-muted/50"
+                        <template v-if="configuration.digital_delivery_allowed">
+                            <label
+                                class="flex cursor-pointer gap-3 rounded-lg border p-3 has-checked:border-primary has-checked:bg-muted/50"
+                            >
+                                <input
+                                    v-model="issueForm.signature_method"
+                                    type="radio"
+                                    value="digital"
+                                    class="mt-1"
+                                />
+                                <span>
+                                    <span class="block text-sm font-medium"
+                                        >Digitale Signatur</span
+                                    >
+                                    <span
+                                        class="block text-xs text-muted-foreground"
+                                        >Digitale Freigabe mit prüfbarem
+                                        Signaturcode wie bisher.</span
+                                    >
+                                </span>
+                            </label>
+                        </template>
+                        <StatusAlert
+                            v-else
+                            type="warning"
+                            title="Eigenhändige Unterschrift erforderlich"
                         >
-                            <input
-                                v-model="issueForm.signature_method"
-                                type="radio"
-                                value="digital"
-                                class="mt-1"
-                            />
-                            <span>
-                                <span class="block text-sm font-medium"
-                                    >Digitale Signatur</span
-                                >
-                                <span
-                                    class="block text-xs text-muted-foreground"
-                                    >Digitale Freigabe mit prüfbarem
-                                    Signaturcode wie bisher.</span
-                                >
-                            </span>
-                        </label>
+                            Der Beleg wird ausschließlich zum Ausdrucken
+                            erstellt. Fordere die verantwortliche Person auf,
+                            das ausgedruckte Dokument eigenhändig zu
+                            unterschreiben. Ein E-Mail-Versand ist gesperrt.
+                        </StatusAlert>
 
                         <label
+                            v-if="configuration.digital_delivery_allowed"
                             class="flex gap-3 rounded-lg border p-3 has-checked:border-primary has-checked:bg-muted/50"
                             :class="
                                 props.hasProfileSignature
@@ -735,6 +992,7 @@ function send(certificate: Certificate) {
                         </label>
 
                         <label
+                            v-if="configuration.digital_delivery_allowed"
                             class="flex cursor-pointer gap-3 rounded-lg border p-3 has-checked:border-primary has-checked:bg-muted/50"
                         >
                             <input
@@ -780,7 +1038,84 @@ function send(certificate: Certificate) {
                             "
                         >
                             <Spinner v-if="issueForm.processing" />
-                            Verbindlich unterzeichnen & ausstellen
+                            {{
+                                issueForm.signature_method === 'print'
+                                    ? 'Druckversion verbindlich erstellen'
+                                    : 'Verbindlich unterzeichnen & ausstellen'
+                            }}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog v-model:open="revokeDialogOpen">
+            <DialogContent class="sm:max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>Zuwendungsbestätigung widerrufen</DialogTitle>
+                    <DialogDescription>
+                        Der Widerruf wird dauerhaft protokolliert. Künftige
+                        PDF-Abrufe erhalten ein deutliches Wasserzeichen
+                        „WIDERRUFEN“.
+                    </DialogDescription>
+                </DialogHeader>
+                <form class="space-y-4" @submit.prevent="submitRevoke">
+                    <StatusAlert
+                        type="warning"
+                        title="Originale zuerst zurückfordern"
+                    >
+                        Fordere vor dem Widerruf alle ausgegebenen Originale und
+                        Kopien von der spendenden Person zurück und informiere
+                        sie, dass die Bestätigung nicht mehr steuerlich
+                        verwendet werden darf.
+                    </StatusAlert>
+                    <div class="space-y-2">
+                        <Label for="revocation-reason"
+                            >Grund des Widerrufs *</Label
+                        >
+                        <Textarea
+                            id="revocation-reason"
+                            v-model="revokeForm.reason"
+                            rows="4"
+                            maxlength="1000"
+                            required
+                        />
+                        <InputError :message="revokeForm.errors.reason" />
+                    </div>
+                    <label class="flex items-start gap-3 rounded-lg border p-4">
+                        <input
+                            v-model="revokeForm.originals_recovered"
+                            type="checkbox"
+                            class="mt-1 size-4 rounded border-input"
+                        />
+                        <span class="text-sm"
+                            >Ich bestätige, dass alle ausgegebenen Originale und
+                            Kopien zurückgefordert wurden.</span
+                        >
+                    </label>
+                    <InputError
+                        :message="revokeForm.errors.originals_recovered"
+                    />
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            @click="revokeDialogOpen = false"
+                            >Abbrechen</Button
+                        >
+                        <Button
+                            type="submit"
+                            variant="destructive"
+                            :disabled="
+                                revokeForm.processing ||
+                                !revokeForm.reason.trim() ||
+                                !revokeForm.originals_recovered
+                            "
+                        >
+                            <Spinner v-if="revokeForm.processing" /><Ban
+                                v-else
+                                class="size-4"
+                            />Unwiderruflich widerrufen
                         </Button>
                     </DialogFooter>
                 </form>

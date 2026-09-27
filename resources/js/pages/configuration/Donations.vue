@@ -15,7 +15,6 @@ type Settings = {
     tax_privilege_notice_type?: string;
     tax_privilege_notice_date?: string;
     tax_privilege_assessment_period?: string;
-    certificate_location?: string;
     certificate_machine_generated_notified?: boolean;
 };
 const props = defineProps<{
@@ -43,8 +42,6 @@ const form = useForm({
     tax_privilege_notice_date: props.settings.tax_privilege_notice_date ?? '',
     tax_privilege_assessment_period:
         props.settings.tax_privilege_assessment_period ?? '',
-    certificate_location:
-        props.settings.certificate_location ?? props.club.city ?? '',
     certificate_machine_generated_notified:
         props.settings.certificate_machine_generated_notified ?? false,
 });
@@ -91,6 +88,15 @@ const identityRows = [
             title="Noch nicht ausstellungsbereit"
         >
             {{ readiness.join(' ') }}
+        </StatusAlert>
+        <StatusAlert
+            v-if="!form.certificate_machine_generated_notified"
+            type="info"
+            title="Zuwendungsbestätigungen sind nur zum Drucken verfügbar"
+        >
+            Solange das Verfahren für maschinell erstellte Bestätigungen dem
+            Finanzamt nicht angezeigt wurde, erstellt das System Belege mit
+            freiem Unterschriftsfeld. Ein E-Mail-Versand ist dann gesperrt.
         </StatusAlert>
 
         <section class="rounded-xl border bg-card">
@@ -199,18 +205,19 @@ const identityRows = [
                         />
                     </div>
                     <div class="space-y-2">
-                        <Label for="certificate-location"
-                            >Ausstellungsort *</Label
+                        <Label>Ausstellungsort</Label>
+                        <p
+                            class="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm"
                         >
-                        <Input
-                            id="certificate-location"
-                            v-model="form.certificate_location"
-                            maxlength="255"
-                            required
-                        />
-                        <InputError
-                            :message="form.errors.certificate_location"
-                        />
+                            {{
+                                props.club.city ||
+                                'Vereinssitz noch nicht hinterlegt'
+                            }}
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            Der Vereinssitz wird automatisch aus den
+                            Vereinsdaten übernommen.
+                        </p>
                     </div>
                     <div class="space-y-2">
                         <Label for="membership-fees"

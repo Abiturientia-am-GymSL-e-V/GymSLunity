@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Donations;
 
+use App\Configuration\Countries;
 use App\Configuration\MailConfigurator;
 use App\Documents\SignatureImage;
 use App\Donations\DonationAudit;
@@ -10,14 +11,17 @@ use App\Donations\DonationPurposes;
 use App\Donations\DonationSequence;
 use App\Http\Controllers\Controller;
 use App\Mail\DonationCertificateMail;
+use App\Members\MemberReportWriter;
 use App\Models\ClubSetting;
 use App\Models\Donation;
 use App\Models\DonationCertificate;
+use App\Models\DonationCertificateRevocation;
 use App\Payments\Money;
 use App\Support\FormOfAddress;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
@@ -40,26 +44,39 @@ class DonationController extends Controller
         $club = ClubSetting::current()->data;
         $configuredCodes = is_array($club['donation_purpose_codes'] ?? null) ? $club['donation_purpose_codes'] : [];
         $purposeOptions = collect(DonationPurposes::forFrontend())->whereIn('value', $configuredCodes)->values()->all();
-        $donations = Donation::query()->with(['certificate.deliveries' => fn ($query) => $query->latest('created_at')])
-            ->latest('donated_at')->latest('id')->limit(500)->get()
-            ->map(fn (Donation $donation): array => $this->row($donation));
+        $withCertificate = ['certificate.deliveries' => fn ($query) => $query->latest('created_at'), 'certificate.revocation'];
+        $donations = $tab === 'ledger'
+            ? Donation::query()->with($withCertificate)->latest('donated_at')->latest('id')->limit(500)->get()
+                ->map(fn (Donation $donation): array => $this->row($donation))
+            : collect();
+        $openDonations = $tab === 'open'
+            ? Donation::query()->whereDoesntHave('certificate')->latest('donated_at')->latest('id')->limit(500)->get()
+                ->map(fn (Donation $donation): array => $this->row($donation))
+            : collect();
+        $count = Donation::query()->count();
+        $amountCents = (int) Donation::query()->sum('amount_cents');
+        $openCount = Donation::query()->whereDoesntHave('certificate')->count();
+        $revokedCount = DonationCertificateRevocation::query()->count();
 
         return Inertia::render('Donations', [
             'activeTab' => $tab,
             'navigationBreadcrumb' => ['title' => $tabs[$tab][0], 'href' => $tabs[$tab][1]],
             'donations' => $donations,
+            'openDonations' => $openDonations,
             'purposes' => $purposeOptions,
             'configuration' => [
                 'ready' => DonationCertificateGenerator::configurationErrors($club) === [],
                 'errors' => DonationCertificateGenerator::configurationErrors($club),
                 'contributions_tax_deductible' => (bool) ($club['contributions_tax_deductible'] ?? false),
+                'digital_delivery_allowed' => DonationCertificateGenerator::digitalDeliveryAllowed($club),
             ],
             'hasProfileSignature' => $request->user()->hasProfileSignature(),
             'summary' => [
-                'count' => $donations->count(),
-                'amount_cents' => $donations->sum('amount_cents'),
-                'open_count' => $donations->whereNull('certificate')->count(),
-                'issued_count' => $donations->whereNotNull('certificate')->count(),
+                'count' => $count,
+                'amount_cents' => $amountCents,
+                'open_count' => $openCount,
+                'issued_count' => $count - $openCount,
+                'revoked_count' => $revokedCount,
             ],
         ]);
     }
@@ -69,12 +86,15 @@ class DonationController extends Controller
         if (is_string($request->input('amount'))) {
             $request->merge(['amount' => str_replace(',', '.', trim($request->input('amount')))]);
         }
+        if (is_string($request->input('donor_country'))) {
+            $request->merge(['donor_country' => strtoupper(trim($request->input('donor_country')))]);
+        }
         $data = $request->validate([
             'donor_name' => ['required', 'string', 'max:255'],
             'donor_street' => ['required', 'string', 'max:255'],
             'donor_postal_code' => ['required', 'string', 'max:20'],
             'donor_city' => ['required', 'string', 'max:255'],
-            'donor_country' => ['required', 'string', 'size:2'],
+            'donor_country' => ['required', 'string', Rule::in(array_keys(Countries::all()))],
             'donor_email' => ['nullable', 'email:rfc', 'max:255'],
             'donation_type' => ['required', Rule::in(['money', 'material', 'membership_fee', 'expense_waiver'])],
             'amount' => ['required', 'decimal:0,2', 'min:0.01', 'max:9999999.99'],
@@ -106,7 +126,7 @@ class DonationController extends Controller
                 'donor_street' => $data['donor_street'],
                 'donor_postal_code' => $data['donor_postal_code'],
                 'donor_city' => $data['donor_city'],
-                'donor_country' => strtoupper($data['donor_country']),
+                'donor_country' => $data['donor_country'],
                 'donor_email' => $data['donor_email'] ?: null,
                 'donation_type' => $data['donation_type'],
                 'amount_cents' => Money::cents($data['amount']),
@@ -140,7 +160,7 @@ class DonationController extends Controller
             $request->merge(['signature_method' => 'digital']);
         }
         $data = $request->validate([
-            'signature_method' => ['required', Rule::in(['digital', 'profile', 'drawn'])],
+            'signature_method' => ['required', Rule::in(['digital', 'profile', 'drawn', 'print'])],
             'signature_data' => [
                 Rule::requiredIf(fn (): bool => $request->input('signature_method') === 'drawn'),
                 'nullable',
@@ -169,16 +189,19 @@ class DonationController extends Controller
         $method = match ($data['signature_method']) {
             'profile' => 'mit der Profil-Unterschrift',
             'drawn' => 'mit der gezeichneten Unterschrift',
+            'print' => 'zum Ausdrucken und eigenhändigen Unterzeichnen',
             default => 'digital',
         };
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Zuwendungsbestätigung '.$certificate->certificate_number.' wurde '.$method.' unterzeichnet und revisionssicher gespeichert.']);
+        $verb = $data['signature_method'] === 'print' ? 'erstellt' : 'unterzeichnet';
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Zuwendungsbestätigung '.$certificate->certificate_number.' wurde '.$method.' '.$verb.' und revisionssicher gespeichert.']);
 
         return back();
     }
 
     public function document(Request $request, DonationCertificate $certificate): HttpResponse
     {
-        $pdf = $certificate->pdf();
+        $certificate->loadMissing('revocation');
+        $pdf = $certificate->revocation?->pdf() ?? $certificate->pdf();
         DB::transaction(fn () => DonationAudit::record($request->user(), 'certificate_downloaded', [
             'certificate_number' => $certificate->certificate_number,
             'pdf_sha256' => $certificate->pdf_sha256,
@@ -186,7 +209,7 @@ class DonationController extends Controller
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="'.$certificate->certificate_number.'.pdf"',
+            'Content-Disposition' => 'attachment; filename="'.$certificate->certificate_number.($certificate->revocation ? '-WIDERRUFEN' : '').'.pdf"',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
             'ETag' => '"'.$certificate->pdf_sha256.'"',
@@ -195,6 +218,13 @@ class DonationController extends Controller
 
     public function send(Request $request, DonationCertificate $certificate, MailConfigurator $mailConfigurator): RedirectResponse
     {
+        $certificate->loadMissing('revocation');
+        if ($certificate->revocation) {
+            throw ValidationException::withMessages(['email' => 'Eine widerrufene Zuwendungsbestätigung darf nicht versendet werden.']);
+        }
+        if (! DonationCertificateGenerator::digitalDeliveryAllowed(ClubSetting::current()->data)) {
+            throw ValidationException::withMessages(['email' => 'Das maschinelle Verfahren wurde dem Finanzamt nicht angezeigt. Die Bestätigung darf daher nur ausgedruckt und eigenhändig unterschrieben werden.']);
+        }
         $donation = $certificate->donation;
         if (! $donation->donor_email) {
             throw ValidationException::withMessages(['email' => 'Für diese Spende ist keine E-Mail-Adresse hinterlegt.']);
@@ -216,6 +246,101 @@ class DonationController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Zuwendungsbestätigung wurde an '.$donation->donor_email.' versendet.']);
 
         return back();
+    }
+
+    public function revoke(Request $request, DonationCertificate $certificate, DonationCertificateGenerator $generator): RedirectResponse
+    {
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'max:1000'],
+            'originals_recovered' => ['accepted'],
+        ], [
+            'originals_recovered.accepted' => 'Bitte bestätigen, dass alle ausgegebenen Originale und Kopien zurückgefordert wurden.',
+        ]);
+
+        DB::transaction(function () use ($request, $certificate, $generator, $data): void {
+            $locked = DonationCertificate::query()->whereKey($certificate->id)->lockForUpdate()->firstOrFail();
+            if ($locked->revocation()->exists()) {
+                throw ValidationException::withMessages(['reason' => 'Diese Zuwendungsbestätigung wurde bereits widerrufen.']);
+            }
+            $revokedAt = now();
+            $pdf = $generator->revokedPdf($locked, $data['reason'], $revokedAt->toISOString());
+            $locked->revocation()->create([
+                'revoked_by' => $request->user()->id,
+                'revoked_by_name' => $request->user()->name,
+                'reason' => $data['reason'],
+                'originals_recovered' => true,
+                'encrypted_pdf' => Crypt::encryptString(base64_encode($pdf)),
+                'pdf_sha256' => hash('sha256', $pdf),
+                'revoked_at' => $revokedAt,
+                'created_at' => $revokedAt,
+            ]);
+            DonationAudit::record($request->user(), 'certificate_revoked', [
+                'certificate_number' => $locked->certificate_number,
+                'reason' => $data['reason'],
+                'originals_recovered' => true,
+                'revoked_pdf_sha256' => hash('sha256', $pdf),
+            ], $locked->donation);
+        });
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Die Zuwendungsbestätigung wurde widerrufen und der PDF-Abruf entsprechend gekennzeichnet.']);
+
+        return back();
+    }
+
+    public function report(Request $request): HttpResponse
+    {
+        $filters = $request->validate([
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+            'q' => ['nullable', 'string', 'max:100'],
+            'donation_type' => ['nullable', Rule::in(['money', 'material', 'membership_fee', 'expense_waiver'])],
+            'certificate_status' => ['nullable', Rule::in(['open', 'issued', 'revoked'])],
+        ]);
+        $query = Donation::query()->with(['certificate.revocation'])->latest('donated_at')->latest('id');
+        if (is_string($filters['from'] ?? null)) {
+            $query->whereDate('donated_at', '>=', $filters['from']);
+        }
+        if (is_string($filters['to'] ?? null)) {
+            $query->whereDate('donated_at', '<=', $filters['to']);
+        }
+        if (is_string($filters['q'] ?? null) && trim($filters['q']) !== '') {
+            $term = '%'.addcslashes(trim($filters['q']), '%_\\').'%';
+            $query->where(fn ($nested) => $nested
+                ->where('receipt_number', 'like', $term)
+                ->orWhere('donor_name', 'like', $term)
+                ->orWhere('donor_email', 'like', $term));
+        }
+        if (is_string($filters['donation_type'] ?? null)) {
+            $query->where('donation_type', $filters['donation_type']);
+        }
+        match ($filters['certificate_status'] ?? null) {
+            'open' => $query->whereDoesntHave('certificate'),
+            'issued' => $query->whereHas('certificate', fn ($certificate) => $certificate->whereDoesntHave('revocation')),
+            'revoked' => $query->whereHas('certificate.revocation'),
+            default => null,
+        };
+        if ((clone $query)->count() > 5000) {
+            throw ValidationException::withMessages(['scope' => 'Der Bericht ist auf 5.000 Spenden begrenzt. Bitte den Zeitraum oder die Filter einschränken.']);
+        }
+        $donations = $query->get();
+        $settings = ClubSetting::current();
+        $club = $settings->data;
+        $logo = $settings->logoDataUri();
+        $printedAt = now()->setTimezone(config('app.display_timezone'));
+        $html = view('donations.ledger-report', compact('donations', 'filters', 'club', 'logo', 'printedAt'))->render();
+        $pdf = MemberReportWriter::pdf($html, true);
+        DB::transaction(fn () => DonationAudit::record($request->user(), 'donation_ledger_exported', [
+            'filters' => $filters,
+            'row_count' => $donations->count(),
+            'pdf_sha256' => hash('sha256', $pdf),
+        ]));
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="spendenbuch-'.now()->format('Y-m-d-His').'.pdf"',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     /** @return array<string, mixed> */
@@ -241,6 +366,10 @@ class DonationController extends Controller
                 'signed_by' => $certificate->signed_by_name,
                 'sent_at' => $delivery?->created_at->toIso8601String(),
                 'sent_to' => $delivery?->recipient,
+                'revoked_at' => $certificate->revocation?->revoked_at->toIso8601String(),
+                'revoked_by' => $certificate->revocation?->revoked_by_name,
+                'revocation_reason' => $certificate->revocation?->reason,
+                'print_only' => ($certificate->snapshot['signature_method'] ?? null) === 'print',
             ] : null,
         ];
     }
