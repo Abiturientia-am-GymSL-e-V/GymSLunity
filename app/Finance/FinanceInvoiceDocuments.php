@@ -47,11 +47,18 @@ final class FinanceInvoiceDocuments
         if (! $canvas instanceof CPDF) {
             throw new RuntimeException('Die XRechnung konnte nicht in das PDF eingebettet werden.');
         }
-        $temporaryFile = tempnam(sys_get_temp_dir(), 'gymslunity-xrechnung-');
-        if ($temporaryFile === false || file_put_contents($temporaryFile, $xrechnung) === false) {
+        $temporaryFileHandle = tmpfile();
+        if ($temporaryFileHandle === false) {
             throw new RuntimeException('Die temporäre XRechnung konnte nicht erstellt werden.');
         }
         try {
+            $writtenBytes = fwrite($temporaryFileHandle, $xrechnung);
+            $metadata = stream_get_meta_data($temporaryFileHandle);
+            $temporaryFile = $metadata['uri'] ?? null;
+            if ($writtenBytes !== strlen($xrechnung) || ! fflush($temporaryFileHandle) || ! is_string($temporaryFile)) {
+                throw new RuntimeException('Die temporäre XRechnung konnte nicht erstellt werden.');
+            }
+
             $cpdf = $canvas->get_cpdf();
             $cpdf->addEmbeddedFile(
                 $temporaryFile,
@@ -63,7 +70,7 @@ final class FinanceInvoiceDocuments
 
             return $pdf->output();
         } finally {
-            @unlink($temporaryFile);
+            fclose($temporaryFileHandle);
         }
     }
 }
