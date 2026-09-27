@@ -1,7 +1,7 @@
 # GymSLunity
 
 [![Current Release](https://img.shields.io/github/v/release/Abiturientia-am-GymSL-e-V/GymSLunity)](https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL--1.2-yellow.svg)](LICENSE)
 
 GymSLunity ist eine webbasierte Komplettlösung für die tägliche Vereinsverwaltung. Die Anwendung verbindet Mitgliederverwaltung, Finanzen, Kalender, Kommunikation und Dokumente in einer gemeinsamen, rollenbasierten Arbeitsumgebung.
 
@@ -166,4 +166,4 @@ Sicherheitsprobleme sollten nicht als öffentliches Issue mit Echtdaten oder Zug
 
 Die Oberfläche basiert auf dem [Laravel Vue Starter Kit](https://github.com/laravel/vue-starter-kit). Weitere Abhängigkeiten und deren Lizenzen sind über Composer und npm dokumentiert.
 
-GymSLunity steht unter der [MIT-Lizenz](LICENSE).
+GymSLunity steht unter der [European Union Public Licence, Version 1.2 (EUPL-1.2)](LICENSE) (deutsche Fassung: [LICENSE.de.md](LICENSE.de.md)). Wer eine veränderte Fassung als Onlinedienst betreibt, muss deren Quellcode zugänglich machen.
