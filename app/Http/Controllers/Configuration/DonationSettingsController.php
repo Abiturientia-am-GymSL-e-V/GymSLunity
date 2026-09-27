@@ -54,7 +54,7 @@ class DonationSettingsController extends Controller
             $settings = ClubSetting::query()->whereKey(1)->lockForUpdate()->firstOrFail();
             abort_unless($request->user()->fresh()?->isAdministrator(), 403);
             if ($settings->version !== (int) $data['version']) {
-                throw ValidationException::withMessages(['version' => 'Die Stammdaten wurden inzwischen geändert. Bitte lade die Seite neu.']);
+                throw ValidationException::withMessages(['version' => 'Die Stammdaten wurden inzwischen geändert. Bitte die Seite neu laden.']);
             }
             $values = [...$settings->data, ...Arr::except($data, 'version')];
             ConfigurationAudit::record($request->user(), 'Spenden & Zuwendungsbestätigungen', $settings->data, $values);

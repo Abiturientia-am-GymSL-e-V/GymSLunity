@@ -21,6 +21,8 @@ class MembershipApplicationController extends Controller
         Gate::authorize('updateAny', Member::class);
 
         return Inertia::render('members/Applications', [
+            'totalMembers' => fn () => Member::query()->count(),
+            'today' => now()->toDateString(),
             'applications' => DB::table('membership_applications as applications')
                 ->join('members', 'members.id', '=', 'applications.member_id')
                 ->whereNull('applications.approved_at')->orderBy('applications.submitted_at')->orderBy('applications.id')
@@ -32,23 +34,30 @@ class MembershipApplicationController extends Controller
     public function approve(Request $request, Member $member, UpdateMember $update): RedirectResponse
     {
         Gate::authorize('update', $member);
-        $request->validate(['lock_version' => ['required', 'integer', 'min:0']]);
-        DB::transaction(function () use ($request, $member, $update): void {
+        $values = $request->validate([
+            'lock_version' => ['required', 'integer', 'min:0'],
+            'joined_at' => ['required', 'date_format:Y-m-d'],
+        ]);
+        DB::transaction(function () use ($request, $member, $update, $values): void {
             $configuration = ClubSetting::query()->whereKey(1)->sharedLock()->firstOrFail();
             $current = Member::query()->whereKey($member->id)->lockForUpdate()->firstOrFail();
-            $application = DB::table('membership_applications')->where('member_id', $member->id)->lockForUpdate()->first();
+            $application = DB::table('membership_applications')
+                ->where('member_id', $member->id)
+                ->whereNull('approved_at')
+                ->lockForUpdate()
+                ->first();
             abort_unless($application && $application->approved_at === null, 409, 'Es liegt kein offener Antrag vor.');
             if ($current->membership_type !== 'Kontakt' || $current->joined_at !== null || $current->left_at !== null || $current->deceased_at !== null) {
-                throw ValidationException::withMessages(['application' => 'Die Mitgliedschaft wurde inzwischen geändert. Bitte prüfe den Datensatz vor der Freigabe.']);
+                throw ValidationException::withMessages(['application' => 'Die Mitgliedschaft wurde inzwischen geändert. Bitte den Datensatz vor der Freigabe prüfen.']);
             }
-            $update->handle($current, $request->user(), $request->integer('lock_version'), [
-                'membership_type' => $application->membership_type, 'joined_at' => now()->toDateString(),
+            $update->handle($current, $request->user(), (int) $values['lock_version'], [
+                'membership_type' => $application->membership_type, 'joined_at' => $values['joined_at'],
             ], $configuration->fields_version);
             DB::table('membership_applications')->where('id', $application->id)->update([
                 'approved_at' => now(), 'approved_by' => $request->user()->id, 'approved_by_name' => $request->user()->name,
             ]);
         }, attempts: 3);
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Beitritt freigegeben. Die Mitgliedschaft beginnt heute.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Beitritt freigegeben und Eintrittsdatum gespeichert.']);
 
         return back();
     }

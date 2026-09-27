@@ -107,7 +107,7 @@ function testMail() {
         </header>
         <ConfigurationNav />
 
-        <Alert>
+        <Alert variant="info">
             <MailCheck class="size-4" />
             <AlertTitle>Aktiver Transport: {{ selectedDriver }}</AlertTitle>
             <AlertDescription>

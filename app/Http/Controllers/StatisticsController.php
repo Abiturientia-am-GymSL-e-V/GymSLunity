@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Members\MemberReportWriter;
+use App\Models\ClubSetting;
 use App\Statistics\StatisticsReport;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -54,6 +57,31 @@ class StatisticsController extends Controller
             fclose($output);
         }, 'bestandsmeldung-'.$asOf->format('Y-m-d').'.csv', [
             'Content-Type' => 'text/csv; charset=UTF-8',
+            'Cache-Control' => 'private, no-store',
+            'Pragma' => 'no-cache',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    public function pdf(Request $request): HttpResponse
+    {
+        [$from, $to, $asOf] = $this->dates($request);
+        $settings = ClubSetting::current();
+        $report = (new StatisticsReport($from, $to, $asOf))->build();
+        $html = view('statistics.report', [
+            ...$report,
+            'from' => $from,
+            'to' => $to,
+            'asOf' => $asOf,
+            'club' => $settings->data,
+            'logo' => $settings->logoDataUri(),
+            'createdAt' => now()->setTimezone(config('app.display_timezone')),
+        ])->render();
+        $filename = 'auswertungen-'.$from->format('Y-m-d').'-bis-'.$to->format('Y-m-d').'.pdf';
+
+        return response(MemberReportWriter::pdf($html, true), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
             'Cache-Control' => 'private, no-store',
             'Pragma' => 'no-cache',
             'X-Content-Type-Options' => 'nosniff',

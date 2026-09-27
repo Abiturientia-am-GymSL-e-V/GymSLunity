@@ -12,6 +12,7 @@ import {
 import { computed, ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import SignaturePad from '@/components/SignaturePad.vue';
+import StatusAlert from '@/components/StatusAlert.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -207,17 +208,20 @@ function send(certificate: Certificate) {
             </div>
         </div>
 
-        <div
+        <StatusAlert
             v-if="!configuration.ready"
-            class="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
-            role="alert"
+            type="warning"
+            title="Vor der ersten Ausstellung fehlen Stammdaten"
         >
-            <p class="font-medium">
-                Vor der ersten Ausstellung fehlen Stammdaten:
-            </p>
-            <p>{{ configuration.errors.join(' ') }}</p>
-        </div>
-        <InputError :message="actionError" role="alert" />
+            {{ configuration.errors.join(' ') }}
+        </StatusAlert>
+        <StatusAlert
+            v-if="actionError"
+            type="error"
+            title="Aktion fehlgeschlagen"
+        >
+            {{ actionError }}
+        </StatusAlert>
 
         <nav
             aria-label="Spendenbereiche"
@@ -657,7 +661,8 @@ function send(certificate: Certificate) {
                         >Zuwendungsbestätigung unterzeichnen</DialogTitle
                     >
                     <DialogDescription>
-                        Wähle die Unterschriftsart für
+                        {{ $address('Wähle', 'Wählen Sie') }} die
+                        Unterschriftsart für
                         <strong>{{ selectedDonation?.donor_name }}</strong
                         >. Die Bestätigung wird danach unveränderlich
                         ausgestellt.

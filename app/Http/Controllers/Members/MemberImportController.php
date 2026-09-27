@@ -47,6 +47,7 @@ class MemberImportController extends Controller
         ] : null;
 
         return Inertia::render('members/Import', [
+            'totalMembers' => fn () => Member::query()->count(),
             'fields' => MemberFields::directoryFields(),
             'mapping' => $mapping,
             'preview' => $preview === null || ($preview['stage'] ?? null) !== 'preview' ? null : [

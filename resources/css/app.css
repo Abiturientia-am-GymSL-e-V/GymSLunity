@@ -171,6 +171,22 @@
     }
 }
 
+@layer components {
+    /*
+     * Native date controls can exceed their grid column in WebKit/iPadOS.
+     * Use this class on every input[type='date'] inside responsive layouts.
+     */
+    .date-safe {
+        display: block;
+        box-sizing: border-box;
+        inline-size: 100%;
+        min-inline-size: 0;
+        max-inline-size: 100%;
+        appearance: none;
+        -webkit-appearance: none;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     *,
     ::before,

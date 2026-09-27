@@ -27,7 +27,7 @@ return [
         'mixed' => ':attribute muss Groß- und Kleinbuchstaben enthalten.',
         'numbers' => ':attribute muss mindestens eine Ziffer enthalten.',
         'symbols' => ':attribute muss mindestens ein Sonderzeichen enthalten.',
-        'uncompromised' => 'Dieses Passwort wurde in einem Datenleck gefunden. Bitte wähle ein anderes.',
+        'uncompromised' => 'Dieses Passwort wurde in einem Datenleck gefunden. Bitte ein anderes wählen.',
     ],
     'attributes' => ['name' => 'Name', 'email' => 'E-Mail-Adresse', 'password' => 'Passwort', 'current_password' => 'Aktuelles Passwort', 'password_confirmation' => 'Passwortbestätigung', 'code' => 'Bestätigungscode', 'roles' => 'Rollen', 'version' => 'Versionsnummer'],
 ];

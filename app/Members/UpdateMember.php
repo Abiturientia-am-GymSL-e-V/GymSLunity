@@ -7,6 +7,7 @@ use App\Models\Member;
 use App\Models\MemberChange;
 use App\Models\MemberFieldDefinition;
 use App\Models\User;
+use App\Support\FormOfAddress;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -14,6 +15,8 @@ use InvalidArgumentException;
 
 final class UpdateMember
 {
+    public function __construct(private readonly MemberMandates $mandates) {}
+
     /** @param array<string, mixed> $values */
     public function handle(Member $member, User $actor, int $version, array $values, ?int $configurationVersion = null): bool
     {
@@ -24,21 +27,27 @@ final class UpdateMember
         return DB::transaction(function () use ($member, $actor, $version, $values, $configurationVersion): bool {
             $configuration = ClubSetting::query()->whereKey(1)->sharedLock()->firstOrFail();
             if ($configurationVersion !== null && $configuration->fields_version !== $configurationVersion) {
-                throw ValidationException::withMessages(['form' => 'Die Feldkonfiguration wurde inzwischen geändert. Bitte lade den aktuellen Stand; deine Eingaben bleiben bis dahin erhalten.']);
+                throw ValidationException::withMessages(['form' => FormOfAddress::choose('Die Feldkonfiguration wurde inzwischen geändert. Bitte lade den aktuellen Stand; deine Eingaben bleiben bis dahin erhalten.', 'Die Feldkonfiguration wurde inzwischen geändert. Bitte laden Sie den aktuellen Stand; Ihre Eingaben bleiben bis dahin erhalten.')]);
             }
             abort_unless($actor->fresh()?->can('update', $member), 403);
             $current = Member::query()->whereKey($member->getKey())->lockForUpdate()->firstOrFail();
             if ($current->lock_version !== $version) {
-                throw ValidationException::withMessages(['lock_version' => 'Dieses Mitglied wurde inzwischen geändert. Deine Eingaben bleiben erhalten. Lade den aktuellen Stand, bevor du erneut bearbeitest.']);
+                throw ValidationException::withMessages(['lock_version' => FormOfAddress::choose('Dieses Mitglied wurde inzwischen geändert. Deine Eingaben bleiben erhalten. Lade den aktuellen Stand, bevor du erneut bearbeitest.', 'Dieses Mitglied wurde inzwischen geändert. Ihre Eingaben bleiben erhalten. Laden Sie den aktuellen Stand, bevor Sie erneut bearbeiten.')]);
             }
             // Validate again while the field configuration and member are locked.
             Validator::make($values, MemberValidation::rules($current), MemberValidation::messages(), MemberValidation::attributes())->validate();
+            if ($current->payment_method === 'SEPA-Lastschrift'
+                && array_key_exists('payment_method', $values)
+                && $values['payment_method'] !== 'SEPA-Lastschrift') {
+                $this->mandates->revoke($current, 'Zahlungsart geändert zu '.($values['payment_method'] ?: 'nicht hinterlegt'));
+                $values = [...$values, ...$this->mandates->clearedDetails()];
+            }
             $before = MemberFields::snapshot($current);
             $definitions = MemberFieldDefinition::query()->whereIn('key', array_keys($values))->get();
             $custom = $current->custom_values ?? [];
             foreach ($definitions as $definition) {
                 if (! $definition->is_active) {
-                    throw ValidationException::withMessages(['form' => 'Ein bearbeitetes Feld wurde inzwischen deaktiviert. Bitte lade den aktuellen Stand.']);
+                    throw ValidationException::withMessages(['form' => FormOfAddress::choose('Ein bearbeitetes Feld wurde inzwischen deaktiviert. Bitte lade den aktuellen Stand.', 'Ein bearbeitetes Feld wurde inzwischen deaktiviert. Bitte laden Sie den aktuellen Stand.')]);
                 }
                 $value = $values[$definition->key];
                 if ($definition->is_custom) {

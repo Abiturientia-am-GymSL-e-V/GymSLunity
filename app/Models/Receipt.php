@@ -19,6 +19,8 @@ use LogicException;
  * @property string $payer
  * @property string $payee
  * @property string $purpose
+ * @property CarbonImmutable|null $exported_at
+ * @property CarbonImmutable|null $cancelled_at
  */
 class Receipt extends Model
 {
@@ -31,7 +33,10 @@ class Receipt extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['snapshot' => 'array', 'receipt_date' => 'immutable_date:Y-m-d', 'amount_cents' => 'integer'];
+        return [
+            'snapshot' => 'array', 'receipt_date' => 'immutable_date:Y-m-d', 'amount_cents' => 'integer',
+            'exported_at' => 'immutable_datetime', 'cancelled_at' => 'immutable_datetime',
+        ];
     }
 
     protected static function booted(): void

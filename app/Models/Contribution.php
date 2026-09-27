@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use LogicException;
 
 /**
  * @property int $id
@@ -13,12 +14,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $created_by
  * @property string $kind
  * @property string $description
+ * @property string|null $payment_reference
  * @property int $amount_cents
  * @property int $paid_cents
  * @property CarbonImmutable $period_start
  * @property CarbonImmutable $period_end
  * @property CarbonImmutable $due_date
  * @property string|null $payment_method
+ * @property string|null $mandate_reference
+ * @property string|null $mandate_sequence
+ * @property CarbonImmutable|null $sepa_exported_at
  * @property bool $tax_deductible
  * @property string $status
  * @property string|null $invoice_number
@@ -37,8 +42,31 @@ class Contribution extends Model
             'amount_cents' => 'integer', 'paid_cents' => 'integer', 'tax_deductible' => 'boolean',
             'period_start' => 'immutable_date:Y-m-d', 'period_end' => 'immutable_date:Y-m-d',
             'due_date' => 'immutable_date:Y-m-d', 'invoice_created_at' => 'immutable_datetime',
-            'invoice_sent_at' => 'immutable_datetime',
+            'invoice_sent_at' => 'immutable_datetime', 'sepa_exported_at' => 'immutable_datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::created(function (Contribution $contribution): void {
+            if ($contribution->payment_reference !== null) {
+                return;
+            }
+            $account = $contribution->relationLoaded('account')
+                ? $contribution->getRelation('account')
+                : $contribution->account()->with('member:id,member_number')->firstOrFail();
+            if (! $account instanceof ContributionAccount) {
+                throw new LogicException('Beitragskonto konnte nicht ermittelt werden.');
+            }
+            $member = $account->relationLoaded('member')
+                ? $account->getRelation('member')
+                : $account->member()->firstOrFail(['id', 'member_number']);
+            if (! $member instanceof Member) {
+                throw new LogicException('Mitglied konnte nicht ermittelt werden.');
+            }
+            $memberNumber = $member->member_number;
+            $contribution->forceFill(['payment_reference' => 'GYMSL-'.$memberNumber.'-'.$contribution->id])->saveQuietly();
+        });
     }
 
     /** @return BelongsTo<ContributionAccount, $this> */

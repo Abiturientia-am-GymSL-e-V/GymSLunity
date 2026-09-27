@@ -3,7 +3,7 @@
 [![Current Release](https://img.shields.io/github/v/release/Abiturientia-am-GymSL-e-V/GymSLunity)](https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-GymSLunity ist eine webbasierte Komplettlösung für die tägliche Vereinsverwaltung. Die Anwendung verbindet Mitgliederverwaltung, Finanzen, Kommunikation und Dokumente in einer gemeinsamen, rollenbasierten Arbeitsumgebung.
+GymSLunity ist eine webbasierte Komplettlösung für die tägliche Vereinsverwaltung. Die Anwendung verbindet Mitgliederverwaltung, Finanzen, Kalender, Kommunikation und Dokumente in einer gemeinsamen, rollenbasierten Arbeitsumgebung.
 
 Das Projekt ist aus den praktischen Anforderungen eines Schulvereins entstanden und wird von Schülerinnen und Schülern getragen. Ziel ist eine offene, selbst betreibbare Alternative zu kostenpflichtigen SaaS-Angeboten, die Vereine verstehen, anpassen und gemeinsam weiterentwickeln können.
 
@@ -11,15 +11,15 @@ Das Projekt ist aus den praktischen Anforderungen eines Schulvereins entstanden 
 
 - **Mitgliederverwaltung:** Mitglieds- und Kontaktdaten, konfigurierbare Zusatzfelder, Suche, Filter, Massenbearbeitung, CSV-Import, Export, Dokumente und Änderungshistorie.
 - **Beiträge:** Beitragskonten, Forderungsläufe, Rechnungen, SEPA-Mandate und -Exporte, Bankimport, Rücklastschriften und manuelle Buchungen.
+- **Buchhaltung:** Eigenständiges Rechnungswesen mit offenen Forderungen, mehreren Zahlungsarten, GiroCode, konfigurierbarer Kleinunternehmerregelung, revisionssicher verknüpften Stornorechnungen, unveränderlicher Dokumentablage, PDF/A-3 mit eingebetteter XRechnung sowie E-Mail-Versand.
 - **Spenden:** Geld- und Sachzuwendungen, Spendenbuch sowie Erstellung, Ablage und Versand von Zuwendungsbestätigungen.
 - **Formulare:** Quittungen erfassen, digital oder per Faksimile unterzeichnen, unverändert archivieren, als PDF ausgeben und per E-Mail versenden.
 - **Kommunikation:** Personalisierte Serien-E-Mails und Serienbriefe mit Empfängerfiltern, Platzhaltern, Anhängen und Versandverlauf.
 - **Auswertungen:** Mitgliederentwicklung und -struktur, Bestandsmeldung, Finanzstatistik und Prüfung der Datenqualität.
 - **Inventar:** Inventarnummern, Standorte, Verantwortliche, Anschaffungswerte, Abschreibung und dokumentierte Abgänge.
-- **Selfservice:** Sicherer Mitgliederzugang per Einmallink, Pflege persönlicher Daten, digitaler Beitritt und SEPA-Mandat.
-- **Konfiguration:** Vereinsstammdaten, Benutzer und Rollen, E-Mail-Versand, Formulartexte, Spenden- und Systemeinstellungen.
-
-Der Bereich **Buchhaltung** ist derzeit als Grundlage vorhanden und noch nicht als vollständige Finanzbuchhaltung umgesetzt.
+- **Kalender:** Gemeinsame Monatsansicht mit mehreren farblich unterscheidbaren Kalendern, automatisch erzeugten Geburtstagen sowie ein- und mehrtägigen Terminen. Kalender lassen sich über öffentliche iCal-Links oder anhand konfigurierbarer Mitgliedseigenschaften freigeben.
+- **Selfservice:** Sicherer Mitgliederzugang per Einmallink, Pflege persönlicher Daten, digitaler Beitritt und SEPA-Mandat sowie ein persönlicher iCal-Sammellink für alle freigegebenen Vereinskalender.
+- **Konfiguration:** Vereinsstammdaten, Benutzer und Rollen, optional aktivierbare Softwaremodule, E-Mail-Versand, Formulartexte, Spenden- und Systemeinstellungen.
 
 ## Technik
 
@@ -154,7 +154,7 @@ Wichtige Verzeichnisse:
 
 ## Sicherheit und Verantwortung
 
-GymSLunity verarbeitet personenbezogene und gegebenenfalls finanzielle Daten. Betreiber sind unter anderem für HTTPS, Server- und PHP-Updates, restriktive Dateirechte, Firewall, sichere Backups, Wiederherstellungstests, Datenschutz, Löschfristen und die Prüfung erzeugter Dokumente verantwortlich.
+GymSLunity verarbeitet personenbezogene und gegebenenfalls finanzielle Daten. Betreiber sind unter anderem für HTTPS, Server- und PHP-Updates, restriktive Dateirechte, Firewall, die externe Sicherung der mit `php artisan app:backup` erzeugten Archive, regelmäßige Wiederherstellungstests, Datenschutz, Löschfristen und die Prüfung erzeugter Dokumente verantwortlich.
 
 Nach jedem Deployment prüft `php artisan security:check` die wirksame Produktivkonfiguration. Das [Lösch-, Anonymisierungs- und Aufbewahrungskonzept](docs/datenschutz-aufbewahrung.md) beschreibt die technischen Fristen und den täglich geplanten Bereinigungslauf.
 

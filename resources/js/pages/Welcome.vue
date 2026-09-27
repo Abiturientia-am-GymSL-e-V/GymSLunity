@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { ArrowRight } from '@lucide/vue';
-import AppLogo from '@/components/AppLogo.vue';
+import { ArrowRight, UserPlus } from '@lucide/vue';
+import PublicFooter from '@/components/public/PublicFooter.vue';
+import PublicHeader from '@/components/public/PublicHeader.vue';
 import { Button } from '@/components/ui/button';
 import { dashboard, login } from '@/routes';
 
@@ -13,25 +14,12 @@ const page = usePage();
     <Head title="Willkommen" />
 
     <div class="flex min-h-svh flex-col bg-background text-foreground">
-        <header class="mx-auto flex w-full max-w-6xl items-center px-6 py-8">
-            <div class="w-52">
-                <AppLogo />
-            </div>
-        </header>
+        <PublicHeader />
 
         <main
             class="mx-auto flex w-full max-w-6xl flex-1 items-center px-6 py-16 sm:py-24"
         >
             <div class="max-w-2xl space-y-8">
-                <span
-                    class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground"
-                >
-                    <span
-                        class="size-1.5 rounded-full bg-emerald-500"
-                        aria-hidden="true"
-                    />
-                    Mitgliederverwaltung
-                </span>
                 <div class="space-y-5">
                     <h1
                         class="text-4xl leading-tight font-semibold tracking-tight sm:text-6xl"
@@ -41,43 +29,48 @@ const page = usePage();
                     <p
                         class="max-w-lg text-lg leading-relaxed text-muted-foreground"
                     >
-                        Dein Verein, deine Daten. Hier findest du den Zugang zur
-                        Verwaltung und zum Mitgliederbereich.
+                        {{
+                            $address(
+                                'Dein Verein, deine Daten. Hier findest du den Zugang zur Verwaltung und zum Mitgliederbereich.',
+                                'Ihr Verein, Ihre Daten. Hier finden Sie den Zugang zur Verwaltung und zum Mitgliederbereich.',
+                            )
+                        }}
                     </p>
                 </div>
-                <Button size="lg" as-child>
-                    <Link :href="page.props.auth.user ? dashboard() : login()">
-                        {{
-                            page.props.auth.user
-                                ? 'Zur Verwaltung'
-                                : 'Verwaltung anmelden'
-                        }}
-                        <ArrowRight class="size-4" aria-hidden="true" />
-                    </Link>
-                </Button>
-                <div v-if="selfserviceEnabled" class="flex flex-wrap gap-3">
-                    <Button as-child variant="outline" size="lg"
-                        ><Link href="/selfservice/zugang"
-                            >Mitgliederzugang</Link
-                        ></Button
-                    >
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <Button size="lg" as-child>
+                        <Link
+                            :href="page.props.auth.user ? dashboard() : login()"
+                        >
+                            Verwaltung
+                            <ArrowRight class="size-4" aria-hidden="true" />
+                        </Link>
+                    </Button>
                     <Button
-                        v-if="publicJoinEnabled"
+                        v-if="selfserviceEnabled"
                         as-child
                         variant="outline"
                         size="lg"
-                        ><Link href="/selfservice/zugang?beitritt=1"
-                            >Mitglied werden</Link
-                        ></Button
                     >
+                        <Link href="/selfservice/zugang">
+                            Mitgliederportal
+                            <ArrowRight class="size-4" aria-hidden="true" />
+                        </Link>
+                    </Button>
                 </div>
+                <Button
+                    v-if="selfserviceEnabled && publicJoinEnabled"
+                    as-child
+                    size="lg"
+                    class="bg-emerald-600 text-white hover:bg-emerald-700"
+                    ><Link href="/selfservice/mitglied-werden"
+                        ><UserPlus class="size-4" aria-hidden="true" />Mitglied
+                        werden</Link
+                    ></Button
+                >
             </div>
         </main>
 
-        <footer
-            class="mx-auto w-full max-w-6xl px-6 py-6 text-sm text-muted-foreground"
-        >
-            GymSLunity · Gemeinsam organisiert.
-        </footer>
+        <PublicFooter />
     </div>
 </template>

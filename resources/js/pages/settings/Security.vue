@@ -59,7 +59,12 @@ defineOptions({
         <Heading
             variant="small"
             title="Passwort ändern"
-            description="Verwende ein langes, zufälliges Passwort für dein Konto."
+            :description="
+                $address(
+                    'Verwende ein langes, zufälliges Passwort für dein Konto.',
+                    'Verwenden Sie ein langes, zufälliges Passwort für Ihr Konto.',
+                )
+            "
         />
 
         <Form
@@ -140,7 +145,12 @@ defineOptions({
         <Heading
             variant="small"
             title="Aktive Sitzungen"
-            description="Beende Zugriffe auf Geräten, die du nicht mehr verwendest. Privilegierte Sitzungen enden nach 30 Minuten Inaktivität."
+            :description="
+                $address(
+                    'Beende Zugriffe auf Geräten, die du nicht mehr verwendest. Privilegierte Sitzungen enden nach 30 Minuten Inaktivität.',
+                    'Beenden Sie Zugriffe auf Geräten, die Sie nicht mehr verwenden. Privilegierte Sitzungen enden nach 30 Minuten Inaktivität.',
+                )
+            "
         />
         <div v-if="sessions.length" class="divide-y rounded-lg border">
             <div

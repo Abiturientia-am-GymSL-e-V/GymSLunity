@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Models\ClubSetting;
 use App\Models\Receipt;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
@@ -19,7 +20,12 @@ class ReceiptMail extends Mailable
 
     public function content(): Content
     {
-        return new Content(view: 'mail.receipt');
+        $settings = ClubSetting::current();
+
+        return new Content(view: 'mail.receipt', with: [
+            'clubName' => (string) ($this->receipt->snapshot['club']['name'] ?? config('app.name')),
+            'logoUrl' => ! empty($settings->data['logo_path']) ? route('branding.logo', ['v' => $settings->version]) : null,
+        ]);
     }
 
     /** @return list<Attachment> */

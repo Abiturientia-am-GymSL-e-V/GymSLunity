@@ -6,6 +6,7 @@ import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileCo
 import DeleteUser from '@/components/DeleteUser.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
+import StatusAlert from '@/components/StatusAlert.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -57,7 +58,12 @@ function removeSignature() {
         <Heading
             variant="small"
             title="Profil"
-            description="Ändere deinen Namen und deine E-Mail-Adresse"
+            :description="
+                $address(
+                    'Ändere deinen Namen und deine E-Mail-Adresse',
+                    'Ändern Sie Ihren Namen und Ihre E-Mail-Adresse',
+                )
+            "
         />
 
         <Form
@@ -96,7 +102,8 @@ function removeSignature() {
 
             <div v-if="page.props.mustVerifyEmail && !user.email_verified_at">
                 <p class="-mt-4 text-sm text-muted-foreground">
-                    Deine E-Mail-Adresse ist noch nicht bestätigt.
+                    {{ $address('Deine', 'Ihre') }} E-Mail-Adresse ist noch
+                    nicht bestätigt.
                     <Link
                         :href="send()"
                         as="button"
@@ -106,13 +113,14 @@ function removeSignature() {
                     </Link>
                 </p>
 
-                <div
+                <StatusAlert
                     v-if="page.props.status === 'verification-link-sent'"
-                    class="mt-2 text-sm font-medium text-green-600"
+                    type="success"
+                    class="mt-3"
                 >
-                    Ein neuer Bestätigungslink wurde an deine E-Mail-Adresse
-                    gesendet.
-                </div>
+                    Ein neuer Bestätigungslink wurde an
+                    {{ $address('deine', 'Ihre') }} E-Mail-Adresse gesendet.
+                </StatusAlert>
             </div>
 
             <div class="flex items-center gap-4">
@@ -126,7 +134,12 @@ function removeSignature() {
             <Heading
                 variant="small"
                 title="Unterschrift"
-                description="Hinterlege eine Unterschrift, die du beim Unterzeichnen von Dokumenten verwenden kannst."
+                :description="
+                    $address(
+                        'Hinterlege eine Unterschrift, die du beim Unterzeichnen von Dokumenten verwenden kannst.',
+                        'Hinterlegen Sie eine Unterschrift, die Sie beim Unterzeichnen von Dokumenten verwenden können.',
+                    )
+                "
             />
 
             <div

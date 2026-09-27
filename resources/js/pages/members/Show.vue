@@ -16,6 +16,7 @@ import InputError from '@/components/InputError.vue';
 import MemberHistoryPanel from '@/components/members/MemberHistory.vue';
 import ContributionAccount from '@/components/members/ContributionAccount.vue';
 import MemberFieldControl from '@/components/members/MemberFieldControl.vue';
+import StatusAlert from '@/components/StatusAlert.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,6 +31,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 
 import { Spinner } from '@/components/ui/spinner';
+import { address } from '@/lib/formOfAddress';
 import { memberTimestamp, memberValue } from '@/lib/memberFormatting';
 import { onBeforeHistoryNavigation } from '@/lib/navigationGuard';
 import { index, show, update } from '@/routes/members';
@@ -38,6 +40,7 @@ import type {
     MemberDetail,
     MemberDocument,
     MemberHistory,
+    MemberMandate,
     MemberSection,
     MemberValue,
 } from '@/types/members';
@@ -46,6 +49,7 @@ const props = defineProps<{
     member: MemberDetail;
     sections: MemberSection[];
     documents: MemberDocument[];
+    mandates: MemberMandate[];
     history: MemberHistory;
     canEdit: boolean;
     returnTo: string;
@@ -98,11 +102,10 @@ let removeHistoryGuard: (() => void) | undefined;
 let removeNavigationListener: (() => void) | undefined;
 let lastUrl = '';
 let lastState: unknown;
-const documentKinds = [
+type DocumentKind = 'application' | 'sepa';
+const documentKinds: Array<{ kind: DocumentKind; label: string }> = [
     { kind: 'application', label: 'Mitgliedsantrag' },
-    { kind: 'sepa', label: 'SEPA-Mandat' },
-] as const;
-type DocumentKind = (typeof documentKinds)[number]['kind'];
+];
 const documentUploads = {
     application: useForm<{ document: File | null }>({ document: null }),
     sepa: useForm<{ document: File | null }>({ document: null }),
@@ -118,6 +121,12 @@ const documentProcessing = computed(
     () =>
         documentUploads.application.processing ||
         documentUploads.sepa.processing,
+);
+const revokesMandate = computed(
+    () =>
+        editing.value &&
+        props.member.payment_method === 'SEPA-Lastschrift' &&
+        form.payment_method !== 'SEPA-Lastschrift',
 );
 
 function requestLeave(action: () => void) {
@@ -182,15 +191,26 @@ function save(closeAfter = false) {
         onHttpException: (response) => {
             transportError.value =
                 response.status === 419
-                    ? 'Deine Sitzung ist abgelaufen. Bitte sichere deine Eingaben und melde dich erneut an.'
+                    ? address(
+                          'Deine Sitzung ist abgelaufen. Bitte sichere deine Eingaben und melde dich erneut an.',
+                          'Ihre Sitzung ist abgelaufen. Bitte sichern Sie Ihre Eingaben und melden Sie sich erneut an.',
+                      )
                     : response.status === 403
-                      ? 'Du hast keine Berechtigung, dieses Mitglied zu bearbeiten.'
-                      : 'Das Speichern konnte nicht bestätigt werden. Deine Eingaben bleiben erhalten. Bitte versuche es erneut.';
+                      ? address(
+                            'Du hast keine Berechtigung, dieses Mitglied zu bearbeiten.',
+                            'Sie haben keine Berechtigung, dieses Mitglied zu bearbeiten.',
+                        )
+                      : address(
+                            'Das Speichern konnte nicht bestätigt werden. Deine Eingaben bleiben erhalten. Bitte versuche es erneut.',
+                            'Das Speichern konnte nicht bestätigt werden. Ihre Eingaben bleiben erhalten. Bitte versuchen Sie es erneut.',
+                        );
             return false;
         },
         onNetworkError: () => {
-            transportError.value =
-                'Keine Verbindung zum Server. Deine Eingaben bleiben erhalten. Bitte prüfe die Verbindung und versuche es erneut.';
+            transportError.value = address(
+                'Keine Verbindung zum Server. Deine Eingaben bleiben erhalten. Bitte prüfe die Verbindung und versuche es erneut.',
+                'Keine Verbindung zum Server. Ihre Eingaben bleiben erhalten. Bitte prüfen Sie die Verbindung und versuchen Sie es erneut.',
+            );
             return false;
         },
         onFinish: () => {
@@ -248,6 +268,11 @@ onBeforeUnmount(() => {
 });
 function documentFor(kind: DocumentKind) {
     return props.documents.find((document) => document.kind === kind);
+}
+function dateOnly(value: string | null) {
+    return value
+        ? value.slice(0, 10).split('-').reverse().join('.')
+        : 'Nicht hinterlegt';
 }
 function chooseDocument(kind: DocumentKind, event: Event) {
     documentUploads[kind].document =
@@ -363,14 +388,14 @@ const adult = computed(() => {
             >
         </header>
 
-        <div
+        <StatusAlert
             v-if="
                 form.errors.lock_version || form.errors.form || transportError
             "
             id="member-form-error"
-            role="alert"
+            type="error"
+            title="Änderungen nicht gespeichert"
             tabindex="-1"
-            class="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
         >
             <p>
                 {{
@@ -387,7 +412,16 @@ const adult = computed(() => {
                 @click="loadCurrent"
                 >Aktuellen Stand laden</Button
             >
-        </div>
+        </StatusAlert>
+        <StatusAlert
+            v-if="revokesMandate"
+            type="warning"
+            title="SEPA-Mandat wird widerrufen"
+        >
+            Beim Speichern wird das aktive Mandat widerrufen und aus den
+            aktuellen Bankdaten entfernt. Das PDF bleibt in der Mandatshistorie
+            der Verwaltung erhalten.
+        </StatusAlert>
 
         <div
             class="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]"
@@ -594,6 +628,125 @@ const adult = computed(() => {
                         </div>
                     </div>
                 </section>
+                <section
+                    class="rounded-xl border bg-card"
+                    aria-labelledby="mandates-title"
+                >
+                    <div class="border-b px-5 py-4">
+                        <h2 id="mandates-title" class="text-sm font-semibold">
+                            SEPA-Mandatshistorie
+                        </h2>
+                        <p class="mt-1 text-xs text-muted-foreground">
+                            Aktuelle und widerrufene Mandate bleiben vollständig
+                            nachvollziehbar.
+                        </p>
+                    </div>
+                    <div v-if="mandates.length" class="divide-y px-5">
+                        <div
+                            v-for="mandate in mandates"
+                            :key="mandate.id"
+                            class="flex flex-wrap items-start justify-between gap-4 py-4"
+                        >
+                            <div class="min-w-0 space-y-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <p class="text-sm font-medium">
+                                        {{
+                                            mandate.mandate_reference ||
+                                            `Mandat #${mandate.id}`
+                                        }}
+                                    </p>
+                                    <Badge
+                                        :variant="
+                                            mandate.active
+                                                ? 'default'
+                                                : 'secondary'
+                                        "
+                                    >
+                                        {{
+                                            mandate.active
+                                                ? 'Aktiv'
+                                                : 'Widerrufen / archiviert'
+                                        }}
+                                    </Badge>
+                                </div>
+                                <p class="text-xs text-muted-foreground">
+                                    Unterzeichnet:
+                                    {{ dateOnly(mandate.mandate_signed_at) }} ·
+                                    {{
+                                        mandate.submitted_online
+                                            ? 'Online eingereicht'
+                                            : 'Manuell hinterlegt'
+                                    }}
+                                </p>
+                                <p
+                                    v-if="mandate.revoked_at"
+                                    class="text-xs text-muted-foreground"
+                                >
+                                    Widerrufen:
+                                    {{ memberTimestamp(mandate.revoked_at) }}
+                                    <template v-if="mandate.revocation_reason">
+                                        · {{ mandate.revocation_reason }}
+                                    </template>
+                                </p>
+                            </div>
+                            <Button as-child variant="outline" size="sm">
+                                <a
+                                    :href="mandate.url"
+                                    target="_blank"
+                                    rel="noopener"
+                                    ><Download class="size-4" />PDF
+                                    herunterladen</a
+                                >
+                            </Button>
+                        </div>
+                    </div>
+                    <p v-else class="px-5 py-4 text-sm text-muted-foreground">
+                        Noch kein SEPA-Mandat hinterlegt.
+                    </p>
+                    <div
+                        v-if="editing"
+                        class="m-5 space-y-2 rounded-lg border bg-muted/30 p-3"
+                    >
+                        <Label for="document-sepa" class="text-xs">
+                            Neues SEPA-Mandat zur Historie hinzufügen
+                        </Label>
+                        <div class="flex flex-col gap-2 sm:flex-row">
+                            <Input
+                                id="document-sepa"
+                                type="file"
+                                accept="application/pdf,.pdf"
+                                :disabled="documentUploads.sepa.processing"
+                                :aria-invalid="
+                                    !!documentUploads.sepa.errors.document
+                                "
+                                aria-describedby="error-document-sepa"
+                                @change="chooseDocument('sepa', $event)"
+                            />
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                :disabled="
+                                    !documentUploads.sepa.document ||
+                                    documentUploads.sepa.processing
+                                "
+                                @click="uploadDocument('sepa')"
+                            >
+                                <Spinner
+                                    v-if="documentUploads.sepa.processing"
+                                />
+                                <Upload v-else class="size-4" />Hochladen
+                            </Button>
+                        </div>
+                        <p class="text-xs text-muted-foreground">
+                            PDF, maximal 10 MB. Ein bisher aktives Dokument wird
+                            archiviert.
+                        </p>
+                        <InputError
+                            id="error-document-sepa"
+                            :message="documentUploads.sepa.errors.document"
+                        />
+                    </div>
+                </section>
                 <p class="text-xs leading-relaxed text-muted-foreground">
                     {{
                         `Angelegt am ${memberTimestamp(member.created_at)} · Zuletzt geändert am ${memberTimestamp(member.updated_at)} · Version ${member.lock_version}`
@@ -650,10 +803,12 @@ const adult = computed(() => {
         <DialogContent>
             <DialogHeader
                 ><DialogTitle>Änderungen verwerfen?</DialogTitle
-                ><DialogDescription
-                    >Du hast ungespeicherte Änderungen. Beim Verlassen gehen
-                    diese Eingaben verloren.</DialogDescription
-                ></DialogHeader
+                ><DialogDescription>{{
+                    $address(
+                        'Du hast ungespeicherte Änderungen. Beim Verlassen gehen diese Eingaben verloren.',
+                        'Sie haben ungespeicherte Änderungen. Beim Verlassen gehen diese Eingaben verloren.',
+                    )
+                }}</DialogDescription></DialogHeader
             >
             <DialogFooter
                 ><Button

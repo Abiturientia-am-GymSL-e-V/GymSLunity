@@ -18,18 +18,42 @@ defineOptions({
                 Vereinsformulare erstellen, verwalten und bereitstellen.
             </p>
         </div>
-        <Link
-            href="/formulare/quittungen"
-            class="block max-w-lg space-y-2 rounded-xl border bg-card p-6 transition-colors hover:bg-muted"
-            ><h2 class="text-xl font-semibold">Quittung</h2>
-            <p class="text-sm text-muted-foreground">
-                Zahlungseingang bestätigen, unterschreiben und als Original oder
-                Kopie herunterladen. Ausgestellte Quittungen suchen und per
-                E-Mail versenden.
-            </p>
-            <span class="inline-block pt-2 text-sm font-medium"
-                >Quittungen öffnen →</span
-            ></Link
-        >
+        <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <Link
+                href="/formulare/quittungen"
+                class="block space-y-2 rounded-xl border bg-card p-6 transition-colors hover:bg-muted"
+                ><h2 class="text-xl font-semibold">Quittungen</h2>
+                <p class="text-sm text-muted-foreground">
+                    Zahlungseingänge bestätigen, ausgeben und verwalten.
+                </p>
+                <span class="inline-block pt-2 text-sm font-medium"
+                    >Quittungen öffnen →</span
+                >
+            </Link>
+            <Link
+                href="/formulare/unterschriftslisten"
+                class="block space-y-2 rounded-xl border bg-card p-6 transition-colors hover:bg-muted"
+                ><h2 class="text-xl font-semibold">Unterschriftslisten</h2>
+                <p class="text-sm text-muted-foreground">
+                    Mitglieder und Spalten auswählen und eine druckfertige
+                    PDF-Liste erstellen.
+                </p>
+                <span class="inline-block pt-2 text-sm font-medium"
+                    >Liste erstellen →</span
+                >
+            </Link>
+            <Link
+                href="/formulare/sepa-mandate"
+                class="block space-y-2 rounded-xl border bg-card p-6 transition-colors hover:bg-muted"
+                ><h2 class="text-xl font-semibold">SEPA-Mandate</h2>
+                <p class="text-sm text-muted-foreground">
+                    Mandate mit eigener Referenz anlegen, versenden und
+                    unterschreiben lassen.
+                </p>
+                <span class="inline-block pt-2 text-sm font-medium"
+                    >Mandate öffnen →</span
+                >
+            </Link>
+        </div>
     </div>
 </template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
     Boxes,
+    CalendarDays,
     ChartNoAxesCombined,
     CircleAlert,
     FileText,
@@ -14,6 +15,7 @@ import {
 } from '@lucide/vue';
 import { Head } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type Tab = 'software' | 'project' | 'disclaimer';
 
@@ -74,16 +76,22 @@ const featureAreas = [
             'Vereinseigentum mit Inventarnummern, Wertentwicklung, Standorten und Statusänderungen dokumentieren.',
     },
     {
+        title: 'Kalender',
+        icon: CalendarDays,
+        description:
+            'Vereinstermine und Geburtstage in mehreren farbigen Kalendern planen und per öffentlichem oder persönlichem iCal-Abo zielgerichtet teilen.',
+    },
+    {
         title: 'Selfservice',
         icon: ShieldAlert,
         description:
-            'Mitgliedern einen geschützten Zugang zu ihren Daten und Dokumenten sowie einen digitalen Beitrittsprozess anbieten.',
+            'Mitgliedern einen geschützten Zugang zu ihren Daten, Dokumenten und freigegebenen Kalendern sowie einen digitalen Beitrittsprozess anbieten.',
     },
     {
         title: 'Konfiguration',
         icon: Settings2,
         description:
-            'Vereinsstammdaten, Benutzerrechte, E-Mail-Versand, Formulartexte und fachliche Einstellungen zentral verwalten.',
+            'Vereinsstammdaten, Benutzerrechte, eingesetzte Softwaremodule, E-Mail-Versand, Formulartexte und fachliche Einstellungen zentral verwalten.',
     },
 ] as const;
 </script>
@@ -163,10 +171,11 @@ const featureAreas = [
                 <p class="text-sm leading-6 text-muted-foreground">
                     GymSLunity ist eine webbasierte Komplettlösung für die
                     tägliche Vereinsverwaltung. Die Anwendung verbindet
-                    Mitgliederverwaltung, Finanzen, Kommunikation und Dokumente
-                    in einer gemeinsamen, rollenbasierten Arbeitsumgebung.
-                    Wiederkehrende Abläufe werden gebündelt, während Änderungen
-                    und fachliche Vorgänge nachvollziehbar bleiben.
+                    Mitgliederverwaltung, Finanzen, Kalender, Kommunikation und
+                    Dokumente in einer gemeinsamen, rollenbasierten
+                    Arbeitsumgebung. Wiederkehrende Abläufe werden gebündelt,
+                    während Änderungen und fachliche Vorgänge nachvollziehbar
+                    bleiben.
                 </p>
             </div>
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -250,24 +259,17 @@ const featureAreas = [
             aria-labelledby="about-tab-disclaimer"
             class="space-y-5"
         >
-            <div
-                class="flex gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4"
-            >
-                <CircleAlert
-                    class="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-300"
-                />
-                <div>
-                    <h2 class="font-semibold">Hinweis zur Verantwortung</h2>
-                    <p class="mt-1 text-sm leading-6 text-muted-foreground">
-                        GymSLunity unterstützt bei der Vereinsarbeit, ersetzt
-                        jedoch keine rechtliche, steuerliche oder
-                        datenschutzrechtliche Beratung. Die Verantwortung für
-                        den ordnungsgemäßen Einsatz verbleibt beim betreibenden
-                        Verein beziehungsweise bei den jeweils handelnden
-                        Personen.
-                    </p>
-                </div>
-            </div>
+            <Alert variant="warning">
+                <CircleAlert />
+                <AlertTitle>Hinweis zur Verantwortung</AlertTitle>
+                <AlertDescription>
+                    GymSLunity unterstützt bei der Vereinsarbeit, ersetzt jedoch
+                    keine rechtliche, steuerliche oder datenschutzrechtliche
+                    Beratung. Die Verantwortung für den ordnungsgemäßen Einsatz
+                    verbleibt beim betreibenden Verein beziehungsweise bei den
+                    jeweils handelnden Personen.
+                </AlertDescription>
+            </Alert>
 
             <div class="grid gap-5 md:grid-cols-2">
                 <article class="rounded-xl border bg-card p-5">

@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Configuration\MailConfigurator;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -43,6 +44,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('view-forms', fn (User $user): bool => $user->is_active && count(array_intersect($user->roles ?? [], ['admin', 'vereinsverwaltung', 'mv'])) > 0);
         Gate::define('view-donations', fn (User $user): bool => $user->is_active && count(array_intersect($user->roles ?? [], ['admin', 'bh'])) > 0);
         Gate::define('view-inventory', fn (User $user): bool => $user->is_active && count(array_intersect($user->roles ?? [], ['admin', 'vereinsverwaltung'])) > 0);
+        Gate::define('view-calendar', fn (User $user): bool => $user->is_active && count(array_intersect($user->roles ?? [], ['admin', 'vereinsverwaltung', 'mv'])) > 0);
+        Gate::define('view-bookings', fn (User $user): bool => $user->is_active && count(array_intersect($user->roles ?? [], ['admin', 'vereinsverwaltung', 'mv'])) > 0);
         Gate::define('view-communication', fn (User $user): bool => $user->is_active && count(array_intersect($user->roles ?? [], ['admin', 'vereinsverwaltung', 'mv'])) > 0);
     }
 
@@ -52,6 +55,7 @@ class AppServiceProvider extends ServiceProvider
     protected function configureDefaults(): void
     {
         Date::use(CarbonImmutable::class);
+        Model::preventLazyLoading(! app()->isProduction());
 
         DB::prohibitDestructiveCommands(
             app()->isProduction(),

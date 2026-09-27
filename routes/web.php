@@ -1,18 +1,32 @@
 <?php
 
+use App\Http\Controllers\Bookings\BookingController;
+use App\Http\Controllers\Calendar\CalendarController;
+use App\Http\Controllers\Calendar\CalendarEventController;
+use App\Http\Controllers\Calendar\CalendarFeedController;
 use App\Http\Controllers\CommunicationController;
+use App\Http\Controllers\Configuration\BackupController;
 use App\Http\Controllers\Configuration\ClubController;
 use App\Http\Controllers\Configuration\ClubLogoController;
 use App\Http\Controllers\Configuration\DonationSettingsController;
+use App\Http\Controllers\Configuration\FinanceSettingsController;
 use App\Http\Controllers\Configuration\MailSettingsController;
 use App\Http\Controllers\Configuration\MemberFieldController;
+use App\Http\Controllers\Configuration\PublicPageSettingsController;
 use App\Http\Controllers\Configuration\SecurityAuditController;
 use App\Http\Controllers\Configuration\SelfServiceSettingsController;
+use App\Http\Controllers\Configuration\SoftwareModuleController;
 use App\Http\Controllers\Configuration\SystemController;
 use App\Http\Controllers\Configuration\UserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Donations\DonationController;
+use App\Http\Controllers\Finance\FinanceBankImportController;
+use App\Http\Controllers\Finance\FinanceInvoiceController;
+use App\Http\Controllers\Finance\FinanceReturnDebitController;
+use App\Http\Controllers\Finance\FinanceSepaExportController;
+use App\Http\Controllers\Forms\FinanceMandateController;
 use App\Http\Controllers\Forms\ReceiptController;
+use App\Http\Controllers\Forms\SignatureListController;
 use App\Http\Controllers\InstallController;
 use App\Http\Controllers\Inventory\InventoryController;
 use App\Http\Controllers\Members\BulkUpdateMemberController;
@@ -22,16 +36,21 @@ use App\Http\Controllers\Members\MemberExportController;
 use App\Http\Controllers\Members\MemberImportController;
 use App\Http\Controllers\Members\MemberIndexController;
 use App\Http\Controllers\Members\MembershipApplicationController;
+use App\Http\Controllers\Members\MembershipCancellationController;
 use App\Http\Controllers\Members\PostalCodeController;
 use App\Http\Controllers\Payments\BankImportController;
 use App\Http\Controllers\Payments\ContributionController;
+use App\Http\Controllers\Payments\DunningController;
 use App\Http\Controllers\Payments\InvoiceController;
 use App\Http\Controllers\Payments\MandateExportController;
 use App\Http\Controllers\Payments\ManualPaymentController;
 use App\Http\Controllers\Payments\PaymentController;
 use App\Http\Controllers\Payments\ReturnDebitController;
 use App\Http\Controllers\Payments\SepaExportController;
+use App\Http\Controllers\Payments\TransactionExportController;
+use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\SelfService\AccessController;
+use App\Http\Controllers\SelfService\BookingController as SelfServiceBookingController;
 use App\Http\Controllers\SelfService\PortalController;
 use App\Http\Controllers\StatisticsController;
 use App\Http\Middleware\EnsureSelfService;
@@ -44,11 +63,17 @@ Route::post('install', [InstallController::class, 'store'])->middleware('throttl
 
 Route::get('/', fn () => Inertia::render('Welcome', ['selfserviceEnabled' => (bool) (ClubSetting::current()->data['selfservice_enabled'] ?? false), 'publicJoinEnabled' => (bool) (ClubSetting::current()->data['public_join_enabled'] ?? false)]))->name('home');
 Route::get('branding/logo', [ClubLogoController::class, 'show'])->name('branding.logo');
+Route::get('impressum', [PublicPageController::class, 'imprint'])->name('imprint');
+Route::get('datenschutz', [PublicPageController::class, 'privacy'])->name('privacy');
+Route::get('kalender/abo/{token}.ics', [CalendarFeedController::class, 'publicFeed'])->middleware(['module:calendar', 'throttle:60,1'])->name('calendar.feed.public');
+Route::get('kalender/mein-abo/{token}.ics', [CalendarFeedController::class, 'memberFeed'])->middleware(['module:calendar', 'throttle:60,1'])->name('calendar.feed.member');
+Route::get('sepa-mandat/{token}', [FinanceMandateController::class, 'publicShow'])->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:60,1')->name('forms.mandates.sign');
+Route::post('sepa-mandat/{token}', [FinanceMandateController::class, 'publicSign'])->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:10,1')->name('forms.mandates.sign.store');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::inertia('ueber-gymslunity', 'About')->name('about');
-    Route::middleware('can:view-communication')->prefix('kommunikation')->group(function () {
+    Route::middleware(['module:communication', 'can:view-communication'])->prefix('kommunikation')->group(function () {
         Route::get('/', [CommunicationController::class, 'index'])->defaults('tab', 'mail')->name('kommunikation');
         Route::get('serienmails', [CommunicationController::class, 'index'])->defaults('tab', 'mail')->name('communication.mail');
         Route::get('serienbriefe', [CommunicationController::class, 'index'])->defaults('tab', 'letters')->name('communication.letters');
@@ -56,43 +81,87 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('serienmails', [CommunicationController::class, 'sendMail'])->middleware('throttle:2,1')->name('communication.mail.send');
         Route::post('serienbriefe', [CommunicationController::class, 'generateLetters'])->middleware(['throttle:10,1', 'audit:data_export'])->name('communication.letters.generate');
     });
-    Route::middleware('can:view-payments')->prefix('beitraege')->group(function () {
+    Route::middleware(['module:payments', 'can:view-payments'])->prefix('beitraege')->group(function () {
         Route::get('/', PaymentController::class)->defaults('tab', 'overview')->name('payments');
         Route::get('mandate', PaymentController::class)->defaults('tab', 'mandates')->name('payments.mandates.index');
         Route::get('anlegen', PaymentController::class)->defaults('tab', 'create')->name('payments.create');
         Route::get('rechnungen', PaymentController::class)->defaults('tab', 'invoices')->name('payments.invoices.index');
+        Route::get('mahnwesen', PaymentController::class)->defaults('tab', 'dunning')->name('payments.dunning.index');
         Route::get('sepa-export', PaymentController::class)->defaults('tab', 'sepa')->name('payments.sepa.index');
         Route::get('bankimport', PaymentController::class)->defaults('tab', 'bank')->name('payments.bank-import.index');
         Route::get('ruecklastschriften', PaymentController::class)->defaults('tab', 'returns')->name('payments.return-debits.index');
         Route::get('manuell-buchen', PaymentController::class)->defaults('tab', 'manual')->name('payments.manual.index');
         Route::post('anlegen', [ContributionController::class, 'store'])->name('payments.contributions.store');
         Route::get('mandate/export', MandateExportController::class)->middleware(['throttle:sensitive', 'audit:data_export'])->name('payments.mandates.export');
+        Route::get('kontobuchungen/export', TransactionExportController::class)->middleware(['throttle:sensitive', 'audit:data_export'])->name('payments.transactions.export');
         Route::post('rechnungen/erzeugen', [InvoiceController::class, 'generate'])->name('payments.invoices.generate');
         Route::post('rechnungen/versenden', [InvoiceController::class, 'send'])->name('payments.invoices.send');
+        Route::post('rechnungen/sammeldownload', [InvoiceController::class, 'combined'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('payments.invoices.combined');
         Route::get('rechnungen/{contribution}', [InvoiceController::class, 'document'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('payments.invoices.document');
+        Route::get('mahnwesen/export', [DunningController::class, 'export'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('payments.dunning.export');
+        Route::get('mahnwesen/tabelle', [DunningController::class, 'table'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('payments.dunning.table');
+        Route::post('mahnwesen/briefe', [DunningController::class, 'letters'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('payments.dunning.letters');
+        Route::post('mahnwesen/versenden', [DunningController::class, 'send'])->middleware('throttle:2,1')->name('payments.dunning.send');
+        Route::get('mahnwesen/{member:member_number}', [DunningController::class, 'document'])->whereNumber('member')->middleware(['throttle:sensitive', 'audit:document_access'])->name('payments.dunning.document');
         Route::post('sepa-export', SepaExportController::class)->middleware(['throttle:sensitive', 'audit:data_export'])->name('payments.sepa.export');
         Route::post('bankimport', BankImportController::class)->name('payments.bank-import');
+        Route::post('bankimport/{paymentImport}/zeilen/{row}/zuordnen', [BankImportController::class, 'assign'])->name('payments.bank-import.assign');
+        Route::post('bankimport/{paymentImport}/zeilen/{row}/ignorieren', [BankImportController::class, 'ignore'])->name('payments.bank-import.ignore');
         Route::post('ruecklastschriften', ReturnDebitController::class)->name('payments.return-debits.store');
         Route::post('manuell-buchen', ManualPaymentController::class)->name('payments.manual.store');
     });
-    Route::middleware('can:view-statistics')->prefix('auswertungen')->group(function () {
+    Route::middleware(['module:statistics', 'can:view-statistics'])->prefix('auswertungen')->group(function () {
         Route::get('/', [StatisticsController::class, 'index'])->defaults('tab', 'overview')->name('statistics');
         Route::get('mitglieder', [StatisticsController::class, 'index'])->defaults('tab', 'members')->name('statistics.members');
         Route::get('finanzen', [StatisticsController::class, 'index'])->defaults('tab', 'finances')->name('statistics.finances');
         Route::get('datenqualitaet', [StatisticsController::class, 'index'])->defaults('tab', 'quality')->name('statistics.quality');
+        Route::get('bericht.pdf', [StatisticsController::class, 'pdf'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('statistics.pdf');
         Route::get('bestandsmeldung.csv', [StatisticsController::class, 'stockCsv'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('statistics.stock-csv');
     });
-    Route::inertia('buchhaltung', 'Finance')->middleware('can:view-finance')->name('finance');
-    Route::inertia('formulare', 'Forms')->middleware('can:view-forms')->name('forms');
-    Route::middleware('can:view-forms')->prefix('formulare/quittungen')->name('receipts.')->group(function () {
-        Route::get('/', [ReceiptController::class, 'index'])->defaults('tab', 'create')->name('index');
+    Route::middleware(['module:finance', 'can:view-finance'])->prefix('buchhaltung')->group(function () {
+        Route::inertia('/', 'finance/Overview')->name('finance');
+        Route::get('rechnungen', [FinanceInvoiceController::class, 'index'])->name('finance.invoices.index');
+        Route::get('rechnungen/anlegen', [FinanceInvoiceController::class, 'create'])->name('finance.invoices.create');
+        Route::post('rechnungen', [FinanceInvoiceController::class, 'store'])->name('finance.invoices.store');
+        Route::get('rechnungen/sepa-export', [FinanceSepaExportController::class, 'index'])->name('finance.invoices.sepa.index');
+        Route::post('rechnungen/sepa-export', [FinanceSepaExportController::class, 'export'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('finance.invoices.sepa.export');
+        Route::post('rechnungen/sepa-export/{uuid}/rueckgaengig', [FinanceSepaExportController::class, 'reverse'])->whereUuid('uuid')->name('finance.invoices.sepa.reverse');
+        Route::get('rechnungen/bankimport', [FinanceBankImportController::class, 'index'])->name('finance.invoices.bank-import.index');
+        Route::post('rechnungen/bankimport', [FinanceBankImportController::class, 'import'])->name('finance.invoices.bank-import.store');
+        Route::post('rechnungen/bankimport/{import}/zeilen/{row}/zuordnen', [FinanceBankImportController::class, 'assign'])->name('finance.invoices.bank-import.assign');
+        Route::post('rechnungen/bankimport/{import}/zeilen/{row}/ignorieren', [FinanceBankImportController::class, 'ignore'])->name('finance.invoices.bank-import.ignore');
+        Route::get('rechnungen/ruecklastschriften', [FinanceReturnDebitController::class, 'index'])->name('finance.invoices.return-debits.index');
+        Route::post('rechnungen/ruecklastschriften/{row}', [FinanceReturnDebitController::class, 'store'])->name('finance.invoices.return-debits.store');
+        Route::get('rechnungen/{invoice}/{format}', [FinanceInvoiceController::class, 'document'])->whereIn('format', ['pdf', 'xrechnung'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('finance.invoices.document');
+        Route::post('rechnungen/{invoice}/versenden', [FinanceInvoiceController::class, 'send'])->middleware('throttle:5,1')->name('finance.invoices.send');
+        Route::patch('rechnungen/{invoice}/bezahlt', [FinanceInvoiceController::class, 'markPaid'])->name('finance.invoices.paid');
+        Route::post('rechnungen/{invoice}/stornieren', [FinanceInvoiceController::class, 'cancel'])->name('finance.invoices.cancel');
+    });
+    Route::inertia('formulare', 'Forms')->middleware(['module:forms', 'can:view-forms'])->name('forms');
+    Route::middleware(['module:forms', 'can:view-forms'])->prefix('formulare/quittungen')->name('receipts.')->group(function () {
+        Route::get('/', [ReceiptController::class, 'index'])->defaults('tab', 'list')->name('index');
+        Route::get('anlegen', [ReceiptController::class, 'index'])->defaults('tab', 'create')->name('create');
         Route::get('archiv', [ReceiptController::class, 'index'])->defaults('tab', 'list')->name('archive');
         Route::post('/', [ReceiptController::class, 'store'])->middleware('throttle:10,1')->name('store');
         Route::get('{receipt}', [ReceiptController::class, 'show'])->name('show');
         Route::get('{receipt}/pdf/{edition}', [ReceiptController::class, 'document'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('document');
         Route::post('{receipt}/versenden', [ReceiptController::class, 'send'])->middleware('throttle:5,1')->name('send');
+        Route::post('{receipt}/stornieren', [ReceiptController::class, 'cancel'])->name('cancel');
     });
-    Route::middleware('can:view-donations')->prefix('spenden')->group(function () {
+    Route::middleware(['module:forms', 'can:view-forms'])->prefix('formulare/unterschriftslisten')->name('forms.signature-lists.')->group(function () {
+        Route::get('/', [SignatureListController::class, 'index'])->name('index');
+        Route::post('pdf', [SignatureListController::class, 'document'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('document');
+    });
+    Route::middleware(['module:forms', 'can:view-forms'])->prefix('formulare/sepa-mandate')->name('forms.mandates.')->group(function () {
+        Route::get('/', [FinanceMandateController::class, 'index'])->defaults('tab', 'overview')->name('index');
+        Route::get('anlegen', [FinanceMandateController::class, 'index'])->defaults('tab', 'create')->name('create');
+        Route::post('/', [FinanceMandateController::class, 'store'])->middleware('throttle:10,1')->name('store');
+        Route::get('{mandate}/pdf', [FinanceMandateController::class, 'document'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('document');
+        Route::post('{mandate}/versenden', [FinanceMandateController::class, 'send'])->middleware('throttle:5,1')->name('send');
+        Route::post('{mandate}/unterschrieben', [FinanceMandateController::class, 'markSigned'])->name('signed');
+        Route::post('{mandate}/widerrufen', [FinanceMandateController::class, 'revoke'])->name('revoke');
+    });
+    Route::middleware(['module:donations', 'can:view-donations'])->prefix('spenden')->group(function () {
         Route::get('/', [DonationController::class, 'index'])->defaults('tab', 'ledger')->name('donations');
         Route::get('anlegen', [DonationController::class, 'index'])->defaults('tab', 'create')->name('donations.create');
         Route::get('offene-bestaetigungen', [DonationController::class, 'index'])->defaults('tab', 'open')->name('donations.open');
@@ -101,16 +170,42 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('bestaetigungen/{certificate}', [DonationController::class, 'document'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('donations.certificates.document');
         Route::post('bestaetigungen/{certificate}/versenden', [DonationController::class, 'send'])->name('donations.certificates.send');
     });
-    Route::middleware('can:view-inventory')->prefix('inventar')->group(function () {
+    Route::middleware(['module:inventory', 'can:view-inventory'])->prefix('inventar')->group(function () {
         Route::get('/', [InventoryController::class, 'index'])->defaults('tab', 'overview')->name('inventory');
         Route::get('inventarisieren', [InventoryController::class, 'index'])->defaults('tab', 'create')->name('inventory.create');
         Route::post('/', [InventoryController::class, 'store'])->name('inventory.store');
         Route::patch('{inventoryItem:inventory_number}/abgang', [InventoryController::class, 'dispose'])->name('inventory.dispose');
     });
+    Route::middleware(['module:calendar', 'can:view-calendar'])->prefix('kalender')->name('calendar.')->group(function () {
+        Route::get('/', [CalendarController::class, 'index'])->name('index');
+        Route::post('/', [CalendarController::class, 'store'])->name('store');
+        Route::patch('{calendar}', [CalendarController::class, 'update'])->name('update');
+        Route::delete('{calendar}', [CalendarController::class, 'destroy'])->name('destroy');
+        Route::put('{calendar}/freigaben', [CalendarController::class, 'updateRules'])->name('rules.update');
+        Route::post('{calendar}/abo-link', [CalendarController::class, 'enablePublicLink'])->name('public-link.store');
+        Route::delete('{calendar}/abo-link', [CalendarController::class, 'disablePublicLink'])->name('public-link.destroy');
+        Route::post('termine', [CalendarEventController::class, 'store'])->name('events.store');
+        Route::patch('termine/{event}', [CalendarEventController::class, 'update'])->name('events.update');
+        Route::delete('termine/{event}', [CalendarEventController::class, 'destroy'])->name('events.destroy');
+    });
+    Route::middleware(['module:bookings', 'can:view-bookings'])->prefix('buchungen')->name('bookings.')->group(function () {
+        Route::get('/', [BookingController::class, 'index'])->defaults('tab', 'calendar')->name('index');
+        Route::get('ressourcen', [BookingController::class, 'index'])->defaults('tab', 'resources')->name('resources.index');
+        Route::get('anfragen', [BookingController::class, 'index'])->defaults('tab', 'requests')->name('requests.index');
+        Route::get('anlegen', [BookingController::class, 'index'])->defaults('tab', 'create')->name('create');
+        Route::get('ressourcen/{resource}', [BookingController::class, 'show'])->name('resources.show');
+        Route::post('ressourcen', [BookingController::class, 'storeResource'])->name('resources.store');
+        Route::patch('ressourcen/{resource}', [BookingController::class, 'updateResource'])->name('resources.update');
+        Route::post('/', [BookingController::class, 'store'])->name('store');
+        Route::patch('{booking}/entscheidung', [BookingController::class, 'decide'])->name('decide');
+        Route::patch('{booking}/stornieren', [BookingController::class, 'cancel'])->name('cancel');
+    });
     Route::get('ortsangaben', PostalCodeController::class)->middleware('throttle:60,1')->name('postal.lookup');
     Route::get('mitglieder', MemberIndexController::class)->name('members.index');
     Route::get('mitglieder/antraege', [MembershipApplicationController::class, 'index'])->name('members.applications.index');
     Route::post('mitglieder/{member:member_number}/beitritt-freigeben', [MembershipApplicationController::class, 'approve'])->name('members.applications.approve');
+    Route::get('mitglieder/kuendigungen', [MembershipCancellationController::class, 'index'])->name('members.cancellations.index');
+    Route::patch('mitglieder/{member:member_number}/kuendigung-bestaetigen', [MembershipCancellationController::class, 'confirm'])->name('members.cancellations.confirm');
     Route::get('mitglieder/anlegen', [MemberController::class, 'create'])->name('members.create');
     Route::post('mitglieder/anlegen', [MemberController::class, 'store'])->name('members.store');
     Route::get('mitglieder/importieren', [MemberImportController::class, 'index'])->name('members.import.index');
@@ -125,6 +220,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('mitglieder/{member:member_number}', [MemberController::class, 'update'])->name('members.update');
     Route::post('mitglieder/{member:member_number}/dokumente/{kind}', [MemberController::class, 'storeDocument'])->name('members.documents.store');
     Route::get('mitglieder/{member:member_number}/dokumente/{kind}', [MemberController::class, 'document'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('members.document');
+    Route::get('mitglieder/{member:member_number}/mandate/{document}', [MemberController::class, 'mandateDocument'])->whereNumber('document')->middleware(['throttle:sensitive', 'audit:document_access'])->name('members.mandates.document');
     Route::middleware('can:manage-configuration')->prefix('konfiguration')->name('configuration.')->group(function () {
         Route::redirect('/', '/konfiguration/verein');
         Route::get('verein', [ClubController::class, 'edit'])->name('club.edit');
@@ -143,9 +239,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('email/test', [MailSettingsController::class, 'test'])->middleware('throttle:5,1')->name('mail.test');
         Route::get('selfservice', [SelfServiceSettingsController::class, 'edit'])->name('selfservice.edit');
         Route::patch('selfservice', [SelfServiceSettingsController::class, 'update'])->name('selfservice.update');
+        Route::get('startseite', [PublicPageSettingsController::class, 'edit'])->name('public-pages.edit');
+        Route::patch('startseite', [PublicPageSettingsController::class, 'update'])->name('public-pages.update');
+        Route::get('softwaremodule', [SoftwareModuleController::class, 'edit'])->name('modules.edit');
+        Route::patch('softwaremodule', [SoftwareModuleController::class, 'update'])->name('modules.update');
         Route::get('spenden', [DonationSettingsController::class, 'edit'])->name('donations.edit');
         Route::patch('spenden', [DonationSettingsController::class, 'update'])->name('donations.update');
+        Route::get('buchhaltung', [FinanceSettingsController::class, 'edit'])->name('finance.edit');
+        Route::patch('buchhaltung', [FinanceSettingsController::class, 'update'])->name('finance.update');
         Route::get('system', SystemController::class)->name('system');
+        Route::get('system/backup/konfiguration', [BackupController::class, 'downloadConfiguration'])->middleware(['throttle:sensitive', 'audit:configuration_backup_export'])->name('backup.configuration.download');
+        Route::get('system/backup/datenbank', [BackupController::class, 'downloadDatabase'])->middleware(['throttle:2,1', 'audit:database_backup_export'])->name('backup.database.download');
+        Route::post('system/backup/konfiguration', [BackupController::class, 'restoreConfiguration'])->middleware(['throttle:5,1', 'audit:configuration_backup_restore'])->name('backup.configuration.restore');
+        Route::post('system/backup/datenbank', [BackupController::class, 'restoreDatabase'])->middleware(['throttle:2,1', 'audit:database_backup_restore'])->name('backup.database.restore');
         Route::get('sicherheitsprotokoll', SecurityAuditController::class)->name('security-audit');
     });
 });
@@ -154,13 +260,25 @@ require __DIR__.'/settings.php';
 
 Route::middleware(EnsureSelfService::class)->prefix('selfservice')->group(function () {
     Route::get('zugang', [AccessController::class, 'index']);
+    Route::get('mitglied-werden', [AccessController::class, 'join']);
     Route::post('zugang/anfordern', [AccessController::class, 'request'])->middleware('throttle:10,1');
     Route::post('zugang/bestaetigen', [AccessController::class, 'consume'])->middleware('throttle:10,1');
+    Route::get('email/bestaetigen/{token}', [AccessController::class, 'confirmEmail'])
+        ->where('token', '[a-f0-9]{64}')
+        ->middleware('throttle:10,1')
+        ->name('selfservice.email.confirm');
     Route::post('abmelden', [AccessController::class, 'logout']);
     Route::get('/', [PortalController::class, 'index']);
     Route::patch('profil', [PortalController::class, 'update'])->middleware('throttle:20,1');
+    Route::patch('mitgliedschaft/kuendigen', [PortalController::class, 'cancelMembership'])->middleware('throttle:5,1');
+    Route::delete('mitgliedschaft/kuendigen', [PortalController::class, 'withdrawCancellation'])->middleware('throttle:5,1');
     Route::get('beitritt', [PortalController::class, 'form'])->defaults('kind', 'application');
     Route::get('mandat', [PortalController::class, 'form'])->defaults('kind', 'sepa');
     Route::post('formulare/{kind}', [PortalController::class, 'submit'])->middleware('throttle:5,1');
     Route::get('dokumente/{kind}', [PortalController::class, 'document'])->middleware(['throttle:30,1', 'audit:document_access']);
+    Route::middleware('module:bookings')->group(function () {
+        Route::get('buchungen', [SelfServiceBookingController::class, 'index'])->name('selfservice.bookings.index');
+        Route::post('buchungen', [SelfServiceBookingController::class, 'store'])->middleware('throttle:10,1')->name('selfservice.bookings.store');
+        Route::delete('buchungen/{booking}', [SelfServiceBookingController::class, 'cancel'])->middleware('throttle:10,1')->name('selfservice.bookings.cancel');
+    });
 });

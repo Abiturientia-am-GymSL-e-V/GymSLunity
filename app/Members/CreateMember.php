@@ -25,18 +25,21 @@ final class CreateMember
         return DB::transaction(function () use ($actor, $memberNumber, $values, $configurationVersion, $documents): Member {
             $configuration = ClubSetting::query()->whereKey(1)->sharedLock()->firstOrFail();
             if ($configuration->fields_version !== $configurationVersion) {
-                throw ValidationException::withMessages(['form' => 'Die Feldkonfiguration wurde inzwischen geändert. Bitte lade das Formular neu.']);
+                throw ValidationException::withMessages(['form' => 'Die Feldkonfiguration wurde inzwischen geändert. Bitte das Formular neu laden.']);
             }
             abort_unless($actor->fresh()?->can('create', Member::class), 403);
 
             $values = array_replace(array_fill_keys(MemberFields::writable(), null), $values);
+            if (! isset($values['mandate_type']) || trim((string) $values['mandate_type']) === '') {
+                $values['mandate_type'] = 'recurring';
+            }
             Validator::make($values, MemberValidation::rules(new Member), MemberValidation::messages(), MemberValidation::attributes())->validate();
 
             $member = new Member(['member_number' => $memberNumber]);
             $custom = [];
             foreach (MemberFieldDefinition::query()->whereIn('key', array_keys($values))->get() as $definition) {
                 if (! $definition->is_active) {
-                    throw ValidationException::withMessages(['form' => 'Ein Feld wurde inzwischen deaktiviert. Bitte lade das Formular neu.']);
+                    throw ValidationException::withMessages(['form' => 'Ein Feld wurde inzwischen deaktiviert. Bitte das Formular neu laden.']);
                 }
                 $value = $values[$definition->key];
                 if ($definition->is_custom) {
@@ -54,7 +57,10 @@ final class CreateMember
             foreach ($documents as $kind => $document) {
                 if ($document instanceof UploadedFile) {
                     $contents = $this->documentStore->uploadedPdf($document, $kind.'_file');
-                    $this->documentStore->store($member->getKey(), $kind, $contents, false);
+                    $this->documentStore->store($member->getKey(), $kind, $contents, false, $kind === 'sepa' ? [
+                        'mandate_reference' => $member->mandate_reference,
+                        'mandate_signed_at' => $member->mandate_signed_at?->format('Y-m-d'),
+                    ] : []);
                 }
             }
 

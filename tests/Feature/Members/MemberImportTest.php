@@ -46,7 +46,7 @@ class MemberImportTest extends TestCase
         $token = $query['token'];
 
         $this->get(route('members.import.index', ['token' => $token]))->assertInertia(fn (Assert $page) => $page
-            ->component('members/Import')->where('preview.errorCount', 0)->has('preview.rows', 2)
+            ->component('members/Import')->where('totalMembers', 0)->where('preview.errorCount', 0)->has('preview.rows', 2)
             ->where('preview.rows.0.member_number', 8101)->where('preview.rows.0.name', 'Ada Lovelace'));
 
         $this->post(route('members.import.store'), ['token' => $token])

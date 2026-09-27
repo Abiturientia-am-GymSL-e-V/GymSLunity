@@ -3,20 +3,24 @@ import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     ArrowDownToLine,
     Banknote,
+    BellRing,
     CalendarPlus,
     FileDown,
     FileText,
     Landmark,
     Mail,
+    Plus,
     Printer,
     ReceiptText,
     RefreshCcw,
+    Search,
     Upload,
     WalletCards,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import BookingFields from '@/components/payments/BookingFields.vue';
+import SearchableDropdown from '@/components/SearchableDropdown.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +43,7 @@ type Contribution = {
     member_name: string;
     email: string | null;
     description: string;
+    payment_reference: string | null;
     kind: string;
     amount_cents: number;
     remaining_cents: number;
@@ -47,7 +52,34 @@ type Contribution = {
     due_date: string;
     invoice_number: string | null;
     invoice_sent_at: string | null;
+    mandate_sequence: string | null;
     sepa_ready: boolean;
+};
+type FilterField = {
+    key: string;
+    label: string;
+    type:
+        | 'text'
+        | 'email'
+        | 'tel'
+        | 'date'
+        | 'number'
+        | 'decimal'
+        | 'select'
+        | 'boolean';
+    options: Record<string, string>;
+};
+type BankImportRow = {
+    id: number;
+    payment_import_id: number;
+    row_number: number;
+    booking_date: string | null;
+    amount_cents: number;
+    purpose: string | null;
+    reference: string | null;
+    type: 'payment' | 'return_debit';
+    reason: string;
+    original_name: string;
 };
 type Transaction = {
     id: number;
@@ -59,12 +91,24 @@ type Transaction = {
     description: string;
     reference: string | null;
 };
+type OpenDebtor = {
+    member_number: number;
+    member_name: string;
+    email: string | null;
+    address_ready: boolean;
+    open_count: number;
+    open_cents: number;
+    overdue_count: number;
+    overdue_cents: number;
+    earliest_due_date: string | null;
+};
 const props = defineProps<{
     activeTab:
         | 'overview'
         | 'mandates'
         | 'create'
         | 'invoices'
+        | 'dunning'
         | 'sepa'
         | 'bank'
         | 'returns'
@@ -80,9 +124,14 @@ const props = defineProps<{
     };
     missingMandates: Member[];
     contributions: Contribution[];
+    openDebtors: OpenDebtor[];
     transactions: Transaction[];
     members: Member[];
-    filterOptions: { membership_types: string[]; payment_methods: string[] };
+    filterOptions: {
+        membership_types: string[];
+        payment_methods: string[];
+        fields: FilterField[];
+    };
     club: { tax_deductible_enabled: boolean; sepa_ready: boolean };
     recentImports: Array<{
         id: number;
@@ -92,6 +141,7 @@ const props = defineProps<{
         unmatched_count: number;
         created_at: string;
     }>;
+    unmatchedBankRows: BankImportRow[];
 }>();
 defineOptions({
     layout: { breadcrumbs: [{ title: 'Beiträge', href: '/beitraege' }] },
@@ -102,6 +152,7 @@ const tabs = [
     ['mandates', 'Mandatsverwaltung', FileText, '/beitraege/mandate'],
     ['create', 'Beiträge anlegen', CalendarPlus, '/beitraege/anlegen'],
     ['invoices', 'Beitragsrechnungen', ReceiptText, '/beitraege/rechnungen'],
+    ['dunning', 'Mahnwesen', BellRing, '/beitraege/mahnwesen'],
     ['sepa', 'SEPA-Export', ArrowDownToLine, '/beitraege/sepa-export'],
     ['bank', 'Bankimport', Landmark, '/beitraege/bankimport'],
     [
@@ -146,7 +197,66 @@ const createForm = useForm({
     payment_method: '',
     honorary: 'exclude',
     tax_deductible: false,
+    filters: [] as Array<{ key: string; value: string }>,
 });
+const filterFieldToAdd = ref('');
+const availableContributionFilters = computed(() =>
+    props.filterOptions.fields.filter(
+        (field) =>
+            !createForm.filters.some((filter) => filter.key === field.key),
+    ),
+);
+const membershipOptions = computed(() => [
+    { value: '', label: 'Alle Mitgliedschaften' },
+    ...props.filterOptions.membership_types.map((value) => ({
+        value,
+        label: value,
+    })),
+]);
+const paymentMethodOptions = computed(() => [
+    { value: '', label: 'Alle Zahlungsarten' },
+    ...props.filterOptions.payment_methods.map((value) => ({
+        value,
+        label: value,
+    })),
+]);
+const additionalFilterOptions = computed(() => [
+    { value: '', label: 'Feld auswählen' },
+    ...availableContributionFilters.value.map((field) => ({
+        value: field.key,
+        label: field.label,
+    })),
+]);
+function contributionFilterField(key: string) {
+    return props.filterOptions.fields.find((field) => field.key === key);
+}
+function contributionValueOptions(key: string) {
+    const field = contributionFilterField(key);
+    if (field?.type === 'boolean') {
+        return [
+            { value: '1', label: 'Ja' },
+            { value: '0', label: 'Nein' },
+        ];
+    }
+    return Object.entries(field?.options || {}).map(([value, label]) => ({
+        value,
+        label,
+    }));
+}
+function addContributionFilter() {
+    const field = contributionFilterField(filterFieldToAdd.value);
+    if (!field) return;
+    createForm.filters.push({
+        key: field.key,
+        value: field.type === 'boolean' ? '1' : '',
+    });
+    filterFieldToAdd.value = '';
+}
+function removeContributionFilter(key: string) {
+    createForm.filters = createForm.filters.filter(
+        (filter) => filter.key !== key,
+    );
+}
 function period(value: string) {
     const values: Record<string, [string, string, string]> = {
         year: [year + '-01-01', year + '-12-31', 'Mitgliedsbeitrag ' + year],
@@ -188,14 +298,59 @@ function period(value: string) {
             createForm.description,
         ] = values[value];
 }
+const invoiceDescription = ref('');
+const invoiceState = ref('all');
+const invoiceDescriptions = computed(() =>
+    [
+        ...new Set(
+            props.contributions
+                .filter((item) => item.kind === 'contribution')
+                .map((item) => item.description),
+        ),
+    ].sort((a, b) => a.localeCompare(b, 'de')),
+);
+const invoiceDescriptionOptions = computed(() => [
+    { value: '', label: 'Alle Beiträge' },
+    ...invoiceDescriptions.value.map((value) => ({ value, label: value })),
+]);
+const invoiceStateOptions = [
+    { value: 'all', label: 'Alle Rechnungsstatus' },
+    { value: 'missing', label: 'Noch nicht erzeugt' },
+    { value: 'generated', label: 'Erzeugt' },
+    { value: 'sent', label: 'Per E-Mail versendet' },
+];
 const invoiceRows = computed(() =>
-    props.contributions.filter((item) => item.kind === 'contribution'),
+    props.contributions.filter(
+        (item) =>
+            item.kind === 'contribution' &&
+            (!invoiceDescription.value ||
+                item.description === invoiceDescription.value) &&
+            (invoiceState.value === 'all' ||
+                (invoiceState.value === 'generated' && !!item.invoice_number) ||
+                (invoiceState.value === 'missing' && !item.invoice_number) ||
+                (invoiceState.value === 'sent' && !!item.invoice_sent_at)),
+    ),
 );
 const invoiceSelection = ref<number[]>([]);
 const invoiceForm = useForm<{ ids: number[]; tax_deductible: boolean }>({
     ids: [],
     tax_deductible: false,
 });
+const selectedInvoiceRows = computed(() =>
+    props.contributions.filter((item) =>
+        invoiceSelection.value.includes(item.id),
+    ),
+);
+const canGenerateInvoices = computed(() =>
+    selectedInvoiceRows.value.some((item) => !item.invoice_number),
+);
+const canDownloadInvoices = computed(
+    () =>
+        selectedInvoiceRows.value.length > 0 &&
+        selectedInvoiceRows.value.every((item) => !!item.invoice_number),
+);
+const invoiceDownloadBusy = ref(false);
+const invoiceDownloadError = ref('');
 const sepaRows = computed(() =>
     props.contributions.filter((item) => item.sepa_ready),
 );
@@ -232,6 +387,49 @@ function invoice(action: 'erzeugen' | 'versenden') {
             invoiceSelection.value = [];
         },
     });
+}
+async function downloadInvoices() {
+    invoiceDownloadBusy.value = true;
+    invoiceDownloadError.value = '';
+    try {
+        const token = document.cookie
+            .split('; ')
+            .find((value) => value.startsWith('XSRF-TOKEN='))
+            ?.slice('XSRF-TOKEN='.length);
+        const response = await fetch('/beitraege/rechnungen/sammeldownload', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/pdf, application/json',
+                'X-XSRF-TOKEN': decodeURIComponent(token || ''),
+            },
+            body: JSON.stringify({ ids: invoiceSelection.value }),
+        });
+        if (!response.ok || response.redirected) {
+            const failure =
+                response.status === 422 ? await response.json() : null;
+            throw new Error(
+                failure?.errors?.ids?.[0] ||
+                    'Der Sammeldownload konnte nicht erstellt werden.',
+            );
+        }
+        const objectUrl = URL.createObjectURL(await response.blob());
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = 'beitragsrechnungen.pdf';
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (cause) {
+        invoiceDownloadError.value =
+            cause instanceof Error
+                ? cause.message
+                : 'Der Sammeldownload ist fehlgeschlagen.';
+    } finally {
+        invoiceDownloadBusy.value = false;
+    }
 }
 const collectionDate = ref(today);
 const sepaBusy = ref(false);
@@ -289,6 +487,34 @@ async function sepaExport() {
     }
 }
 const bankForm = useForm<{ csv: File | null }>({ csv: null });
+const bankAssignments = ref<Record<number, string>>({});
+const bankRowBusy = ref<number | null>(null);
+const memberSearchOptions = computed(() =>
+    props.members.map((member) => ({
+        value: String(member.member_number),
+        label: `${member.last_name}, ${member.first_name}`,
+        suffix: `Nr. ${member.member_number}`,
+        search: `${member.first_name} ${member.last_name} ${member.member_number}`,
+    })),
+);
+function assignBankRow(row: BankImportRow) {
+    const memberNumber = bankAssignments.value[row.id];
+    if (!memberNumber) return;
+    bankRowBusy.value = row.id;
+    router.post(
+        `/beitraege/bankimport/${row.payment_import_id}/zeilen/${row.id}/zuordnen`,
+        { member_number: memberNumber },
+        { preserveScroll: true, onFinish: () => (bankRowBusy.value = null) },
+    );
+}
+function ignoreBankRow(row: BankImportRow) {
+    bankRowBusy.value = row.id;
+    router.post(
+        `/beitraege/bankimport/${row.payment_import_id}/zeilen/${row.id}/ignorieren`,
+        {},
+        { preserveScroll: true, onFinish: () => (bankRowBusy.value = null) },
+    );
+}
 const returnForm = useForm({
     member_number: '',
     amount: '5.00',
@@ -298,9 +524,10 @@ const returnForm = useForm({
 });
 const manualForm = useForm({
     member_number: '',
+    direction: 'payment' as 'payment' | 'charge',
     amount: '',
     booking_date: today,
-    description: 'Zahlungseingang',
+    description: '',
     reference: '',
 });
 const kinds: Record<string, string> = {
@@ -309,7 +536,157 @@ const kinds: Record<string, string> = {
     manual_payment: 'Manuelle Zahlung',
     bank_payment: 'Bankimport',
     sepa_payment: 'SEPA-Zahlung',
+    bank_return_debit: 'Rücklastschrift',
+    manual_charge: 'Manuelle Forderung',
+    booking: 'Ressourcenbuchung',
+    booking_refund: 'Buchungsstorno',
 };
+const transactionQuery = ref('');
+const transactionKind = ref('all');
+const transactionDirection = ref('all');
+const transactionKindOptions = computed(() => [
+    { value: 'all', label: 'Alle Buchungsarten' },
+    ...[...new Set(props.transactions.map((entry) => entry.kind))]
+        .sort((a, b) => (kinds[a] || a).localeCompare(kinds[b] || b, 'de'))
+        .map((value) => ({ value, label: kinds[value] || value })),
+]);
+const transactionDirectionOptions = [
+    { value: 'all', label: 'Belastungen und Gutschriften' },
+    { value: 'charge', label: 'Nur Belastungen' },
+    { value: 'credit', label: 'Nur Gutschriften' },
+];
+const filteredTransactions = computed(() => {
+    const query = transactionQuery.value.trim().toLocaleLowerCase('de');
+    return props.transactions.filter((entry) => {
+        const matchesQuery =
+            !query ||
+            [
+                entry.member_name,
+                String(entry.member_number),
+                entry.description,
+                entry.reference || '',
+            ]
+                .join(' ')
+                .toLocaleLowerCase('de')
+                .includes(query);
+        const matchesKind =
+            transactionKind.value === 'all' ||
+            entry.kind === transactionKind.value;
+        const matchesDirection =
+            transactionDirection.value === 'all' ||
+            (transactionDirection.value === 'charge'
+                ? entry.amount_cents > 0
+                : entry.amount_cents < 0);
+        return matchesQuery && matchesKind && matchesDirection;
+    });
+});
+function transactionReportUrl(format: 'csv' | 'print') {
+    const params = new URLSearchParams({
+        from: props.filters.from,
+        to: props.filters.to,
+        format,
+    });
+    if (transactionQuery.value.trim()) {
+        params.set('q', transactionQuery.value.trim());
+    }
+    if (transactionKind.value !== 'all') {
+        params.set('kind', transactionKind.value);
+    }
+    if (transactionDirection.value !== 'all') {
+        params.set('direction', transactionDirection.value);
+    }
+    return `/beitraege/kontobuchungen/export?${params.toString()}`;
+}
+
+const dunningQuery = ref('');
+const dunningSelection = ref<number[]>([]);
+const dunningForm = useForm<{ member_numbers: number[] }>({
+    member_numbers: [],
+});
+const dunningRows = computed(() => {
+    const query = dunningQuery.value.trim().toLocaleLowerCase('de');
+    return props.openDebtors.filter(
+        (item) =>
+            !query ||
+            `${item.member_name} ${item.member_number} ${item.email || ''}`
+                .toLocaleLowerCase('de')
+                .includes(query),
+    );
+});
+const dunningTableUrl = computed(() => {
+    const params = new URLSearchParams();
+    if (dunningQuery.value.trim()) {
+        params.set('q', dunningQuery.value.trim());
+    }
+    const query = params.toString();
+    return `/beitraege/mahnwesen/tabelle${query ? `?${query}` : ''}`;
+});
+function toggleDunning(memberNumber: number) {
+    dunningSelection.value = dunningSelection.value.includes(memberNumber)
+        ? dunningSelection.value.filter((value) => value !== memberNumber)
+        : [...dunningSelection.value, memberNumber];
+}
+function toggleAllDunning() {
+    const ids = dunningRows.value.map((item) => item.member_number);
+    dunningSelection.value =
+        ids.length > 0 && ids.every((id) => dunningSelection.value.includes(id))
+            ? []
+            : ids;
+}
+function sendDunning() {
+    dunningForm.member_numbers = dunningSelection.value;
+    dunningForm.post('/beitraege/mahnwesen/versenden', {
+        preserveScroll: true,
+        onSuccess: () => (dunningSelection.value = []),
+    });
+}
+const dunningDownloadBusy = ref(false);
+const dunningDownloadError = ref('');
+async function downloadDunningLetters() {
+    dunningDownloadBusy.value = true;
+    dunningDownloadError.value = '';
+    try {
+        const token = document.cookie
+            .split('; ')
+            .find((value) => value.startsWith('XSRF-TOKEN='))
+            ?.slice('XSRF-TOKEN='.length);
+        const response = await fetch('/beitraege/mahnwesen/briefe', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/pdf, application/json',
+                'X-XSRF-TOKEN': decodeURIComponent(token || ''),
+            },
+            body: JSON.stringify({
+                member_numbers: dunningSelection.value,
+            }),
+        });
+        if (!response.ok || response.redirected) {
+            const failure =
+                response.status === 422 ? await response.json() : null;
+            throw new Error(
+                failure?.errors?.member_numbers?.[0] ||
+                    'Das PDF konnte nicht erstellt werden.',
+            );
+        }
+        const objectUrl = URL.createObjectURL(await response.blob());
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = 'zahlungserinnerungen.pdf';
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (cause) {
+        dunningDownloadError.value =
+            cause instanceof Error
+                ? cause.message
+                : 'Das PDF konnte nicht erstellt werden.';
+    } finally {
+        dunningDownloadBusy.value = false;
+    }
+}
 </script>
 
 <template>
@@ -344,26 +721,31 @@ const kinds: Record<string, string> = {
 
         <template v-if="activeTab === 'overview'">
             <form
-                class="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4"
+                class="grid gap-3 rounded-xl border bg-card p-4 sm:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] 2xl:items-end"
                 @submit.prevent="filter"
             >
-                <div>
+                <div class="min-w-0 space-y-2">
                     <Label for="filter-from">Von</Label
                     ><Input
                         id="filter-from"
                         v-model="filterForm.from"
                         type="date"
+                        class="date-safe"
                     />
                 </div>
-                <div>
+                <div class="min-w-0 space-y-2">
                     <Label for="filter-to">Bis</Label
                     ><Input
                         id="filter-to"
                         v-model="filterForm.to"
                         type="date"
+                        class="date-safe"
                     />
                 </div>
-                <Button type="submit" variant="outline"
+                <Button
+                    type="submit"
+                    variant="outline"
+                    class="w-full sm:col-span-2 2xl:col-span-1 2xl:w-auto"
                     >Zeitraum anwenden</Button
                 >
             </form>
@@ -403,8 +785,63 @@ const kinds: Record<string, string> = {
                 </div>
             </div>
             <section class="overflow-hidden rounded-xl border bg-card">
-                <div class="border-b p-5">
-                    <h2 class="font-semibold">Kontobuchungen</h2>
+                <div class="space-y-4 border-b p-5">
+                    <div
+                        class="flex flex-wrap items-start justify-between gap-3"
+                    >
+                        <div>
+                            <h2 class="font-semibold">Kontobuchungen</h2>
+                            <p class="text-sm text-muted-foreground">
+                                {{ filteredTransactions.length }} von
+                                {{ transactions.length }} Buchungen
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <Button as-child variant="outline">
+                                <a :href="transactionReportUrl('csv')">
+                                    <FileDown class="size-4" />CSV
+                                </a>
+                            </Button>
+                            <Button as-child variant="outline">
+                                <a
+                                    :href="transactionReportUrl('print')"
+                                    target="_blank"
+                                >
+                                    <Printer class="size-4" />Drucken
+                                </a>
+                            </Button>
+                        </div>
+                    </div>
+                    <div class="grid gap-3 md:grid-cols-3">
+                        <div class="relative min-w-0">
+                            <Search
+                                class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                            />
+                            <Input
+                                v-model="transactionQuery"
+                                type="search"
+                                class="pl-9"
+                                placeholder="Mitglied, Beschreibung oder Referenz"
+                                aria-label="Kontobuchungen durchsuchen"
+                            />
+                        </div>
+                        <SearchableDropdown
+                            id="transaction-kind-filter"
+                            v-model="transactionKind"
+                            :options="transactionKindOptions"
+                            aria-label="Buchungsart filtern"
+                            search-placeholder="Buchungsart suchen"
+                            trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                        />
+                        <SearchableDropdown
+                            id="transaction-direction-filter"
+                            v-model="transactionDirection"
+                            :options="transactionDirectionOptions"
+                            aria-label="Buchungsrichtung filtern"
+                            search-placeholder="Buchungsrichtung suchen"
+                            trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                        />
+                    </div>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
@@ -418,7 +855,10 @@ const kinds: Record<string, string> = {
                             </tr>
                         </thead>
                         <tbody class="divide-y">
-                            <tr v-for="entry in transactions" :key="entry.id">
+                            <tr
+                                v-for="entry in filteredTransactions"
+                                :key="entry.id"
+                            >
                                 <td class="p-3">
                                     {{ date(entry.booking_date) }}
                                 </td>
@@ -454,12 +894,12 @@ const kinds: Record<string, string> = {
                                     {{ money(entry.amount_cents) }}
                                 </td>
                             </tr>
-                            <tr v-if="!transactions.length">
+                            <tr v-if="!filteredTransactions.length">
                                 <td
                                     colspan="5"
                                     class="p-8 text-center text-muted-foreground"
                                 >
-                                    Keine Buchungen im Zeitraum.
+                                    Keine passenden Buchungen im Zeitraum.
                                 </td>
                             </tr>
                         </tbody>
@@ -475,7 +915,7 @@ const kinds: Record<string, string> = {
             <div
                 class="flex flex-wrap items-center justify-between gap-3 border-b p-5"
             >
-                <div>
+                <div class="space-y-2">
                     <h2 class="font-semibold">Fehlende SEPA-Mandate</h2>
                     <p class="text-sm text-muted-foreground">
                         Unvollständige Mandatsdaten bei Zahlungsart
@@ -549,6 +989,185 @@ const kinds: Record<string, string> = {
             </div>
         </section>
 
+        <section
+            v-else-if="activeTab === 'dunning'"
+            class="overflow-hidden rounded-xl border bg-card"
+        >
+            <div class="space-y-4 border-b p-5">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h2 class="font-semibold">Offene Beiträge</h2>
+                        <p class="text-sm text-muted-foreground">
+                            Mitglieder auswählen und per E-Mail oder PDF an
+                            offene Beträge erinnern.
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <Button as-child variant="outline">
+                            <a href="/beitraege/mahnwesen/export">
+                                <FileDown class="size-4" />CSV
+                            </a>
+                        </Button>
+                        <Button as-child variant="outline">
+                            <a :href="dunningTableUrl" target="_blank">
+                                <Printer class="size-4" />Drucken
+                            </a>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            :disabled="
+                                !dunningSelection.length || dunningDownloadBusy
+                            "
+                            @click="downloadDunningLetters"
+                        >
+                            <Spinner v-if="dunningDownloadBusy" />
+                            <FileDown v-else class="size-4" />PDF
+                        </Button>
+                        <Button
+                            :disabled="
+                                !dunningSelection.length ||
+                                dunningForm.processing
+                            "
+                            @click="sendDunning"
+                        >
+                            <Spinner v-if="dunningForm.processing" />
+                            <Mail v-else class="size-4" />Mail senden
+                        </Button>
+                    </div>
+                </div>
+                <InputError :message="dunningForm.errors.member_numbers" />
+                <InputError :message="dunningDownloadError" />
+                <div class="relative max-w-md">
+                    <Search
+                        class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <Input
+                        v-model="dunningQuery"
+                        type="search"
+                        class="pl-9"
+                        placeholder="Name, Mitgliedsnummer oder E-Mail"
+                        aria-label="Offene Beiträge durchsuchen"
+                    />
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-muted/50 text-left">
+                        <tr>
+                            <th class="p-3">
+                                <input
+                                    type="checkbox"
+                                    aria-label="Alle sichtbaren Mitglieder auswählen"
+                                    @change="toggleAllDunning"
+                                />
+                            </th>
+                            <th class="p-3">Mitglied</th>
+                            <th class="p-3">Kontakt</th>
+                            <th class="p-3">Älteste Fälligkeit</th>
+                            <th class="p-3 text-right">Offen</th>
+                            <th class="p-3">Dokumente</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        <tr
+                            v-for="item in dunningRows"
+                            :key="item.member_number"
+                        >
+                            <td class="p-3">
+                                <input
+                                    type="checkbox"
+                                    :checked="
+                                        dunningSelection.includes(
+                                            item.member_number,
+                                        )
+                                    "
+                                    :aria-label="`${item.member_name} auswählen`"
+                                    @change="toggleDunning(item.member_number)"
+                                />
+                            </td>
+                            <td class="p-3">
+                                <a
+                                    class="font-medium hover:underline"
+                                    :href="'/mitglieder/' + item.member_number"
+                                >
+                                    {{ item.member_name }}
+                                </a>
+                                <small class="block"
+                                    >Nr. {{ item.member_number }} ·
+                                    {{ item.open_count }} Posten</small
+                                >
+                            </td>
+                            <td class="p-3">
+                                <span>{{ item.email || 'keine E-Mail' }}</span>
+                                <small
+                                    v-if="!item.address_ready"
+                                    class="block text-amber-700"
+                                    >Postanschrift unvollständig</small
+                                >
+                            </td>
+                            <td class="p-3">
+                                {{ date(item.earliest_due_date) }}
+                                <small class="block">
+                                    {{ item.overdue_count }} überfällig ·
+                                    {{ money(item.overdue_cents) }}
+                                </small>
+                            </td>
+                            <td class="p-3 text-right font-medium">
+                                {{ money(item.open_cents) }}
+                            </td>
+                            <td class="p-3">
+                                <div class="flex gap-1">
+                                    <Button
+                                        as-child
+                                        size="icon-sm"
+                                        variant="ghost"
+                                    >
+                                        <a
+                                            :href="
+                                                '/beitraege/mahnwesen/' +
+                                                item.member_number +
+                                                '?format=pdf'
+                                            "
+                                            :aria-label="`Zahlungserinnerung für ${item.member_name} herunterladen`"
+                                            title="PDF herunterladen"
+                                        >
+                                            <FileDown class="size-4" />
+                                        </a>
+                                    </Button>
+                                    <Button
+                                        as-child
+                                        size="icon-sm"
+                                        variant="ghost"
+                                    >
+                                        <a
+                                            :href="
+                                                '/beitraege/mahnwesen/' +
+                                                item.member_number +
+                                                '?format=print'
+                                            "
+                                            target="_blank"
+                                            :aria-label="`Zahlungserinnerung für ${item.member_name} drucken`"
+                                            title="Zahlungserinnerung drucken"
+                                        >
+                                            <Printer class="size-4" />
+                                        </a>
+                                    </Button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr v-if="!dunningRows.length">
+                            <td
+                                colspan="6"
+                                class="p-8 text-center text-muted-foreground"
+                            >
+                                Keine passenden offenen Beiträge.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <form
             v-else-if="activeTab === 'create'"
             class="space-y-5 rounded-xl border bg-card p-5"
@@ -563,8 +1182,8 @@ const kinds: Record<string, string> = {
                     Beiträge werden übersprungen.
                 </p>
             </div>
-            <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                <div>
+            <div class="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
+                <div class="min-w-0 space-y-2">
                     <Label for="period">Zeitraumvorlage</Label
                     ><select
                         id="period"
@@ -582,38 +1201,41 @@ const kinds: Record<string, string> = {
                         <option value="q4">4. Quartal</option>
                     </select>
                 </div>
-                <div>
+                <div class="min-w-0 space-y-2">
                     <Label for="period-start">Von</Label
                     ><Input
                         id="period-start"
                         v-model="createForm.period_start"
                         type="date"
+                        class="date-safe"
                     /><InputError :message="createForm.errors.period_start" />
                 </div>
-                <div>
+                <div class="min-w-0 space-y-2">
                     <Label for="period-end">Bis</Label
                     ><Input
                         id="period-end"
                         v-model="createForm.period_end"
                         type="date"
+                        class="date-safe"
                     /><InputError :message="createForm.errors.period_end" />
                 </div>
-                <div>
+                <div class="min-w-0 space-y-2">
                     <Label for="due-date">Fällig am</Label
                     ><Input
                         id="due-date"
                         v-model="createForm.due_date"
                         type="date"
+                        class="date-safe"
                     /><InputError :message="createForm.errors.due_date" />
                 </div>
-                <div class="md:col-span-2">
+                <div class="space-y-2 md:col-span-2">
                     <Label for="description">Bezeichnung</Label
                     ><Input
                         id="description"
                         v-model="createForm.description"
                     /><InputError :message="createForm.errors.description" />
                 </div>
-                <div>
+                <div class="space-y-2">
                     <Label for="amount-mode">Betragsquelle</Label
                     ><select
                         id="amount-mode"
@@ -626,7 +1248,10 @@ const kinds: Record<string, string> = {
                         </option>
                     </select>
                 </div>
-                <div v-if="createForm.amount_mode === 'fixed'">
+                <div
+                    v-if="createForm.amount_mode === 'fixed'"
+                    class="space-y-2"
+                >
                     <Label for="amount">Betrag in Euro</Label
                     ><Input
                         id="amount"
@@ -636,39 +1261,29 @@ const kinds: Record<string, string> = {
                         step="0.01"
                     /><InputError :message="createForm.errors.amount" />
                 </div>
-                <div>
+                <div class="space-y-2">
                     <Label for="membership">Mitgliedschaft</Label
-                    ><select
+                    ><SearchableDropdown
                         id="membership"
                         v-model="createForm.membership_type"
-                        class="field"
-                    >
-                        <option value="">Alle</option>
-                        <option
-                            v-for="value in filterOptions.membership_types"
-                            :key="value"
-                        >
-                            {{ value }}
-                        </option>
-                    </select>
+                        :options="membershipOptions"
+                        search-placeholder="Mitgliedschaft suchen"
+                        aria-label="Mitgliedschaft filtern"
+                        trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                    />
                 </div>
-                <div>
+                <div class="space-y-2">
                     <Label for="payment-method">Zahlungsart</Label
-                    ><select
+                    ><SearchableDropdown
                         id="payment-method"
                         v-model="createForm.payment_method"
-                        class="field"
-                    >
-                        <option value="">Alle</option>
-                        <option
-                            v-for="value in filterOptions.payment_methods"
-                            :key="value"
-                        >
-                            {{ value }}
-                        </option>
-                    </select>
+                        :options="paymentMethodOptions"
+                        search-placeholder="Zahlungsart suchen"
+                        aria-label="Zahlungsart filtern"
+                        trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                    />
                 </div>
-                <div>
+                <div class="space-y-2">
                     <Label for="honorary">Ehrenmitglieder</Label
                     ><select
                         id="honorary"
@@ -681,6 +1296,115 @@ const kinds: Record<string, string> = {
                     </select>
                 </div>
             </div>
+            <section class="space-y-4 rounded-lg border bg-muted/20 p-4">
+                <div>
+                    <h3 class="text-sm font-medium">Weitere Filter</h3>
+                    <p class="text-xs text-muted-foreground">
+                        Verfügbare Filter richten sich nach der
+                        Mitgliederfeld-Konfiguration.
+                    </p>
+                </div>
+                <div
+                    v-if="createForm.filters.length"
+                    class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+                >
+                    <div
+                        v-for="filterItem in createForm.filters"
+                        :key="filterItem.key"
+                        class="min-w-0 space-y-2"
+                    >
+                        <div class="flex items-center justify-between gap-2">
+                            <Label
+                                :for="`contribution-filter-${filterItem.key}`"
+                            >
+                                {{
+                                    contributionFilterField(filterItem.key)
+                                        ?.label
+                                }}
+                            </Label>
+                            <button
+                                type="button"
+                                class="text-xs text-muted-foreground hover:text-foreground"
+                                @click="
+                                    removeContributionFilter(filterItem.key)
+                                "
+                            >
+                                Entfernen
+                            </button>
+                        </div>
+                        <SearchableDropdown
+                            v-if="
+                                ['select', 'boolean'].includes(
+                                    contributionFilterField(filterItem.key)
+                                        ?.type || '',
+                                )
+                            "
+                            :id="`contribution-filter-${filterItem.key}`"
+                            v-model="filterItem.value"
+                            :options="contributionValueOptions(filterItem.key)"
+                            search-placeholder="Wert suchen"
+                            :aria-label="
+                                contributionFilterField(filterItem.key)?.label
+                            "
+                            trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                        />
+                        <Input
+                            v-else
+                            :id="`contribution-filter-${filterItem.key}`"
+                            v-model="filterItem.value"
+                            :type="
+                                contributionFilterField(filterItem.key)
+                                    ?.type === 'date'
+                                    ? 'date'
+                                    : ['number', 'decimal'].includes(
+                                            contributionFilterField(
+                                                filterItem.key,
+                                            )?.type || '',
+                                        )
+                                      ? 'number'
+                                      : 'text'
+                            "
+                            :step="
+                                contributionFilterField(filterItem.key)
+                                    ?.type === 'decimal'
+                                    ? '0.01'
+                                    : undefined
+                            "
+                            :class="{
+                                'date-safe':
+                                    contributionFilterField(filterItem.key)
+                                        ?.type === 'date',
+                            }"
+                            required
+                        />
+                    </div>
+                </div>
+                <div
+                    v-if="availableContributionFilters.length"
+                    class="flex flex-col gap-2 sm:flex-row"
+                >
+                    <SearchableDropdown
+                        v-model="filterFieldToAdd"
+                        id="additional-contribution-filter"
+                        :options="additionalFilterOptions"
+                        root-class="w-full sm:max-w-sm"
+                        trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                        aria-label="Weiteren Filter auswählen"
+                        search-placeholder="Feld suchen"
+                    />
+                    <Button
+                        type="button"
+                        variant="outline"
+                        :disabled="!filterFieldToAdd"
+                        @click="addContributionFilter"
+                    >
+                        <Plus class="size-4" />Filter hinzufügen
+                    </Button>
+                </div>
+                <p v-else class="text-xs text-muted-foreground">
+                    Alle verfügbaren Filter wurden hinzugefügt.
+                </p>
+            </section>
             <label v-if="club.tax_deductible_enabled" class="flex gap-2 text-sm"
                 ><input
                     v-model="createForm.tax_deductible"
@@ -720,7 +1444,7 @@ const kinds: Record<string, string> = {
                     ><Button
                         variant="outline"
                         :disabled="
-                            !invoiceSelection.length || invoiceForm.processing
+                            !canGenerateInvoices || invoiceForm.processing
                         "
                         @click="invoice('erzeugen')"
                         ><FileText class="size-4" />Erzeugen</Button
@@ -730,12 +1454,50 @@ const kinds: Record<string, string> = {
                         "
                         @click="invoice('versenden')"
                         ><Mail class="size-4" />Mail senden</Button
+                    ><Button
+                        variant="outline"
+                        :disabled="!canDownloadInvoices || invoiceDownloadBusy"
+                        @click="downloadInvoices"
+                        ><Spinner v-if="invoiceDownloadBusy" /><FileDown
+                            v-else
+                            class="size-4"
+                        />Sammel-PDF</Button
                     >
                 </div>
                 <InputError
                     class="basis-full"
                     :message="invoiceForm.errors.ids"
                 />
+                <InputError
+                    class="basis-full"
+                    :message="invoiceDownloadError"
+                />
+                <div class="grid basis-full gap-3 border-t pt-4 sm:grid-cols-2">
+                    <div class="space-y-2">
+                        <Label for="invoice-description-filter">Beitrag</Label>
+                        <SearchableDropdown
+                            id="invoice-description-filter"
+                            v-model="invoiceDescription"
+                            :options="invoiceDescriptionOptions"
+                            search-placeholder="Beitrag suchen"
+                            aria-label="Beitrag filtern"
+                            trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                        />
+                    </div>
+                    <div class="space-y-2">
+                        <Label for="invoice-state-filter"
+                            >Rechnungsstatus</Label
+                        >
+                        <SearchableDropdown
+                            id="invoice-state-filter"
+                            v-model="invoiceState"
+                            :options="invoiceStateOptions"
+                            search-placeholder="Status suchen"
+                            aria-label="Rechnungsstatus filtern"
+                            trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                        />
+                    </div>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
@@ -780,7 +1542,12 @@ const kinds: Record<string, string> = {
                                     >{{ date(item.period_start) }}–{{
                                         date(item.period_end)
                                     }}</small
+                                ><small
+                                    v-if="item.payment_reference"
+                                    class="block font-mono"
                                 >
+                                    {{ item.payment_reference }}
+                                </small>
                             </td>
                             <td class="p-3">{{ date(item.due_date) }}</td>
                             <td class="p-3 text-right">
@@ -846,14 +1613,17 @@ const kinds: Record<string, string> = {
                         PAIN.008 exportieren und Beiträge als bezahlt verbuchen.
                     </p>
                 </div>
-                <div class="flex items-end gap-2">
-                    <div>
+                <div
+                    class="grid w-full gap-3 2xl:w-auto 2xl:grid-cols-[minmax(0,18rem)_auto] 2xl:items-end"
+                >
+                    <div class="min-w-0 space-y-2">
                         <Label for="collection-date">Einzugsdatum</Label
                         ><Input
                             id="collection-date"
                             v-model="collectionDate"
                             type="date"
                             :min="today"
+                            class="date-safe"
                         />
                     </div>
                     <Button
@@ -942,14 +1712,14 @@ const kinds: Record<string, string> = {
                     })
                 "
             >
-                <div>
+                <div class="space-y-2">
                     <h2 class="font-semibold">SEPA-Umsatzliste importieren</h2>
                     <p class="text-sm text-muted-foreground">
                         CSV mit Datum/Buchungsdatum und Betrag; Zuordnung über
                         Mitglieds-, Rechnungs- oder Mandatsnummer.
                     </p>
                 </div>
-                <div>
+                <div class="min-w-0 space-y-2">
                     <Label for="bank-csv">CSV-Datei</Label
                     ><Input
                         id="bank-csv"
@@ -995,6 +1765,105 @@ const kinds: Record<string, string> = {
                         Noch keine Importe.
                     </li>
                 </ul>
+            </section>
+            <section class="rounded-xl border bg-card lg:col-span-2">
+                <div class="border-b p-5">
+                    <h2 class="font-semibold">Offene Bankbuchungen</h2>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                        Automatisch abgeglichen wird – in dieser Reihenfolge –
+                        über Zahlungsreferenz, Rechnungsnummer, eine explizite
+                        Mitgliedsnummer, eine Mitgliedsnummer im Text oder die
+                        Mandatsreferenz. Negative Beträge werden dabei als
+                        Rücklastschrift erkannt und öffnen den betroffenen
+                        Beitrag wieder.
+                    </p>
+                </div>
+                <div class="divide-y">
+                    <article
+                        v-for="row in unmatchedBankRows"
+                        :key="row.id"
+                        class="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,24rem)_auto] lg:items-end"
+                    >
+                        <div class="min-w-0 text-sm">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <strong>{{ money(row.amount_cents) }}</strong>
+                                <Badge
+                                    :variant="
+                                        row.type === 'return_debit'
+                                            ? 'destructive'
+                                            : 'outline'
+                                    "
+                                >
+                                    {{
+                                        row.type === 'return_debit'
+                                            ? 'Rücklastschrift'
+                                            : 'Zahlung'
+                                    }}
+                                </Badge>
+                                <span class="text-muted-foreground">
+                                    {{ date(row.booking_date) }}
+                                </span>
+                            </div>
+                            <p class="mt-1 break-words">
+                                {{ row.purpose || 'Kein Verwendungszweck' }}
+                            </p>
+                            <small class="block break-all">
+                                {{ row.original_name }} · Zeile
+                                {{ row.row_number }}
+                                <template v-if="row.reference">
+                                    · Referenz {{ row.reference }}
+                                </template>
+                                · {{ row.reason }}
+                            </small>
+                        </div>
+                        <div class="space-y-2">
+                            <Label :for="`bank-row-member-${row.id}`">
+                                Mitglied zuordnen
+                            </Label>
+                            <SearchableDropdown
+                                :id="`bank-row-member-${row.id}`"
+                                :model-value="bankAssignments[row.id] || ''"
+                                :options="memberSearchOptions"
+                                placeholder="Mitglied auswählen"
+                                search-placeholder="Name oder Nummer suchen"
+                                trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                                dropdown-class="max-w-[calc(100vw-2rem)]"
+                                @update:model-value="
+                                    bankAssignments[row.id] = $event
+                                "
+                            />
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <Button
+                                size="sm"
+                                :disabled="
+                                    !bankAssignments[row.id] ||
+                                    !row.booking_date ||
+                                    row.amount_cents === 0 ||
+                                    bankRowBusy === row.id
+                                "
+                                @click="assignBankRow(row)"
+                            >
+                                <Spinner v-if="bankRowBusy === row.id" />
+                                Zuordnen
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                :disabled="bankRowBusy === row.id"
+                                @click="ignoreBankRow(row)"
+                            >
+                                Ignorieren
+                            </Button>
+                        </div>
+                    </article>
+                    <p
+                        v-if="!unmatchedBankRows.length"
+                        class="p-6 text-center text-sm text-muted-foreground"
+                    >
+                        Keine offenen Bankbuchungen.
+                    </p>
+                </div>
             </section>
         </div>
 
@@ -1045,13 +1914,22 @@ const kinds: Record<string, string> = {
             <BookingFields
                 :form="manualForm"
                 :members="members"
-                amount-label="Zahlbetrag in Euro"
+                :amount-label="
+                    manualForm.direction === 'payment'
+                        ? 'Zahlbetrag in Euro'
+                        : 'Forderungsbetrag in Euro'
+                "
+                show-direction
             />
             <Button type="submit" :disabled="manualForm.processing"
                 ><Spinner v-if="manualForm.processing" /><Banknote
                     v-else
                     class="size-4"
-                />Zahlung verbuchen</Button
+                />{{
+                    manualForm.direction === 'payment'
+                        ? 'Zahlung verbuchen'
+                        : 'Forderung verbuchen'
+                }}</Button
             >
         </form>
     </div>

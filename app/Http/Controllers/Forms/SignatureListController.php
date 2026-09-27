@@ -1,0 +1,129 @@
+<?php
+
+namespace App\Http\Controllers\Forms;
+
+use App\Http\Controllers\Controller;
+use App\Members\MemberFields;
+use App\Members\MemberReportValue;
+use App\Members\MemberReportWriter;
+use App\Models\ClubSetting;
+use App\Models\Member;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Validation\Rule;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class SignatureListController extends Controller
+{
+    private const EXCLUDED_COLUMNS = [
+        'iban', 'mandate_reference', 'mandate_signed_at', 'mandate_type', 'account_holder_first_name',
+        'account_holder_last_name', 'account_holder_street', 'account_holder_postal_code',
+        'account_holder_city', 'account_holder_country', 'payment_method',
+    ];
+
+    private const EXCLUDED_FILTERS = [
+        'iban', 'mandate_reference', 'mandate_signed_at', 'mandate_type', 'account_holder_first_name',
+        'account_holder_last_name', 'account_holder_street', 'account_holder_postal_code',
+        'account_holder_city', 'account_holder_country',
+    ];
+
+    public function index(): Response
+    {
+        $today = now()->toDateString();
+        $filterFields = collect(MemberFields::directoryFields())
+            ->reject(fn (array $field): bool => in_array($field['key'], self::EXCLUDED_FILTERS, true))
+            ->filter(fn (array $field): bool => ! $field['custom'] || $field['filterable'])
+            ->values();
+        $filterKeys = $filterFields->pluck('key');
+        $members = Member::query()
+            ->orderBy('last_name')->orderBy('first_name')
+            ->get()
+            ->map(function (Member $member) use ($filterKeys, $today): array {
+                $snapshot = MemberFields::snapshot($member);
+
+                return [
+                    'member_number' => $member->member_number,
+                    'name' => trim(implode(' ', array_filter([$member->first_name, $member->middle_name, $member->last_name]))),
+                    'email' => $member->email,
+                    'mobile_phone' => $member->mobile_phone,
+                    'status' => $this->status($member, $today),
+                    'filter_values' => $filterKeys->mapWithKeys(
+                        fn (string $key): array => [$key => $snapshot[$key] ?? null],
+                    )->all(),
+                ];
+            });
+        $columns = collect(MemberFields::directoryFields())
+            ->reject(fn (array $field): bool => in_array($field['key'], self::EXCLUDED_COLUMNS, true))
+            ->map(fn (array $field): array => ['key' => $field['key'], 'label' => $field['label']])
+            ->prepend(['key' => 'member_number', 'label' => 'Mitgliedsnummer'])
+            ->push(['key' => 'signature', 'label' => 'Unterschrift'])
+            ->unique('key')->values();
+
+        return Inertia::render('forms/SignatureLists', [
+            'members' => $members,
+            'columns' => $columns,
+            'filterFields' => $filterFields,
+        ]);
+    }
+
+    public function document(Request $request): HttpResponse
+    {
+        $available = collect(MemberFields::directoryFields())
+            ->reject(fn (array $field): bool => in_array($field['key'], self::EXCLUDED_COLUMNS, true))
+            ->keyBy('key');
+        $allowed = $available->keys()->push('member_number')->push('signature')->all();
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:150'],
+            'event_date' => ['nullable', 'date_format:Y-m-d'],
+            'member_numbers' => ['required', 'array', 'min:1', 'max:1000'],
+            'member_numbers.*' => ['required', 'integer', 'distinct', Rule::exists('members', 'member_number')],
+            'columns' => ['required', 'array', 'min:1', 'max:12'],
+            'columns.*' => ['required', 'string', 'distinct', Rule::in($allowed)],
+        ]);
+        $selected = $request->collect('member_numbers')
+            ->mapWithKeys(fn (mixed $number, int $position): array => [(int) $number => $position]);
+        $members = Member::query()->whereIn('member_number', $selected->keys())->get(Member::LIST_FIELDS)
+            ->sortBy(fn (Member $member): int => $selected[$member->member_number])->values();
+        $headers = array_map(fn (string $key): string => match ($key) {
+            'member_number' => 'Mitgliedsnummer', 'signature' => 'Unterschrift', default => $available[$key]['label'],
+        }, $data['columns']);
+        $rows = $members->map(function (Member $member) use ($data, $available): array {
+            $snapshot = [...MemberFields::snapshot($member), 'member_number' => $member->member_number];
+
+            return array_map(fn (string $key): string => $key === 'signature' ? '' : MemberReportValue::format($snapshot[$key] ?? null, $available[$key] ?? []), $data['columns']);
+        })->all();
+        $settings = ClubSetting::current();
+        $printedAt = now()->setTimezone(config('app.display_timezone'));
+        $html = view('forms.signature-list', [
+            ...$data, 'headers' => $headers, 'rows' => $rows, 'logo' => $settings->logoDataUri(),
+            'clubName' => $settings->data['name'] ?? config('app.name'), 'printedAt' => $printedAt,
+        ])->render();
+        $pdf = MemberReportWriter::pdf($html, true);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="Unterschriftsliste_'.now()->format('Y-m-d-His').'.pdf"',
+            'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    private function status(Member $member, string $today): string
+    {
+        if ($member->joined_at !== null && $member->joined_at->toDateString() > $today) {
+            return 'future';
+        }
+        if (($member->left_at !== null && $member->left_at->toDateString() <= $today)
+            || ($member->deceased_at !== null && $member->deceased_at->toDateString() <= $today)) {
+            return 'former';
+        }
+        if ($member->joined_at === null && $member->left_at === null && $member->deceased_at === null) {
+            return 'contacts';
+        }
+        if ($member->joined_at !== null && $member->joined_at->toDateString() <= $today) {
+            return 'active';
+        }
+
+        return 'other';
+    }
+}

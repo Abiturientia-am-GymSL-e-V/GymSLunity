@@ -1,7 +1,30 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import { CheckCircle2, CircleAlert, Database, ServerCog } from '@lucide/vue';
+import { Head, useForm } from '@inertiajs/vue3';
+import {
+    ArchiveRestore,
+    CheckCircle2,
+    CircleAlert,
+    Database,
+    Download,
+    ServerCog,
+    Upload,
+} from '@lucide/vue';
+import InputError from '@/components/InputError.vue';
+import StatusAlert from '@/components/StatusAlert.vue';
 import ConfigurationNav from '@/components/configuration/ConfigurationNav.vue';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Spinner } from '@/components/ui/spinner';
+import {
+    download as downloadConfiguration,
+    restore as restoreConfiguration,
+} from '@/routes/configuration/backup/configuration';
+import {
+    download as downloadDatabase,
+    restore as restoreDatabase,
+} from '@/routes/configuration/backup/database';
 
 defineProps<{
     runtime: {
@@ -25,6 +48,7 @@ defineProps<{
         available: boolean;
         hostConfigured: boolean;
     };
+    backupError: string | null;
     checks: Array<{ label: string; ok: boolean; detail: string }>;
 }>();
 
@@ -54,6 +78,39 @@ const labels: Record<string, string> = {
 };
 const display = (value: string | boolean) =>
     typeof value === 'boolean' ? (value ? 'Aktiv' : 'Inaktiv') : value;
+
+const configurationRestoreForm = useForm<{
+    configuration_backup: File | null;
+    confirmation: string;
+}>({ configuration_backup: null, confirmation: '' });
+const databaseRestoreForm = useForm<{
+    database_backup: File | null;
+    confirmation: string;
+}>({ database_backup: null, confirmation: '' });
+
+function chooseConfigurationBackup(event: Event) {
+    configurationRestoreForm.configuration_backup =
+        (event.target as HTMLInputElement).files?.[0] ?? null;
+}
+
+function chooseDatabaseBackup(event: Event) {
+    databaseRestoreForm.database_backup =
+        (event.target as HTMLInputElement).files?.[0] ?? null;
+}
+
+function importConfiguration() {
+    configurationRestoreForm.post(restoreConfiguration.url(), {
+        forceFormData: true,
+        onSuccess: () => configurationRestoreForm.reset(),
+    });
+}
+
+function importDatabase() {
+    databaseRestoreForm.post(restoreDatabase.url(), {
+        forceFormData: true,
+        onSuccess: () => databaseRestoreForm.reset(),
+    });
+}
 </script>
 
 <template>
@@ -68,29 +125,226 @@ const display = (value: string | boolean) =>
         </header>
         <ConfigurationNav />
 
-        <div
-            class="flex gap-3 rounded-xl border border-blue-500/30 bg-blue-500/10 p-4"
+        <Alert variant="info">
+            <ServerCog class="size-4" />
+            <AlertTitle>Serverkonfiguration ist schreibgeschützt</AlertTitle>
+            <AlertDescription>
+                Zugangsdaten und Infrastrukturparameter werden bewusst nicht
+                über die Weboberfläche geändert.
+                {{ $address('Passe', 'Passen Sie') }} die Datei
+                <code class="rounded bg-muted px-1 py-0.5">.env</code> auf dem
+                Server an und führe danach
+                <code class="rounded bg-muted px-1 py-0.5"
+                    >php artisan optimize</code
+                >
+                aus. Der Produktname GymSLunity ist fest; den Vereinsnamen
+                {{
+                    $address(
+                        'pflegst du unter „Vereinsdaten“.',
+                        'pflegen Sie unter „Vereinsdaten“.',
+                    )
+                }}
+            </AlertDescription>
+        </Alert>
+
+        <StatusAlert
+            v-if="backupError"
+            type="error"
+            title="Backup konnte nicht erstellt werden"
         >
-            <ServerCog
-                class="mt-0.5 size-5 shrink-0 text-blue-700 dark:text-blue-300"
-            />
-            <div class="text-sm leading-6">
-                <p class="font-semibold">
-                    Serverkonfiguration ist schreibgeschützt
-                </p>
-                <p class="text-muted-foreground">
-                    Zugangsdaten und Infrastrukturparameter werden bewusst nicht
-                    über die Weboberfläche geändert. Passe die Datei
-                    <code class="rounded bg-muted px-1 py-0.5">.env</code> auf
-                    dem Server an und führe danach
-                    <code class="rounded bg-muted px-1 py-0.5"
-                        >php artisan optimize</code
-                    >
-                    aus. Der Produktname GymSLunity ist fest; den Vereinsnamen
-                    pflegst du unter „Vereinsdaten“.
+            {{ backupError }}
+        </StatusAlert>
+
+        <section
+            class="rounded-xl border bg-card"
+            aria-labelledby="backup-title"
+        >
+            <div class="border-b px-5 py-4">
+                <h2
+                    id="backup-title"
+                    class="flex items-center gap-2 text-sm font-semibold"
+                >
+                    <ArchiveRestore class="size-4" />Backup &amp;
+                    Wiederherstellung
+                </h2>
+                <p class="mt-1 text-xs text-muted-foreground">
+                    Sicherungen herunterladen oder einen früheren Stand
+                    kontrolliert wiederherstellen.
                 </p>
             </div>
-        </div>
+
+            <div class="grid divide-y lg:grid-cols-2 lg:divide-x lg:divide-y-0">
+                <div class="space-y-5 p-5">
+                    <div>
+                        <h3 class="text-sm font-semibold">
+                            Einstellungen &amp; Konfiguration
+                        </h3>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            Enthält Vereinsdaten, Mitgliedsfelder,
+                            E-Mail-Einstellungen und Vereinslogo. Benutzer- und
+                            Mitgliedsdaten sind nicht enthalten. Das
+                            SMTP-Passwort bleibt mit dem aktuellen
+                            Anwendungsschlüssel verschlüsselt.
+                        </p>
+                    </div>
+                    <Button as-child variant="outline">
+                        <a :href="downloadConfiguration.url()" download>
+                            <Download class="size-4" />Konfiguration
+                            herunterladen
+                        </a>
+                    </Button>
+
+                    <form
+                        class="space-y-3"
+                        @submit.prevent="importConfiguration"
+                    >
+                        <div class="space-y-2">
+                            <Label for="configuration-backup"
+                                >Konfigurationssicherung</Label
+                            >
+                            <Input
+                                id="configuration-backup"
+                                type="file"
+                                accept=".json,application/json"
+                                :disabled="configurationRestoreForm.processing"
+                                :aria-invalid="
+                                    !!configurationRestoreForm.errors
+                                        .configuration_backup
+                                "
+                                @change="chooseConfigurationBackup"
+                            />
+                            <InputError
+                                :message="
+                                    configurationRestoreForm.errors
+                                        .configuration_backup
+                                "
+                            />
+                        </div>
+                        <div class="space-y-2">
+                            <Label for="configuration-confirmation">
+                                Zur Bestätigung WIEDERHERSTELLEN eingeben
+                            </Label>
+                            <Input
+                                id="configuration-confirmation"
+                                v-model="configurationRestoreForm.confirmation"
+                                autocomplete="off"
+                                :disabled="configurationRestoreForm.processing"
+                                :aria-invalid="
+                                    !!configurationRestoreForm.errors
+                                        .confirmation
+                                "
+                            />
+                            <InputError
+                                :message="
+                                    configurationRestoreForm.errors.confirmation
+                                "
+                            />
+                        </div>
+                        <Button
+                            type="submit"
+                            variant="outline"
+                            :disabled="
+                                !configurationRestoreForm.configuration_backup ||
+                                configurationRestoreForm.confirmation !==
+                                    'WIEDERHERSTELLEN' ||
+                                configurationRestoreForm.processing
+                            "
+                        >
+                            <Spinner
+                                v-if="configurationRestoreForm.processing"
+                            />
+                            <Upload v-else class="size-4" />Konfiguration
+                            importieren
+                        </Button>
+                    </form>
+                </div>
+
+                <div class="space-y-5 p-5">
+                    <div>
+                        <h3 class="text-sm font-semibold">
+                            Vollständige Datenbank
+                        </h3>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            Enthält sämtliche Benutzer-, Mitglieder-, Zahlungs-
+                            und Verwaltungsdaten. Dateien aus dem Speicher und
+                            die Serverdatei <code>.env</code> sind nicht
+                            enthalten.
+                        </p>
+                    </div>
+                    <Button as-child variant="outline">
+                        <a :href="downloadDatabase.url()" download>
+                            <Download class="size-4" />Datenbank herunterladen
+                        </a>
+                    </Button>
+
+                    <Alert variant="warning">
+                        <CircleAlert class="size-4" />
+                        <AlertTitle>Bestehende Daten werden ersetzt</AlertTitle>
+                        <AlertDescription>
+                            Der Import schaltet die Anwendung vorübergehend in
+                            den Wartungsmodus. Direkt davor wird automatisch
+                            eine lokale Sicherheitssicherung angelegt.
+                        </AlertDescription>
+                    </Alert>
+
+                    <form class="space-y-3" @submit.prevent="importDatabase">
+                        <div class="space-y-2">
+                            <Label for="database-backup"
+                                >Datenbanksicherung</Label
+                            >
+                            <Input
+                                id="database-backup"
+                                type="file"
+                                accept=".zip,application/zip"
+                                :disabled="databaseRestoreForm.processing"
+                                :aria-invalid="
+                                    !!databaseRestoreForm.errors.database_backup
+                                "
+                                @change="chooseDatabaseBackup"
+                            />
+                            <InputError
+                                :message="
+                                    databaseRestoreForm.errors.database_backup
+                                "
+                            />
+                        </div>
+                        <div class="space-y-2">
+                            <Label for="database-confirmation">
+                                Zur Bestätigung WIEDERHERSTELLEN eingeben
+                            </Label>
+                            <Input
+                                id="database-confirmation"
+                                v-model="databaseRestoreForm.confirmation"
+                                autocomplete="off"
+                                :disabled="databaseRestoreForm.processing"
+                                :aria-invalid="
+                                    !!databaseRestoreForm.errors.confirmation
+                                "
+                            />
+                            <InputError
+                                :message="
+                                    databaseRestoreForm.errors.confirmation
+                                "
+                            />
+                        </div>
+                        <Button
+                            type="submit"
+                            variant="destructive"
+                            :disabled="
+                                !databaseRestoreForm.database_backup ||
+                                databaseRestoreForm.confirmation !==
+                                    'WIEDERHERSTELLEN' ||
+                                databaseRestoreForm.processing
+                            "
+                        >
+                            <Spinner v-if="databaseRestoreForm.processing" />
+                            <Upload v-else class="size-4" />Datenbank
+                            wiederherstellen
+                        </Button>
+                    </form>
+                </div>
+            </div>
+        </section>
 
         <section class="rounded-xl border bg-card">
             <h2 class="border-b px-5 py-4 text-sm font-semibold">

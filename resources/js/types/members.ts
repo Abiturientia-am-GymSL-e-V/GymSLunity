@@ -72,6 +72,7 @@ export type MemberDetail = Omit<Member, 'custom_values'> & {
     iban: string | null;
     mandate_reference: string | null;
     mandate_signed_at: string | null;
+    mandate_type: 'recurring' | 'one_off';
     account_holder_first_name: string | null;
     account_holder_last_name: string | null;
     account_holder_street: string | null;
@@ -103,6 +104,8 @@ export type MemberField = {
     custom: boolean;
     filterable: boolean;
     showInTable: boolean;
+    selfserviceVisible: boolean;
+    selfserviceEditable: boolean;
     max: number;
 };
 export type MemberSection = {
@@ -113,6 +116,17 @@ export type MemberSection = {
 export type MemberDocument = {
     kind: 'application' | 'sepa';
     submitted_online: boolean;
+    created_at: string;
+    url: string;
+};
+export type MemberMandate = {
+    id: number;
+    submitted_online: boolean;
+    mandate_reference: string | null;
+    mandate_signed_at: string | null;
+    revoked_at: string | null;
+    revocation_reason: string | null;
+    active: boolean;
     created_at: string;
     url: string;
 };

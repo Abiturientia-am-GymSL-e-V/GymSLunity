@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Payments;
 
 use App\Http\Controllers\Controller;
+use App\Models\ClubSetting;
 use App\Models\Member;
 use App\Security\SafeCsv;
 use Illuminate\Database\Eloquent\Builder;
@@ -21,10 +22,16 @@ class MandateExportController extends Controller
                 ->orWhereNull('mandate_signed_at'))
             ->orderBy('last_name')->orderBy('first_name')->get();
         if ($format === 'print') {
-            return response(view('payments.missing-mandates', compact('members'))->render(), 200, [
+            $settings = ClubSetting::current();
+            $club = $settings->data;
+            $logo = $settings->logoDataUri();
+            $printedAt = now()->setTimezone(config('app.display_timezone'));
+            $title = ($club['name'] ?? config('app.name')).' · Fehlende SEPA-Mandate';
+
+            return response(view('payments.missing-mandates', compact('members', 'title', 'logo', 'printedAt'))->render(), 200, [
                 'Content-Type' => 'text/html; charset=UTF-8', 'Cache-Control' => 'private, no-store',
                 'X-Content-Type-Options' => 'nosniff',
-                'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
+                'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'",
             ]);
         }
 

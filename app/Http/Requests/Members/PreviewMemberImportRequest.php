@@ -22,8 +22,8 @@ class PreviewMemberImportRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'csv.required' => 'Bitte wähle eine CSV-Datei aus.',
-            'csv.mimes' => 'Bitte lade eine CSV-Datei hoch.',
+            'csv.required' => 'Bitte eine CSV-Datei auswählen.',
+            'csv.mimes' => 'Bitte eine CSV-Datei hochladen.',
             'csv.max' => 'Die CSV-Datei darf höchstens 2 MB groß sein.',
         ];
     }

@@ -11,7 +11,7 @@ defineOptions({
     layout: {
         title: 'Passwort bestätigen',
         description:
-            'Bitte bestätige dein Passwort, um diesen geschützten Bereich zu öffnen.',
+            'Passwort bestätigen, um diesen geschützten Bereich zu öffnen.',
     },
 });
 </script>

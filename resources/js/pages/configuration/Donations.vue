@@ -3,6 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { Save } from '@lucide/vue';
 import ConfigurationNav from '@/components/configuration/ConfigurationNav.vue';
 import InputError from '@/components/InputError.vue';
+import StatusAlert from '@/components/StatusAlert.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -84,13 +85,13 @@ const identityRows = [
         </div>
         <ConfigurationNav />
 
-        <div
+        <StatusAlert
             v-if="readiness.length"
-            class="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+            type="warning"
+            title="Noch nicht ausstellungsbereit"
         >
-            <p class="font-medium">Noch nicht ausstellungsbereit</p>
-            <p>{{ readiness.join(' ') }}</p>
-        </div>
+            {{ readiness.join(' ') }}
+        </StatusAlert>
 
         <section class="rounded-xl border bg-card">
             <div

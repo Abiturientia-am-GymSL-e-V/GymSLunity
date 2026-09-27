@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\FormOfAddress;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -35,7 +36,10 @@ class RequirePrivilegedTwoFactor
             return $next($request);
         }
 
-        return to_route('security.setup')->with('status', 'Für privilegierte Konten ist eine zusätzliche Anmeldemethode verpflichtend. Bitte richte jetzt TOTP oder einen Passkey ein.');
+        return to_route('security.setup')->with('status', FormOfAddress::choose(
+            'Für privilegierte Konten ist eine zusätzliche Anmeldemethode verpflichtend. Bitte richte jetzt TOTP oder einen Passkey ein.',
+            'Für privilegierte Konten ist eine zusätzliche Anmeldemethode verpflichtend. Bitte richten Sie jetzt TOTP oder einen Passkey ein.',
+        ));
     }
 
     private function isSetupRoute(Request $request): bool

@@ -22,7 +22,7 @@ class InstallApplication extends Command
         $this->components->info('GymSLunity-Installation');
 
         if (! is_file(base_path('.env'))) {
-            $this->components->error('Die Datei .env fehlt. Kopiere zuerst .env.example und passe die Serverwerte an.');
+            $this->components->error('Die Datei .env fehlt. Zuerst .env.example kopieren und die Serverwerte anpassen.');
 
             return self::FAILURE;
         }
@@ -55,7 +55,7 @@ class InstallApplication extends Command
             $this->components->info('Datenbankverbindung erfolgreich.');
         } catch (Throwable $exception) {
             report($exception);
-            $this->components->error('Datenbankverbindung fehlgeschlagen. Prüfe DB_CONNECTION und die zugehörigen DB_*-Werte.');
+            $this->components->error('Datenbankverbindung fehlgeschlagen. Bitte DB_CONNECTION und die zugehörigen DB_*-Werte prüfen.');
 
             return self::FAILURE;
         }
@@ -80,7 +80,7 @@ class InstallApplication extends Command
 
         $this->callSilent(app()->isProduction() ? 'optimize' : 'optimize:clear');
         $this->newLine();
-        $this->components->info('GymSLunity ist eingerichtet. Richte für Datenbank-Warteschlangen zusätzlich einen dauerhaft laufenden queue:work-Prozess ein.');
+        $this->components->info('GymSLunity ist eingerichtet. Für Datenbank-Warteschlangen zusätzlich einen dauerhaft laufenden queue:work-Prozess einrichten.');
 
         return self::SUCCESS;
     }

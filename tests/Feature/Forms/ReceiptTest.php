@@ -9,6 +9,7 @@ use App\Models\User;
 use App\SelfService\FormTemplates;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -197,6 +198,29 @@ class ReceiptTest extends TestCase
         $this->post('/formulare/quittungen/'.$receipt->id.'/versenden', ['edition' => 'original', 'recipient' => 'test@example.com'])->assertForbidden();
     }
 
+    public function test_receipt_can_only_be_cancelled_before_it_leaves_the_system(): void
+    {
+        $actor = $this->signIn();
+        $pdf = '%PDF-test';
+        $makeReceipt = fn (string $key, string $number): Receipt => Receipt::query()->create([
+            'creation_key' => $key, 'receipt_number' => $number, 'receipt_date' => now()->toDateString(),
+            'amount_cents' => 1000, 'currency' => 'EUR', 'payer' => 'Ada', 'payee' => 'Testverein', 'purpose' => 'Test',
+            'snapshot' => ['receipt_number' => $number],
+            'encrypted_original' => Crypt::encryptString(base64_encode($pdf)), 'original_sha256' => hash('sha256', $pdf),
+            'encrypted_copy' => Crypt::encryptString(base64_encode($pdf)), 'copy_sha256' => hash('sha256', $pdf),
+            'created_by' => $actor->id, 'created_by_name' => $actor->name,
+        ]);
+        $receipt = $makeReceipt((string) Str::uuid(), 'TEST-1');
+        $this->post(route('receipts.cancel', $receipt), ['reason' => 'Fehlerhafte Angabe'])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('receipts', ['id' => $receipt->id, 'cancellation_reason' => 'Fehlerhafte Angabe']);
+        $this->get(route('receipts.document', [$receipt, 'original']))->assertStatus(409);
+
+        $exported = $makeReceipt((string) Str::uuid(), 'TEST-2');
+        $this->get(route('receipts.document', [$exported, 'original']))->assertOk();
+        $this->post(route('receipts.cancel', $exported), ['reason' => 'Zu spät'])->assertSessionHasErrors('reason');
+        $this->assertNull($exported->fresh()->cancelled_at);
+    }
+
     public function test_email_uses_stored_edition_and_records_delivery(): void
     {
         Mail::fake();
@@ -224,7 +248,7 @@ class ReceiptTest extends TestCase
         $this->post('/formulare/quittungen', $this->data())->assertSessionHasNoErrors();
         $this->get('/formulare/quittungen/archiv?search=Beispiel')->assertInertia(fn (Assert $page) => $page
             ->where('activeTab', 'list')
-            ->where('navigationBreadcrumb.title', 'Quittungsarchiv')
+            ->where('navigationBreadcrumb.title', 'Übersicht')
             ->where('receipts.total', 1)
             ->missing('receipts.data.0.snapshot')
             ->missing('receipts.data.0.encrypted_original'));

@@ -7,7 +7,6 @@ import {
     RotateCcw,
     Search,
     SlidersHorizontal,
-    UsersRound,
     X,
 } from '@lucide/vue';
 import {
@@ -25,9 +24,10 @@ import type { MemberColumnKey } from '@/components/members/columns';
 import BulkEditMembers from '@/components/members/BulkEditMembers.vue';
 import MemberExport from '@/components/members/MemberExport.vue';
 import MemberFilter from '@/components/members/MemberFilter.vue';
+import MemberPageHeader from '@/components/members/MemberPageHeader.vue';
 import MembersNav from '@/components/members/MembersNav.vue';
 import MemberTable from '@/components/members/MemberTable.vue';
-import { Badge } from '@/components/ui/badge';
+import StatusAlert from '@/components/StatusAlert.vue';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { address } from '@/lib/formOfAddress';
 import {
     Select,
     SelectContent,
@@ -203,8 +204,10 @@ function visit(page = 1, replace = false) {
             cancelVisit = () => token.cancel();
         },
         onError: () => {
-            error.value =
-                'Die Filter konnten nicht angewendet werden. Bitte prüfe deine Eingaben.';
+            error.value = address(
+                'Die Filter konnten nicht angewendet werden. Bitte prüfe deine Eingaben.',
+                'Die Filter konnten nicht angewendet werden. Bitte prüfen Sie Ihre Eingaben.',
+            );
         },
         onFinish: () => {
             if (sequence === visitSequence) {
@@ -317,28 +320,10 @@ const pages = computed(() => {
 <template>
     <Head title="Mitglieder" />
     <div class="mx-auto w-full max-w-[1200px] space-y-6 p-4 sm:p-6">
-        <header class="flex flex-wrap items-start justify-between gap-4">
-            <div>
-                <div class="flex items-center gap-3">
-                    <h1 class="text-2xl font-semibold tracking-tight">
-                        Mitglieder
-                    </h1>
-                    <Badge variant="secondary" class="tabular-nums">{{
-                        number.format(totalMembers)
-                    }}</Badge>
-                </div>
-                <p class="mt-1 text-sm text-muted-foreground">
-                    Kontaktdaten, Mitgliedschaften und Vereinsfunktionen im
-                    Überblick.
-                </p>
-            </div>
-            <div
-                class="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground"
-            >
-                <UsersRound class="size-4" aria-hidden="true" />
-                Mitgliederverzeichnis
-            </div>
-        </header>
+        <MemberPageHeader
+            :total-members="totalMembers"
+            description="Kontaktdaten, Mitgliedschaften und Vereinsfunktionen im Überblick."
+        />
 
         <MembersNav />
 
@@ -550,9 +535,9 @@ const pages = computed(() => {
             </div>
         </section>
 
-        <p v-if="error" role="alert" class="text-sm text-destructive">
+        <StatusAlert v-if="error" type="error" title="Mitglieder nicht geladen">
             {{ error }}
-        </p>
+        </StatusAlert>
 
         <section
             class="min-w-0 overflow-hidden rounded-xl border bg-card"

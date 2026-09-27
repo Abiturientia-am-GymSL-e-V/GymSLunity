@@ -4,7 +4,9 @@ import { FileText, Save, X } from '@lucide/vue';
 import { computed, nextTick, onBeforeUnmount, onMounted } from 'vue';
 import InputError from '@/components/InputError.vue';
 import MemberFieldControl from '@/components/members/MemberFieldControl.vue';
+import MemberPageHeader from '@/components/members/MemberPageHeader.vue';
 import MembersNav from '@/components/members/MembersNav.vue';
+import StatusAlert from '@/components/StatusAlert.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +15,7 @@ import { create, index, store } from '@/routes/members';
 import type { MemberSection, MemberValue } from '@/types/members';
 
 const props = defineProps<{
+    totalMembers: number;
     sections: MemberSection[];
     configurationVersion: number;
     suggestedMemberNumber: number;
@@ -97,22 +100,20 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload));
         data-test="create-member"
         @submit.prevent="submit"
     >
-        <header>
-            <h1 class="text-2xl font-semibold tracking-tight">Mitglieder</h1>
-            <p class="mt-1 text-sm text-muted-foreground">
-                Erfasse die Stammdaten und Dokumente eines neuen Mitglieds.
-            </p>
-        </header>
+        <MemberPageHeader
+            :total-members="totalMembers"
+            description="Erfasse die Stammdaten und Dokumente eines neuen Mitglieds."
+        />
 
         <MembersNav />
 
-        <div
+        <StatusAlert
             v-if="form.errors.form"
-            role="alert"
-            class="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+            type="error"
+            title="Mitglied konnte nicht angelegt werden"
         >
             {{ form.errors.form }}
-        </div>
+        </StatusAlert>
 
         <section
             class="rounded-xl border bg-card"

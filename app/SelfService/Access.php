@@ -3,13 +3,14 @@
 namespace App\SelfService;
 
 use App\Models\Member;
+use App\Support\FormOfAddress;
 use Illuminate\Http\Request;
 
 final class Access
 {
     public static function email(Request $request): string
     {
-        abort_unless(is_string($request->session()->get('selfservice.email')) && (int) $request->session()->get('selfservice.until') > now()->getTimestamp(), 401, 'Dein Zugang ist abgelaufen. Bitte fordere einen neuen E-Mail-Link an.');
+        abort_unless(is_string($request->session()->get('selfservice.email')) && (int) $request->session()->get('selfservice.until') > now()->getTimestamp(), 401, FormOfAddress::choose('Dein Zugang ist abgelaufen. Bitte fordere einen neuen E-Mail-Link an.', 'Ihr Zugang ist abgelaufen. Bitte fordern Sie einen neuen E-Mail-Link an.'));
 
         return $request->session()->get('selfservice.email');
     }

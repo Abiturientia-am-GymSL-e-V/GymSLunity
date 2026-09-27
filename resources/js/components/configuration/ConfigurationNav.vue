@@ -2,9 +2,12 @@
 import { Link, usePage } from '@inertiajs/vue3';
 import {
     Building2,
+    Blocks,
     HandHeart,
+    Landmark,
     ListFilter,
     Mail,
+    Monitor,
     ServerCog,
     ShieldCheck,
     UsersRound,
@@ -14,9 +17,15 @@ import { index as fields } from '@/routes/configuration/fields';
 import { index as users } from '@/routes/configuration/users';
 const page = usePage();
 const links = [
+    { label: 'Startseite', url: '/konfiguration/startseite', icon: Monitor },
     { label: 'Vereinsdaten', url: edit.url(), icon: Building2 },
     { label: 'Mitgliedsfelder', url: fields.url(), icon: ListFilter },
     { label: 'Benutzer & Rechte', url: users.url(), icon: UsersRound },
+    {
+        label: 'Softwaremodule',
+        url: '/konfiguration/softwaremodule',
+        icon: Blocks,
+    },
     { label: 'E-Mail-Versand', url: '/konfiguration/email', icon: Mail },
     {
         label: 'Selfservice & Formulare',
@@ -24,6 +33,11 @@ const links = [
         icon: UsersRound,
     },
     { label: 'Spenden', url: '/konfiguration/spenden', icon: HandHeart },
+    {
+        label: 'Buchhaltung',
+        url: '/konfiguration/buchhaltung',
+        icon: Landmark,
+    },
     {
         label: 'Sicherheitsprotokoll',
         url: '/konfiguration/sicherheitsprotokoll',

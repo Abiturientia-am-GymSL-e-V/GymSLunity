@@ -4,6 +4,7 @@ import { computed, ref } from 'vue';
 import { ListChecks, Plus, Trash2 } from '@lucide/vue';
 import InputError from '@/components/InputError.vue';
 import MemberFieldControl from '@/components/members/MemberFieldControl.vue';
+import StatusAlert from '@/components/StatusAlert.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -129,21 +130,21 @@ function submit() {
                 </DialogDescription>
             </DialogHeader>
 
-            <div
+            <StatusAlert
                 v-if="topError"
-                role="alert"
-                class="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+                type="error"
+                title="Änderungen nicht gespeichert"
             >
                 {{ topError }}
-            </div>
-            <div
+            </StatusAlert>
+            <StatusAlert
                 v-else-if="selected.length > 250"
-                role="alert"
-                class="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+                type="error"
+                title="Zu viele Mitglieder ausgewählt"
             >
                 Es können höchstens 250 Mitglieder gleichzeitig bearbeitet
                 werden. Bitte verkleinere die Auswahl.
-            </div>
+            </StatusAlert>
 
             <div class="flex items-end gap-2">
                 <div class="min-w-0 flex-1 space-y-2">

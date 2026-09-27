@@ -5,6 +5,7 @@ import AuthLayout from '@/layouts/AuthLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { initializeFlashToast } from '@/lib/flashToast';
 import { initializeNavigationGuard } from '@/lib/navigationGuard';
+import { address } from '@/lib/formOfAddress';
 
 const appName = 'GymSLunity';
 
@@ -15,6 +16,8 @@ void createInertiaApp({
     layout: (name) => {
         switch (true) {
             case name === 'Welcome':
+            case name === 'Legal':
+            case name.startsWith('public/'):
             case name.startsWith('selfservice/'):
                 return null;
             case name.startsWith('auth/'):
@@ -26,6 +29,7 @@ void createInertiaApp({
         }
     },
     withApp: (app) => {
+        app.config.globalProperties.$address = address;
         app.directive('focus', {
             mounted: (el: HTMLElement, shouldFocus) => {
                 if (shouldFocus.value !== false) {

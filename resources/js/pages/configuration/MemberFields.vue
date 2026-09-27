@@ -32,6 +32,8 @@ type Definition = {
     required: boolean;
     filterable: boolean;
     show_in_table: boolean;
+    selfservice_visible: boolean;
+    selfservice_editable: boolean;
     options: Choice[];
 };
 const props = defineProps<{
@@ -63,6 +65,8 @@ const form = useForm({
     required: false,
     filterable: false,
     show_in_table: false,
+    selfservice_visible: false,
+    selfservice_editable: false,
     options: [] as Choice[],
     remove_options: [] as string[],
 });
@@ -71,6 +75,26 @@ const locked = computed(() =>
     ['first_name', 'last_name', 'membership_type'].includes(
         selected.value?.key || '',
     ),
+);
+const selfserviceProtected = computed(() =>
+    [
+        'email',
+        'deceased_at',
+        'joined_at',
+        'left_at',
+        'department_role',
+        'club_role',
+        'iban',
+        'mandate_reference',
+        'mandate_signed_at',
+        'mandate_type',
+        'account_holder_first_name',
+        'account_holder_last_name',
+        'account_holder_street',
+        'account_holder_postal_code',
+        'account_holder_city',
+        'account_holder_country',
+    ].includes(selected.value?.key || ''),
 );
 function edit(field: Definition | null) {
     selected.value = field;
@@ -83,6 +107,8 @@ function edit(field: Definition | null) {
         required: field?.required ?? false,
         filterable: field?.filterable ?? false,
         show_in_table: field?.show_in_table ?? false,
+        selfservice_visible: field?.selfservice_visible ?? false,
+        selfservice_editable: field?.selfservice_editable ?? false,
         options: (field?.options || []).map((option) => ({ ...option })),
         remove_options: [],
     });
@@ -118,6 +144,11 @@ function save() {
     if (selected.value) form.patch(update.url(selected.value.id), options);
     else form.post(store.url(), options);
 }
+function updateSelfserviceVisibility() {
+    if (!form.selfservice_visible) {
+        form.selfservice_editable = false;
+    }
+}
 function move(field: Definition, direction: number) {
     const group = props.fields.filter((item) => item.section === field.section);
     const other =
@@ -152,8 +183,12 @@ function close(value: boolean) {
                     Konfiguration
                 </h1>
                 <p class="mt-1 text-sm text-muted-foreground">
-                    Passe Mitgliedsfelder und Auswahlmöglichkeiten an deinen
-                    Verein an.
+                    {{
+                        $address(
+                            'Passe Mitgliedsfelder und Auswahlmöglichkeiten an deinen Verein an.',
+                            'Passen Sie Mitgliedsfelder und Auswahlmöglichkeiten an Ihren Verein an.',
+                        )
+                    }}
                 </p>
             </div>
             <Button data-test="new-member-field" @click="edit(null)"
@@ -207,6 +242,10 @@ function close(value: boolean) {
                             ><span v-if="field.required">Pflichtfeld</span
                             ><span v-if="field.is_custom">Zusatzfeld</span
                             ><span v-if="field.filterable">Filter</span
+                            ><span v-if="field.selfservice_visible"
+                                >Portal: sichtbar</span
+                            ><span v-if="field.selfservice_editable"
+                                >Portal: änderbar</span
                             ><span v-if="field.type === 'select'">{{
                                 `${field.options.filter((option) => option.active).length} aktive Optionen`
                             }}</span>
@@ -334,6 +373,25 @@ function close(value: boolean) {
                             class="size-4 accent-primary"
                         />Pflichtfeld</label
                     >
+                    <label class="flex items-center gap-2"
+                        ><input
+                            v-model="form.selfservice_visible"
+                            type="checkbox"
+                            class="size-4 accent-primary"
+                            @change="updateSelfserviceVisibility"
+                        />Im Mitgliederportal anzeigen</label
+                    >
+                    <label class="flex items-center gap-2"
+                        ><input
+                            v-model="form.selfservice_editable"
+                            type="checkbox"
+                            :disabled="
+                                !form.selfservice_visible ||
+                                selfserviceProtected
+                            "
+                            class="size-4 accent-primary"
+                        />Durch Mitglied änderbar</label
+                    >
                     <template v-if="!selected || selected.is_custom"
                         ><label class="flex items-center gap-2"
                             ><input
@@ -351,8 +409,21 @@ function close(value: boolean) {
                     >
                 </div>
                 <InputError
-                    :message="form.errors.is_active || form.errors.required"
+                    :message="
+                        form.errors.is_active ||
+                        form.errors.required ||
+                        form.errors.selfservice_visible ||
+                        form.errors.selfservice_editable
+                    "
                 />
+                <p
+                    v-if="selfserviceProtected"
+                    class="text-xs text-muted-foreground"
+                >
+                    Dieses Feld darf im Mitgliederportal angezeigt, aber
+                    ausschließlich über den vorgesehenen Verwaltungs- oder
+                    Bestätigungsweg geändert werden.
+                </p>
                 <div
                     v-if="form.type === 'select'"
                     class="space-y-3 rounded-lg border p-4"

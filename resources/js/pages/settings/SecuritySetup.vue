@@ -8,6 +8,7 @@ import ManagePasskeys, {
 import ManageTwoFactor, {
     type Props as ManageTwoFactorProps,
 } from '@/components/ManageTwoFactor.vue';
+import StatusAlert from '@/components/StatusAlert.vue';
 
 defineProps<
     ManageTwoFactorProps & {
@@ -33,15 +34,14 @@ defineOptions({
     <Head title="Anmeldeschutz einrichten" />
 
     <div class="space-y-8">
-        <div
-            class="rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
-        >
-            <p class="font-medium">Einrichtung erforderlich</p>
-            <p class="mt-1 text-sm">
-                Dieses Konto besitzt privilegierte Rollen. Richte eine der
-                folgenden sicheren Anmeldemethoden ein, bevor du fortfährst.
-            </p>
-        </div>
+        <StatusAlert type="warning" title="Einrichtung erforderlich">
+            {{
+                $address(
+                    'Dieses Konto besitzt privilegierte Rollen. Richte eine der folgenden sicheren Anmeldemethoden ein, bevor du fortfährst.',
+                    'Dieses Konto besitzt privilegierte Rollen. Richten Sie eine der folgenden sicheren Anmeldemethoden ein, bevor Sie fortfahren.',
+                )
+            }}
+        </StatusAlert>
 
         <section class="space-y-5 rounded-lg border p-5">
             <div class="flex items-start gap-3">

@@ -4,6 +4,7 @@ import { computed, ref } from 'vue';
 import { Save } from '@lucide/vue';
 import ConfigurationNav from '@/components/configuration/ConfigurationNav.vue';
 import CountryInput from '@/components/CountryInput.vue';
+import IbanInput from '@/components/IbanInput.vue';
 import PostalCityInput from '@/components/PostalCityInput.vue';
 import InputError from '@/components/InputError.vue';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,8 @@ type Field = {
     type: string;
     section: string;
     required: boolean;
+    options: Record<string, string>;
+    default: string | boolean | null;
 };
 const props = defineProps<{
     club: Record<string, MemberValue>;
@@ -73,6 +76,7 @@ function values(): Record<string, MemberValue> {
             props.fields.map((field) => [
                 field.key,
                 props.club[field.key] ??
+                    field.default ??
                     (field.type === 'boolean' ? false : null),
             ]),
         ),
@@ -120,7 +124,12 @@ function save() {
         <div>
             <h1 class="text-2xl font-semibold tracking-tight">Konfiguration</h1>
             <p class="mt-1 text-sm text-muted-foreground">
-                Stammdaten und Einstellungen für deinen Verein.
+                {{
+                    $address(
+                        'Stammdaten und Einstellungen für deinen Verein.',
+                        'Stammdaten und Einstellungen für Ihren Verein.',
+                    )
+                }}
             </p>
         </div>
         <ConfigurationNav />
@@ -231,6 +240,16 @@ function save() {
                             :disabled="form.processing"
                             @update:model-value="form[field.key] = $event"
                         />
+                        <IbanInput
+                            v-else-if="field.key === 'iban'"
+                            :id="fieldId(field.key)"
+                            :name="fieldId(field.key)"
+                            :model-value="String(form[field.key] || '')"
+                            :required="field.required"
+                            :disabled="form.processing"
+                            :aria-invalid="!!form.errors[field.key]"
+                            @update:model-value="form[field.key] = $event"
+                        />
                         <select
                             v-else-if="field.type === 'boolean'"
                             :id="fieldId(field.key)"
@@ -245,6 +264,28 @@ function save() {
                         >
                             <option value="false">Nein</option>
                             <option value="true">Ja</option>
+                        </select>
+                        <select
+                            v-else-if="field.type === 'select'"
+                            :id="fieldId(field.key)"
+                            class="h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm"
+                            :value="
+                                String(form[field.key] ?? field.default ?? '')
+                            "
+                            :disabled="form.processing"
+                            @change="
+                                form[field.key] = (
+                                    $event.target as HTMLSelectElement
+                                ).value
+                            "
+                        >
+                            <option
+                                v-for="(label, value) in field.options"
+                                :key="value"
+                                :value="value"
+                            >
+                                {{ label }}
+                            </option>
                         </select>
                         <Input
                             v-else
@@ -264,6 +305,13 @@ function save() {
                             "
                         />
                         <InputError :message="form.errors[field.key]" />
+                        <p
+                            v-if="field.key === 'form_of_address'"
+                            class="text-sm text-muted-foreground"
+                        >
+                            Gilt für fest eingebaute Systemtexte. Individuell
+                            konfigurierbare Vorlagen bleiben unverändert.
+                        </p>
                     </div>
                 </div>
             </section>

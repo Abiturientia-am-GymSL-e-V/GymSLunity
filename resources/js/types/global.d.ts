@@ -30,9 +30,12 @@ declare module '@inertiajs/core' {
                 viewForms: boolean;
                 viewDonations: boolean;
                 viewInventory: boolean;
+                viewCalendar: boolean;
+                viewBookings: boolean;
                 viewCommunication: boolean;
             };
             defaultCountry: string;
+            formOfAddress: 'du' | 'sie';
             sidebarOpen: boolean;
             navigationBreadcrumb?: {
                 title: string;
@@ -52,5 +55,6 @@ declare module 'vue' {
         $inertia: typeof Router;
         $page: Page;
         $headManager: ReturnType<typeof createHeadManager>;
+        $address: (informal: string, formal: string) => string;
     }
 }

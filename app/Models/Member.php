@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Members\MemberFields;
 use Carbon\CarbonImmutable;
 use Database\Factories\MemberFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -27,10 +28,12 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string|null $iban
  * @property string|null $mandate_reference
  * @property CarbonImmutable|null $mandate_signed_at
+ * @property string $mandate_type
  * @property string|null $account_holder_first_name
  * @property string|null $account_holder_last_name
  * @property string|null $sponsor_contribution
  * @property array<string, string|int|float|bool|null>|null $custom_values
+ * @property ContributionAccount $contributionAccount
  */
 class Member extends Model
 {
@@ -71,6 +74,20 @@ class Member extends Model
             'sponsor_contribution' => 'decimal:2',
             'lock_version' => 'integer',
         ];
+    }
+
+    /** @return Attribute<string|null, string|null> */
+    protected function mobilePhone(): Attribute
+    {
+        return Attribute::make(
+            set: static function (?string $value): ?string {
+                if ($value === null) {
+                    return null;
+                }
+
+                return preg_replace('/^(\+\d{1,4}\s+)0+/', '$1', trim($value));
+            },
+        );
     }
 
     protected static function booted(): void

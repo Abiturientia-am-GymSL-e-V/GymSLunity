@@ -1,8 +1,19 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import StatusAlert from '@/components/StatusAlert.vue';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 const props = defineProps<{
     receipt: {
         id: number;
@@ -23,6 +34,11 @@ const props = defineProps<{
         created_at: string;
         payer_email?: string;
         payee_email?: string;
+        exported_at: string | null;
+        cancelled_at: string | null;
+        cancelled_by_name: string | null;
+        cancellation_reason: string | null;
+        can_cancel: boolean;
     };
     deliveries: Array<{
         edition: string;
@@ -56,6 +72,20 @@ const editions = [
     },
     { key: 'copy', label: 'Kopie für den Zahlungsempfänger', form: copy },
 ];
+const cancelOpen = ref(false);
+const cancelForm = useForm({ reason: '' });
+function cancelReceipt() {
+    cancelForm.post(
+        '/formulare/quittungen/' + props.receipt.id + '/stornieren',
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                cancelOpen.value = false;
+                cancelForm.reset();
+            },
+        },
+    );
+}
 const money = (value: number) =>
     (value / 100).toLocaleString('de-DE', {
         minimumFractionDigits: 2,
@@ -75,10 +105,27 @@ const money = (value: number) =>
                     versenden.
                 </p>
             </div>
-            <Link href="/formulare/quittungen" class="text-sm underline"
-                >Zu den Quittungen</Link
-            >
+            <Button as-child variant="outline">
+                <Link href="/formulare/quittungen">Zu den Quittungen</Link>
+            </Button>
         </header>
+        <StatusAlert
+            v-if="receipt.cancelled_at"
+            type="error"
+            title="Quittung storniert"
+        >
+            Storniert von {{ receipt.cancelled_by_name }} am
+            {{ new Date(receipt.cancelled_at).toLocaleString('de-DE') }}.
+            Begründung: {{ receipt.cancellation_reason }}
+        </StatusAlert>
+        <StatusAlert
+            v-else-if="receipt.exported_at"
+            type="info"
+            title="Quittung wurde ausgegeben"
+        >
+            Die Quittung wurde bereits heruntergeladen, gedruckt oder versendet
+            und kann daher nicht mehr storniert werden.
+        </StatusAlert>
         <section class="space-y-4 rounded-xl border bg-card p-5">
             <p class="text-2xl font-semibold">
                 {{ money(receipt.amount_cents) }} {{ receipt.currency }}
@@ -117,7 +164,7 @@ const money = (value: number) =>
                 von {{ receipt.created_by_name }} am {{ receipt.created_at }}
             </p>
         </section>
-        <div class="grid gap-5 md:grid-cols-2">
+        <div v-if="!receipt.cancelled_at" class="grid gap-5 md:grid-cols-2">
             <section
                 v-for="edition in editions"
                 :key="edition.key"
@@ -158,14 +205,12 @@ const money = (value: number) =>
                             required
                         />
                     </div>
-                    <p
-                        v-for="error in edition.form.errors"
-                        :key="error"
-                        role="alert"
-                        class="text-sm text-destructive"
-                    >
-                        {{ error }}
-                    </p>
+                    <StatusAlert
+                        v-if="Object.keys(edition.form.errors).length"
+                        type="error"
+                        title="E-Mail nicht versendet"
+                        :messages="Object.values(edition.form.errors)"
+                    />
                     <Button
                         variant="outline"
                         :disabled="edition.form.processing"
@@ -174,6 +219,21 @@ const money = (value: number) =>
                 </form>
             </section>
         </div>
+        <section
+            v-if="receipt.can_cancel"
+            class="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-destructive/30 bg-card p-5"
+        >
+            <div>
+                <h2 class="font-medium">Quittung stornieren</h2>
+                <p class="mt-1 text-sm text-muted-foreground">
+                    Nur möglich, solange der Beleg weder exportiert noch
+                    versendet wurde.
+                </p>
+            </div>
+            <Button variant="destructive" @click="cancelOpen = true"
+                >Quittung stornieren</Button
+            >
+        </section>
         <section class="space-y-3">
             <h2 class="text-lg font-medium">Versandprotokoll</h2>
             <p v-if="!deliveries.length" class="text-sm text-muted-foreground">
@@ -190,4 +250,46 @@ const money = (value: number) =>
             </p>
         </section>
     </div>
+    <Dialog :open="cancelOpen" @update:open="cancelOpen = $event">
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Quittung stornieren</DialogTitle>
+                <DialogDescription
+                    >Die Stornierung wird dauerhaft protokolliert. Die
+                    Begründung ist erforderlich.</DialogDescription
+                >
+            </DialogHeader>
+            <form class="space-y-4" @submit.prevent="cancelReceipt">
+                <div class="space-y-2">
+                    <Label for="cancellation-reason">Begründung *</Label>
+                    <Textarea
+                        id="cancellation-reason"
+                        v-model="cancelForm.reason"
+                        rows="4"
+                        maxlength="1000"
+                        required
+                    />
+                </div>
+                <StatusAlert
+                    v-if="Object.keys(cancelForm.errors).length"
+                    type="error"
+                    title="Stornierung nicht möglich"
+                    :messages="Object.values(cancelForm.errors)"
+                />
+                <DialogFooter>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        @click="cancelOpen = false"
+                        >Abbrechen</Button
+                    >
+                    <Button
+                        variant="destructive"
+                        :disabled="cancelForm.processing"
+                        >Verbindlich stornieren</Button
+                    >
+                </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
 </template>

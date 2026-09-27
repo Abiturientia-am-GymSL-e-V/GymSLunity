@@ -8,6 +8,7 @@ use App\Models\Receipt;
 use App\Models\User;
 use App\Payments\Money;
 use App\SelfService\FormTemplates;
+use App\Support\FormOfAddress;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Support\Arr;
@@ -49,7 +50,7 @@ final class IssueReceipt
             if ($data['signature_method'] === 'profile') {
                 $signature = $actor->profileSignature();
                 if (! is_string($signature)) {
-                    throw ValidationException::withMessages(['signature_method' => 'In deinem Profil ist noch keine Unterschrift hinterlegt.']);
+                    throw ValidationException::withMessages(['signature_method' => FormOfAddress::choose('In deinem Profil ist noch keine Unterschrift hinterlegt.', 'In Ihrem Profil ist noch keine Unterschrift hinterlegt.')]);
                 }
             } elseif ($data['signature_method'] === 'drawn') {
                 try {
@@ -117,7 +118,10 @@ final class IssueReceipt
             'logo' => $logo,
         ])->render());
         $pdf->render();
+        $output = $pdf->output();
+        unset($pdf);
+        gc_collect_cycles();
 
-        return $pdf->output();
+        return $output;
     }
 }

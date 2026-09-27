@@ -26,4 +26,12 @@ class MemberReportValueTest extends TestCase
         $this->assertSame('Nein', MemberReportValue::format(false));
         $this->assertSame('0', MemberReportValue::format(0));
     }
+
+    public function test_iban_is_formatted_in_groups_of_four(): void
+    {
+        $this->assertSame(
+            'DE89 3704 0044 0532 0130 00',
+            MemberReportValue::format('de89370400440532013000', ['key' => 'iban']),
+        );
+    }
 }

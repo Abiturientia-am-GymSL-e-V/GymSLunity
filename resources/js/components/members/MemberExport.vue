@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { Download, Printer } from '@lucide/vue';
+import StatusAlert from '@/components/StatusAlert.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { address } from '@/lib/formOfAddress';
 import type { MemberColumn } from './columns';
 import type { MemberField, MemberFilters } from '@/types/members';
 
@@ -92,9 +94,15 @@ async function download(requestedFormat = format.value) {
                     : null;
             throw new Error(
                 response.status === 419 || response.redirected
-                    ? 'Bitte melde dich erneut an und starte den Export noch einmal.'
+                    ? address(
+                          'Bitte melde dich erneut an und starte den Export noch einmal.',
+                          'Bitte melden Sie sich erneut an und starten Sie den Export noch einmal.',
+                      )
                     : failure?.errors?.scope?.[0] ||
-                          'Der Export ist fehlgeschlagen. Bitte lade die Liste neu und versuche es erneut.',
+                          address(
+                              'Der Export ist fehlgeschlagen. Bitte lade die Liste neu und versuche es erneut.',
+                              'Der Export ist fehlgeschlagen. Bitte laden Sie die Liste neu und versuchen Sie es erneut.',
+                          ),
             );
         }
         const blob = await response.blob();
@@ -193,8 +201,8 @@ async function download(requestedFormat = format.value) {
                     : 'Exportiert nur die sichtbaren Spalten, auch über mehrere Seiten.'
             }}
         </p>
-        <p v-if="error" role="alert" class="text-sm text-destructive">
+        <StatusAlert v-if="error" type="error" title="Export fehlgeschlagen">
             {{ error }}
-        </p>
+        </StatusAlert>
     </div>
 </template>

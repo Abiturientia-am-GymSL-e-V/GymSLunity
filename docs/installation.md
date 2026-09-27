@@ -212,16 +212,58 @@ Führe den Laravel-Scheduler minütlich aus:
 
 ## 12. Backups und Updates
 
-Sichere mindestens:
+GymSLunity erzeugt täglich um 02:30 Uhr ein lokales Backup, sofern der in Abschnitt 11 beschriebene Scheduler läuft. Standardmäßig liegen die Archive mit restriktiven Dateirechten unter `storage/backups/` und werden nach 30 Tagen bereinigt. Passe Ort und Frist bei Bedarf in `.env` an:
+
+```dotenv
+BACKUP_PATH=/var/backups/gymslunity
+BACKUP_RETENTION_DAYS=30
+```
+
+Der Zielordner darf nicht innerhalb von `storage/app/` liegen. Ein vollständiges Archiv enthält:
 
 - die vollständige Datenbank,
-- `.env`,
-- `storage/app/` und
-- die zum Backup passende Codeversion.
+- `.env` als `environment.env`,
+- `storage/app/` als `storage-app/` und
+- ein Manifest mit Erstellungszeitpunkt, Datenbanktreiber und Codeversion.
 
-Teste die Wiederherstellung regelmäßig auf einem getrennten System. Vor Updates:
+Ein Backup kann jederzeit manuell erzeugt werden:
 
 ```bash
+php artisan app:backup --prune
+```
+
+Administratoren können unter **Konfiguration → System → Backup & Wiederherstellung** zusätzlich zwei gezielte Sicherungen herunterladen und wieder einspielen:
+
+- Die Konfigurationssicherung im JSON-Format enthält Vereinsdaten, Mitgliedsfelder, E-Mail-Einstellungen und das Vereinslogo, aber keine Benutzer-, Mitglieder- oder Zahlungsdaten. Das SMTP-Passwort bleibt mit dem aktuellen `APP_KEY` verschlüsselt; für einen Umzug auf eine Installation mit anderem Schlüssel muss es anschließend neu gesetzt werden.
+- Die Datenbanksicherung im ZIP-Format enthält sämtliche Datenbanktabellen, jedoch weder `.env` noch Dateien aus `storage/app/`. Der Webimport akzeptiert nur Sicherungen derselben GymSLunity-Version und desselben Datenbanktreibers, prüft die SHA-256-Prüfsumme, aktiviert vorübergehend den Wartungsmodus und legt unmittelbar vorher ein lokales Datenbankbackup unter `BACKUP_PATH` an. Schlägt der Import fehl, wird diese Sicherheitssicherung automatisch eingespielt.
+
+Für beide Importe muss zur Bestätigung `WIEDERHERSTELLEN` eingegeben werden. Die Zugriffe sind auf Administratoren beschränkt, gedrosselt und werden im Sicherheitsprotokoll erfasst. Die Browserfunktion ersetzt kein extern gespeichertes vollständiges Serverbackup.
+
+Für MariaDB/MySQL muss `mariadb-dump` oder `mysqldump` installiert sein. Die ZIP-Dateien enthalten Schlüssel und personenbezogene Daten. Sichere sie mit restriktiven Rechten und kopiere sie regelmäßig verschlüsselt auf ein anderes System. Ein lokales Backup allein schützt nicht vor dem Ausfall oder Verlust des Servers.
+
+### Wiederherstellung testen
+
+Teste die Wiederherstellung regelmäßig auf einem getrennten System. Verwende ein zur Anwendungsversion passendes Release, entpacke das Backup und kontrolliere zuerst `manifest.json`.
+
+Für MariaDB/MySQL:
+
+```bash
+unzip gymslunity-JJJJMMTT-HHMMSS-XXXXXXXX.zip -d /tmp/gymslunity-restore
+php artisan down
+mariadb -h DB_HOST -u DB_USERNAME -p DB_DATABASE < /tmp/gymslunity-restore/database.sql
+rsync -a --delete /tmp/gymslunity-restore/storage-app/ storage/app/
+cp /tmp/gymslunity-restore/environment.env .env
+php artisan optimize:clear
+php artisan migrate --force
+php artisan up
+```
+
+Für SQLite wird stattdessen bei gestoppter Anwendung `database.sqlite` an den in `DB_DATABASE` konfigurierten Ort kopiert. Setze nach dem Restore Eigentümer und Dateirechte erneut passend zum PHP-FPM-Benutzer. Führe eine Wiederherstellung niemals ungeprüft über eine laufende Produktivdatenbank aus.
+
+Vor Updates zuerst ein frisches Backup erzeugen und danach:
+
+```bash
+php artisan app:backup --prune
 php artisan down
 git pull --ff-only
 composer install --no-dev --optimize-autoloader

@@ -40,6 +40,7 @@ class SystemController extends Controller
                 'available' => extension_loaded('redis') || class_exists('Predis\\Client'),
                 'hostConfigured' => filled(config('database.redis.default.host')) || filled(config('database.redis.default.url')),
             ],
+            'backupError' => session('backup_error'),
             'checks' => [
                 [
                     'label' => 'Produktivmodus',

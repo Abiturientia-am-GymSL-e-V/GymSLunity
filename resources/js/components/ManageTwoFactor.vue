@@ -32,7 +32,12 @@ onUnmounted(() => clearTwoFactorAuthData());
         <Heading
             variant="small"
             title="Zwei-Faktor-Authentifizierung"
-            description="Verwalte die zusätzliche Absicherung deines Kontos."
+            :description="
+                $address(
+                    'Verwalte die zusätzliche Absicherung deines Kontos.',
+                    'Verwalten Sie die zusätzliche Absicherung Ihres Kontos.',
+                )
+            "
         />
 
         <div
@@ -40,8 +45,12 @@ onUnmounted(() => clearTwoFactorAuthData());
             class="flex flex-col items-start justify-start space-y-4"
         >
             <p class="text-sm text-muted-foreground">
-                Nach der Aktivierung benötigst du beim Anmelden zusätzlich einen
-                Einmalcode aus einer Authenticator-App auf deinem Smartphone.
+                {{
+                    $address(
+                        'Nach der Aktivierung benötigst du beim Anmelden zusätzlich einen Einmalcode aus einer Authenticator-App auf deinem Smartphone.',
+                        'Nach der Aktivierung benötigen Sie beim Anmelden zusätzlich einen Einmalcode aus einer Authenticator-App auf Ihrem Smartphone.',
+                    )
+                }}
             </p>
 
             <div>
@@ -63,8 +72,12 @@ onUnmounted(() => clearTwoFactorAuthData());
 
         <div v-else class="flex flex-col items-start justify-start space-y-4">
             <p class="text-sm text-muted-foreground">
-                Beim Anmelden benötigst du zusätzlich den Einmalcode aus deiner
-                Authenticator-App.
+                {{
+                    $address(
+                        'Beim Anmelden benötigst du zusätzlich den Einmalcode aus deiner Authenticator-App.',
+                        'Beim Anmelden benötigen Sie zusätzlich den Einmalcode aus Ihrer Authenticator-App.',
+                    )
+                }}
             </p>
 
             <div class="relative inline">

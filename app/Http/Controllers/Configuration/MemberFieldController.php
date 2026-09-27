@@ -48,6 +48,8 @@ class MemberFieldController extends Controller
             'section' => ['required', Rule::in(array_keys(MemberFields::SECTIONS))],
             'is_active' => ['required', 'boolean'], 'required' => ['required', 'boolean'],
             'filterable' => ['required', 'boolean'], 'show_in_table' => ['required', 'boolean'],
+            'selfservice_visible' => ['sometimes', 'boolean'],
+            'selfservice_editable' => ['sometimes', 'boolean'],
             'options' => ['present', 'array', 'max:100'],
             'options.*' => ['array:value,label,active'],
             'options.*.value' => ['required', 'string', 'max:'.($field->max_length ?? 255), 'distinct:strict', Rule::notIn(['__empty__', '__all__', '__any__', '__none__'])],
@@ -67,7 +69,17 @@ class MemberFieldController extends Controller
             if ($current->exists && $data['type'] !== $current->type && $this->hasValues($current->key)) {
                 throw ValidationException::withMessages(['type' => 'Für dieses Feld sind bereits Werte gespeichert. Bitte ein neues Feld mit dem gewünschten Datentyp anlegen.']);
             }
+            $selfserviceVisible = (bool) ($data['selfservice_visible'] ?? $current->selfservice_visible ?? $current->selfservice_editable ?? false);
+            $selfserviceEditable = (bool) ($data['selfservice_editable'] ?? $current->selfservice_editable ?? false);
+            if ($selfserviceEditable && ! $selfserviceVisible) {
+                throw ValidationException::withMessages(['selfservice_editable' => 'Ein im Mitgliederportal änderbares Feld muss dort auch angezeigt werden.']);
+            }
+            if ($selfserviceEditable && in_array($current->key, MemberFields::SELFSERVICE_PROTECTED, true)) {
+                throw ValidationException::withMessages(['selfservice_editable' => 'Dieses Feld wird aus Sicherheits- oder Nachweisgründen ausschließlich über den vorgesehenen Verwaltungs- bzw. Bestätigungsweg geändert.']);
+            }
             $values = Arr::except($data, ['version', 'remove_options']);
+            $values['selfservice_visible'] = $selfserviceVisible;
+            $values['selfservice_editable'] = $selfserviceEditable;
             if ($data['type'] !== 'select') {
                 $values['options'] = [];
             } elseif ($data['required'] && ! array_filter($data['options'], fn ($option) => $option['active'])) {
@@ -117,7 +129,7 @@ class MemberFieldController extends Controller
             $before = MemberFieldDefinition::query()->orderBy('position')->orderBy('id')->pluck('id')->all();
             $ids = array_map(intval(...), $data['ids']);
             if (count($before) !== count($ids) || array_diff($before, $ids) !== []) {
-                throw ValidationException::withMessages(['ids' => 'Die Feldliste hat sich geändert. Bitte lade die Seite neu.']);
+                throw ValidationException::withMessages(['ids' => 'Die Feldliste hat sich geändert. Bitte die Seite neu laden.']);
             }
             foreach ($ids as $position => $id) {
                 MemberFieldDefinition::query()->whereKey($id)->update(['position' => ($position + 1) * 10]);
@@ -133,7 +145,7 @@ class MemberFieldController extends Controller
     {
         $settings = ClubSetting::query()->whereKey(1)->lockForUpdate()->firstOrFail();
         if ($settings->fields_version !== $version) {
-            throw ValidationException::withMessages(['version' => 'Die Konfiguration wurde inzwischen geändert. Bitte lade die Seite neu.']);
+            throw ValidationException::withMessages(['version' => 'Die Konfiguration wurde inzwischen geändert. Bitte die Seite neu laden.']);
         }
 
         return $settings;

@@ -30,6 +30,8 @@ class MemberConfigurationTest extends TestCase
         return [...[
             'version' => ClubSetting::current()->fields_version, 'label' => 'Trainingsgruppe', 'type' => 'select', 'section' => 'membership',
             'is_active' => true, 'required' => false, 'filterable' => true, 'show_in_table' => true,
+            'selfservice_visible' => false,
+            'selfservice_editable' => false,
             'options' => [['value' => 'a', 'label' => 'Gruppe A', 'active' => true], ['value' => 'b', 'label' => 'Gruppe B', 'active' => false]],
         ], ...$overrides];
     }
@@ -68,6 +70,33 @@ class MemberConfigurationTest extends TestCase
         $this->patch(route('configuration.club.update'), ['version' => 0, 'name' => 'Überschreiben'])->assertSessionHasErrors('version');
         $this->patch(route('configuration.club.update'), ['version' => 1, 'name' => 'Sportverein', 'iban' => 'DE123456789'])->assertSessionHasErrors('iban');
         $this->assertSame('Sportverein', ClubSetting::current()->data['name']);
+    }
+
+    public function test_global_form_of_address_can_be_configured(): void
+    {
+        $this->admin();
+
+        $this->get(route('configuration.club.edit'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('formOfAddress', 'du')
+            ->where('fields.2.key', 'form_of_address')
+            ->where('fields.2.options', ['du' => 'Du', 'sie' => 'Sie'])
+            ->where('fields.2.default', 'du'));
+
+        $this->patch(route('configuration.club.update'), [
+            'version' => 0,
+            'name' => 'Sportverein',
+            'form_of_address' => 'sie',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame('sie', ClubSetting::current()->data['form_of_address']);
+        $this->get(route('configuration.club.edit'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('formOfAddress', 'sie'));
+
+        $this->patch(route('configuration.club.update'), [
+            'version' => 1,
+            'name' => 'Sportverein',
+            'form_of_address' => 'anders',
+        ])->assertSessionHasErrors('form_of_address');
     }
 
     public function test_configuration_pages_render_with_bounded_preload_headers(): void
@@ -163,7 +192,53 @@ class MemberConfigurationTest extends TestCase
         $this->assertContains('Fördermitglied', array_column($membership->options, 'value'));
         $payment = MemberFieldDefinition::query()->where('key', 'payment_method')->sole();
         $this->assertSame(['SEPA-Lastschrift', 'Überweisung', 'Bar', 'Sonstiges'], array_column($payment->options, 'value'));
+        $this->assertTrue($payment->selfservice_editable);
+        $this->assertTrue($payment->selfservice_visible);
+        $this->assertTrue(MemberFieldDefinition::query()->where('key', 'gender')->sole()->selfservice_editable);
+        $this->assertTrue(MemberFieldDefinition::query()->where('key', 'gender')->sole()->selfservice_visible);
+        $this->assertFalse(MemberFieldDefinition::query()->where('key', 'club_role')->sole()->selfservice_editable);
+        $this->assertFalse(MemberFieldDefinition::query()->where('key', 'club_role')->sole()->selfservice_visible);
         $this->assertTrue(MemberFieldDefinition::query()->where('key', 'custom_graduation_year')->sole()->is_custom);
         $this->assertFalse(DB::getSchemaBuilder()->hasColumn('members', 'graduation_year'));
+    }
+
+    public function test_selfservice_visibility_and_editability_are_independent_but_protected_fields_remain_read_only(): void
+    {
+        $this->admin();
+        $field = $this->createField(['selfservice_visible' => true]);
+        $this->assertTrue($field->selfservice_visible);
+        $this->assertFalse($field->selfservice_editable);
+
+        $this->patch(route('configuration.fields.update', $field), $this->fieldData([
+            'selfservice_visible' => false,
+            'selfservice_editable' => true,
+        ]))->assertSessionHasErrors('selfservice_editable');
+
+        $this->patch(route('configuration.fields.update', $field), $this->fieldData([
+            'selfservice_visible' => true,
+            'selfservice_editable' => true,
+        ]))->assertSessionHasNoErrors();
+        $this->assertTrue($field->fresh()->selfservice_editable);
+
+        $email = MemberFieldDefinition::query()->where('key', 'email')->sole();
+        $this->patch(route('configuration.fields.update', $email), $this->fieldData([
+            'label' => $email->label,
+            'type' => $email->type,
+            'section' => $email->section,
+            'options' => [],
+            'selfservice_visible' => true,
+            'selfservice_editable' => false,
+        ]))->assertSessionHasNoErrors();
+        $this->assertTrue($email->fresh()->selfservice_visible);
+
+        $this->patch(route('configuration.fields.update', $email), $this->fieldData([
+            'label' => $email->label,
+            'type' => $email->type,
+            'section' => $email->section,
+            'options' => [],
+            'selfservice_visible' => true,
+            'selfservice_editable' => true,
+        ]))->assertSessionHasErrors('selfservice_editable');
+        $this->assertFalse($email->fresh()->selfservice_editable);
     }
 }

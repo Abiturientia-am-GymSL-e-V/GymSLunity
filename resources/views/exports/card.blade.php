@@ -24,8 +24,8 @@ th { text-align: left; background: #f1f5f9; } .field-label { width: 38%; color: 
 @endforeach
 <h2>Dokumente</h2>
 @forelse($documents as $document)
-<p>{{ $document->kind === 'application' ? 'Mitgliedsantrag' : 'SEPA-Mandat' }} · {{ $document->submitted_online ? 'online eingereicht' : 'hinterlegt' }} · {{ $document->created_at }}
-@unless($pdf) · <a href="{{ route('members.document', ['member' => $member->member_number, 'kind' => $document->kind]) }}">Originaldokument herunterladen</a>@endunless</p>
+<p>{{ $document->kind === 'application' ? 'Mitgliedsantrag' : 'SEPA-Mandat'.($document->mandate_reference ? ' '.$document->mandate_reference : '') }} · {{ $document->submitted_online ? 'online eingereicht' : 'hinterlegt' }} · {{ $document->created_at }}@if($document->kind === 'sepa') · {{ $document->revoked_at ? 'widerrufen' : 'nicht widerrufen' }}@endif
+@unless($pdf) · <a href="{{ $document->kind === 'sepa' ? route('members.mandates.document', ['member' => $member->member_number, 'document' => $document->id]) : route('members.document', ['member' => $member->member_number, 'kind' => $document->kind]) }}">Originaldokument herunterladen</a>@endunless</p>
 @empty<p>Keine Dokumente hinterlegt.</p>@endforelse
 <h2>Änderungshistorie</h2>
 @forelse($changes as $change)<div class="change"><strong>{{ $change['date'] }} · Version {{ $change['version'] }} · {{ $change['actor'] }}</strong><table><thead><tr><th>Feld</th><th>Vorher</th><th>Nachher</th></tr></thead><tbody>@foreach($change['rows'] as $row)<tr><td>{{ $row['label'] }}</td><td>{{ $row['before'] }}</td><td>{{ $row['after'] }}</td></tr>@endforeach</tbody></table></div>

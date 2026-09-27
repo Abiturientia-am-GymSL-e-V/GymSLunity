@@ -1,5 +1,6 @@
 import type { MemberField, MemberValue } from '@/types/members';
 import countries from '../../data/countries.json';
+import { formatIban } from '@/lib/formatIban';
 
 export function memberValue(
     value: MemberValue | undefined,
@@ -17,6 +18,7 @@ export function memberValue(
                 ? { style: 'currency', currency: 'EUR' }
                 : { maximumFractionDigits: 2 },
         ).format(Number(value));
+    if (field?.key === 'iban') return formatIban(String(value));
     if (field?.key === 'country' || field?.key === 'account_holder_country')
         return (
             (countries as Record<string, string>)[String(value)] ||

@@ -107,6 +107,61 @@ class MemberDetailTest extends TestCase
         $this->assertSame($change->actor_name, $change->fresh()->actor_name);
     }
 
+    public function test_administration_payment_change_revokes_active_sepa_mandate(): void
+    {
+        $this->signIn();
+        $member = Member::factory()->create([
+            'payment_method' => 'SEPA-Lastschrift',
+            'iban' => 'DE89370400440532013000',
+            'mandate_reference' => 'M-ADMIN-OLD',
+            'mandate_signed_at' => '2026-01-10',
+            'account_holder_first_name' => 'Ada',
+            'account_holder_last_name' => 'Test',
+        ]);
+        $this->document($member, 'sepa', '%PDF-1.4 mandate');
+        DB::table('member_documents')->where('member_id', $member->id)->where('kind', 'sepa')->update([
+            'mandate_reference' => 'M-ADMIN-OLD',
+            'mandate_signed_at' => '2026-01-10',
+        ]);
+
+        $this->patch($this->url($member, 'update'), [
+            'lock_version' => 0,
+            'payment_method' => 'Überweisung',
+        ])->assertSessionHasNoErrors();
+
+        $member->refresh();
+        $this->assertSame('Überweisung', $member->payment_method);
+        $this->assertNull($member->iban);
+        $this->assertNull($member->mandate_reference);
+        $this->assertNull($member->mandate_signed_at);
+        $this->assertNotNull(DB::table('member_documents')->where('member_id', $member->id)->where('kind', 'sepa')->value('revoked_at'));
+        $this->get($this->url($member))->assertInertia(fn (Assert $page) => $page
+            ->has('mandates', 1)
+            ->where('mandates.0.active', false)
+            ->where('mandates.0.mandate_reference', 'M-ADMIN-OLD'));
+    }
+
+    public function test_historical_mandate_download_is_scoped_to_its_member(): void
+    {
+        $this->signIn();
+        $member = Member::factory()->create();
+        $other = Member::factory()->create();
+        $this->document($member, 'sepa', '%PDF-1.4 mandate history');
+        $documentId = DB::table('member_documents')
+            ->where('member_id', $member->id)
+            ->where('kind', 'sepa')
+            ->value('id');
+
+        $this->get(route('members.mandates.document', [
+            'member' => $member->member_number,
+            'document' => $documentId,
+        ]))->assertOk()->assertContent('%PDF-1.4 mandate history');
+        $this->get(route('members.mandates.document', [
+            'member' => $other->member_number,
+            'document' => $documentId,
+        ]))->assertNotFound();
+    }
+
     public function test_both_pdf_blobs_remain_byte_identical_after_normal_member_update(): void
     {
         $this->signIn();

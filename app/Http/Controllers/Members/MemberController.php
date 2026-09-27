@@ -8,6 +8,7 @@ use App\Http\Requests\Members\StoreMemberRequest;
 use App\Http\Requests\Members\UpdateMemberRequest;
 use App\Members\CreateMember;
 use App\Members\MemberFields;
+use App\Members\MemberMandates;
 use App\Members\MemberNavigation;
 use App\Members\UpdateMember;
 use App\Models\ClubSetting;
@@ -31,6 +32,7 @@ class MemberController extends Controller
         Gate::authorize('create', Member::class);
 
         return Inertia::render('members/Create', [
+            'totalMembers' => fn () => Member::query()->count(),
             'sections' => MemberFields::sections(),
             'configurationVersion' => ClubSetting::current()->fields_version,
             'suggestedMemberNumber' => ((int) Member::query()->max('member_number')) + 1,
@@ -64,11 +66,34 @@ class MemberController extends Controller
             'canEdit' => $request->user()?->can('update', $member) ?? false,
             'returnTo' => $returnTo,
             'documents' => fn () => DB::table('member_documents')->where('member_id', $member->getKey())
-                ->whereIn('kind', ['application', 'sepa'])->get(['id', 'kind', 'submitted_online', 'created_at'])
+                ->where('kind', 'application')->get(['id', 'kind', 'submitted_online', 'created_at'])
                 ->map(fn (object $document): array => [
                     'kind' => $document->kind, 'submitted_online' => (bool) $document->submitted_online,
                     'created_at' => $document->created_at,
                     'url' => route('members.document', ['member' => $member->member_number, 'kind' => $document->kind]),
+                ]),
+            'mandates' => fn () => DB::table('member_documents')
+                ->where('member_id', $member->getKey())
+                ->where('kind', 'sepa')
+                ->latest('id')
+                ->get(['id', 'submitted_online', 'mandate_reference', 'mandate_signed_at', 'revoked_at', 'revocation_reason', 'created_at'])
+                ->map(fn (object $mandate): array => [
+                    'id' => $mandate->id,
+                    'submitted_online' => (bool) $mandate->submitted_online,
+                    'mandate_reference' => $mandate->mandate_reference,
+                    'mandate_signed_at' => $mandate->mandate_signed_at,
+                    'revoked_at' => $mandate->revoked_at,
+                    'revocation_reason' => $mandate->revocation_reason,
+                    'active' => $mandate->revoked_at === null
+                        && $member->payment_method === 'SEPA-Lastschrift'
+                        && is_string($mandate->mandate_reference)
+                        && $mandate->mandate_reference !== ''
+                        && $mandate->mandate_reference === $member->mandate_reference,
+                    'created_at' => $mandate->created_at,
+                    'url' => route('members.mandates.document', [
+                        'member' => $member->member_number,
+                        'document' => $mandate->id,
+                    ]),
                 ]),
             'history' => fn () => MemberChange::query()->where('member_id', $member->getKey())
                 ->orderByDesc('version')->paginate(10, ['id', 'actor_name', 'version', 'before', 'after', 'changed_fields', 'field_schema', 'created_at'], 'history_page')
@@ -108,8 +133,32 @@ class MemberController extends Controller
     {
         Gate::authorize('view', $member);
         abort_unless(in_array($kind, ['application', 'sepa'], true), 404);
-        $document = DB::table('member_documents')->where('member_id', $member->getKey())->where('kind', $kind)->first(['contents', 'encrypted', 'content_sha256']);
+        $document = DB::table('member_documents')->where('member_id', $member->getKey())->where('kind', $kind)->latest('id')->first(['contents', 'encrypted', 'content_sha256']);
         abort_unless($document !== null, 404);
+
+        return $this->documentResponse($member, $kind, $document, $documents);
+    }
+
+    public function mandateDocument(Member $member, int $document, MemberDocumentStore $documents): HttpResponse
+    {
+        Gate::authorize('view', $member);
+        $mandate = DB::table('member_documents')
+            ->where('id', $document)
+            ->where('member_id', $member->getKey())
+            ->where('kind', 'sepa')
+            ->first(['id', 'mandate_reference', 'contents', 'encrypted', 'content_sha256']);
+        abort_unless($mandate !== null, 404);
+
+        return $this->documentResponse(
+            $member,
+            'sepa-'.($mandate->mandate_reference ?: $mandate->id),
+            $mandate,
+            $documents,
+        );
+    }
+
+    private function documentResponse(Member $member, string $filename, object $document, MemberDocumentStore $documents): HttpResponse
+    {
         try {
             $record = (array) $document;
             $contents = $documents->read(
@@ -123,17 +172,32 @@ class MemberController extends Controller
 
         return response($contents, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="'.$kind.'-'.$member->member_number.'.pdf"',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'-'.$member->member_number.'.pdf"',
             'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
         ]);
     }
 
-    public function storeDocument(StoreMemberDocumentRequest $request, Member $member, string $kind, MemberDocumentStore $documents): RedirectResponse
+    public function storeDocument(StoreMemberDocumentRequest $request, Member $member, string $kind, MemberDocumentStore $documents, MemberMandates $mandates): RedirectResponse
     {
         abort_unless(in_array($kind, ['application', 'sepa'], true), 404);
         $file = $request->file('document');
         $contents = $documents->uploadedPdf($file);
-        $documents->store($member->getKey(), $kind, $contents, false);
+        DB::transaction(function () use ($member, $kind, $contents, $documents, $mandates): void {
+            $current = Member::query()->whereKey($member->getKey())->lockForUpdate()->firstOrFail();
+            if ($kind === 'sepa') {
+                $mandates->revoke($current, 'Durch ein manuell hinterlegtes SEPA-Mandat ersetzt');
+            }
+            $documentId = $documents->store($current->getKey(), $kind, $contents, false, $kind === 'sepa' ? [
+                'mandate_reference' => $current->mandate_reference,
+                'mandate_signed_at' => $current->mandate_signed_at?->format('Y-m-d'),
+            ] : []);
+            if ($kind === 'sepa' && ($current->payment_method !== 'SEPA-Lastschrift' || ! $current->mandate_reference)) {
+                DB::table('member_documents')->where('id', $documentId)->update([
+                    'revoked_at' => now(),
+                    'revocation_reason' => 'Manuell hinterlegt; derzeit kein aktives SEPA-Mandat',
+                ]);
+            }
+        });
         Inertia::flash('toast', ['type' => 'success', 'message' => $kind === 'application' ? 'Schriftlicher Antrag gespeichert.' : 'SEPA-Mandat gespeichert.']);
 
         return back();

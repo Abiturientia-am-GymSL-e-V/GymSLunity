@@ -42,7 +42,6 @@ final class StatisticsReport
     {
         $memberTrend = $this->memberTrend();
         $contributions = Contribution::query()
-            ->where('kind', 'contribution')
             ->whereBetween('due_date', [$this->from->toDateString(), $this->to->toDateString()])
             ->orderBy('due_date')
             ->get();

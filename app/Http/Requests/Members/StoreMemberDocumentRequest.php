@@ -21,7 +21,7 @@ class StoreMemberDocumentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'document.required' => 'Bitte wähle eine PDF-Datei aus.',
+            'document.required' => 'Bitte eine PDF-Datei auswählen.',
             'document.mimes' => 'Das Dokument muss eine PDF-Datei sein.',
             'document.max' => 'Das Dokument darf höchstens 10 MB groß sein.',
         ];

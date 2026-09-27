@@ -14,14 +14,29 @@ final class ProfileChanges
      *
      * @param  array<string, mixed>  $values
      */
-    public function save(Member $member, array $values): void
+    public function save(Member $member, array $values): bool
     {
         $before = MemberFields::snapshot($member);
-        $member->fill($values);
+        $definitions = MemberFieldDefinition::query()->whereIn('key', array_keys($values))->get()->keyBy('key');
+        $custom = $member->custom_values ?? [];
+        foreach ($values as $key => $value) {
+            $definition = $definitions->get($key);
+            if ($definition?->is_custom) {
+                $custom[$key] = $value === null ? null : match ($definition->type) {
+                    'boolean' => (bool) $value,
+                    'number' => (int) $value,
+                    'decimal' => number_format((float) $value, 2, '.', ''),
+                    default => $value,
+                };
+            } else {
+                $member->setAttribute($key, $value);
+            }
+        }
+        $member->custom_values = $custom;
         $after = MemberFields::snapshot($member);
         $changed = array_keys(array_filter($after, fn ($value, $key): bool => $value !== ($before[$key] ?? null), ARRAY_FILTER_USE_BOTH));
         if ($changed === []) {
-            return;
+            return false;
         }
         $member->lock_version++;
         $member->save();
@@ -32,5 +47,7 @@ final class ProfileChanges
             'changed_fields' => $changed, 'created_at' => now(),
             'field_schema' => MemberFieldDefinition::query()->whereIn('key', $changed)->get()->mapWithKeys(fn (MemberFieldDefinition $field): array => [$field->key => MemberFields::descriptor($field)])->all(),
         ]);
+
+        return true;
     }
 }

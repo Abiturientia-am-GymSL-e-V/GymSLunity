@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { usePage } from '@inertiajs/vue3';
 import CountryInput from '@/components/CountryInput.vue';
+import IbanInput from '@/components/IbanInput.vue';
+import PhoneInput from '@/components/PhoneInput.vue';
 import PostalCityInput from '@/components/PostalCityInput.vue';
 import { Input } from '@/components/ui/input';
 import {
@@ -27,14 +29,36 @@ function stringValue(key: string): string | null {
 </script>
 
 <template>
+    <PhoneInput
+        v-if="field.key === 'mobile_phone'"
+        :id="`member-${field.key}`"
+        :model-value="value == null ? '' : String(value)"
+        :default-country="page.props.defaultCountry"
+        :disabled="disabled"
+        :aria-invalid="!!error"
+        :aria-describedby="error ? `error-${field.key}` : undefined"
+        @update:model-value="emit('change', $event || null)"
+    />
     <CountryInput
-        v-if="field.key === 'country' || field.key === 'account_holder_country'"
+        v-else-if="
+            field.key === 'country' || field.key === 'account_holder_country'
+        "
         :id="`member-${field.key}`"
         :model-value="value == null ? null : String(value)"
         :disabled="disabled"
         :aria-invalid="!!error"
         :aria-describedby="error ? `error-${field.key}` : undefined"
         @update:model-value="emit('change', $event)"
+    />
+    <IbanInput
+        v-else-if="field.key === 'iban'"
+        :id="`member-${field.key}`"
+        :model-value="value == null ? '' : String(value)"
+        :disabled="disabled"
+        :required="field.required"
+        :aria-invalid="!!error"
+        :aria-describedby="error ? `error-${field.key}` : undefined"
+        @update:model-value="emit('change', $event || null)"
     />
     <PostalCityInput
         v-else-if="field.key === 'city' || field.key === 'account_holder_city'"

@@ -42,6 +42,7 @@ class SystemConfigurationTest extends TestCase
                 ->where('runtime.url', 'https://verein.example.test')
                 ->where('runtime.cache', 'redis')
                 ->where('redis.inUse', true)
+                ->where('backupError', null)
                 ->has('checks', 7)
                 ->missing('redis.password')
                 ->missing('runtime.appKey')

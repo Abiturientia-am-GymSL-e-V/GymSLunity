@@ -8,6 +8,7 @@ use App\Members\MemberReportValue;
 use App\Models\ClubSetting;
 use App\Models\Member;
 use App\Models\MemberFieldDefinition;
+use App\Support\Iban;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
@@ -43,6 +44,8 @@ final class CommunicationTemplate
                 $value = $value ? 'Ja' : 'Nein';
             } elseif ($field['type'] === 'date' && is_string($value) && $value !== '') {
                 $value = CarbonImmutable::parse($value)->format('d.m.Y');
+            } elseif ($field['key'] === 'iban') {
+                $value = Iban::format(is_string($value) ? $value : null);
             }
             $this->clubReplacements['{{verein.'.$field['key'].'}}'] = (string) $value;
         }

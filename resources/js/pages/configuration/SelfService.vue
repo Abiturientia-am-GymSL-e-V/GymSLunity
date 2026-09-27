@@ -57,8 +57,9 @@ const templates = [
                 <div class="border-b px-5 py-4">
                     <h2 class="font-semibold">Zugang und Aktivierung</h2>
                     <p class="mt-1 text-sm text-muted-foreground">
-                        Lege fest, wer den Selfservice nutzen kann und wann ein
-                        Beitritt wirksam wird.
+                        {{ $address('Lege', 'Legen Sie') }} fest, wer den
+                        Selfservice nutzen kann und wann ein Beitritt wirksam
+                        wird.
                     </p>
                 </div>
                 <div class="space-y-5 p-5">

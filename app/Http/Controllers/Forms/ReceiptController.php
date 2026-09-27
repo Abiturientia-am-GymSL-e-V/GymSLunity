@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Throwable;
@@ -25,15 +26,15 @@ class ReceiptController extends Controller
 {
     public function index(Request $request): Response
     {
-        $tab = (string) $request->route('tab', 'create');
+        $tab = (string) $request->route('tab', 'list');
         $tabs = [
-            'create' => ['Quittung erstellen', route('receipts.index')],
-            'list' => ['Quittungsarchiv', route('receipts.archive')],
+            'list' => ['Übersicht', route('receipts.index')],
+            'create' => ['Quittung erstellen', route('receipts.create')],
         ];
         abort_unless(isset($tabs[$tab]), 404);
         $filters = $request->validate(['search' => ['nullable', 'string', 'max:100'], 'page' => ['nullable', 'integer', 'min:1']]);
         $search = trim($filters['search'] ?? '');
-        $receipts = Receipt::query()->select(['id', 'receipt_number', 'receipt_date', 'amount_cents', 'currency', 'payer', 'payee', 'purpose', 'created_by_name'])
+        $receipts = Receipt::query()->select(['id', 'receipt_number', 'receipt_date', 'amount_cents', 'currency', 'payer', 'payee', 'purpose', 'created_by_name', 'exported_at', 'cancelled_at'])
             ->when($search !== '', fn ($query) => $query->where(function ($query) use ($search): void {
                 foreach (['receipt_number', 'payer', 'payee', 'purpose'] as $column) {
                     $query->orWhere($column, 'like', '%'.$search.'%');
@@ -81,7 +82,14 @@ class ReceiptController extends Controller
     public function show(Receipt $receipt): Response
     {
         return Inertia::render('forms/Receipt', [
-            'receipt' => ['id' => $receipt->id, ...$receipt->snapshot],
+            'receipt' => [
+                'id' => $receipt->id, ...$receipt->snapshot,
+                'exported_at' => $receipt->exported_at?->toIso8601String(),
+                'cancelled_at' => $receipt->cancelled_at?->toIso8601String(),
+                'cancelled_by_name' => $receipt->cancelled_by_name,
+                'cancellation_reason' => $receipt->cancellation_reason,
+                'can_cancel' => $receipt->cancelled_at === null && $receipt->exported_at === null && ! DB::table('receipt_deliveries')->where('receipt_id', $receipt->id)->exists(),
+            ],
             'deliveries' => DB::table('receipt_deliveries')->where('receipt_id', $receipt->id)->latest('id')->limit(50)->get(['edition', 'recipient', 'sent_by_name', 'created_at']),
         ]);
     }
@@ -90,6 +98,14 @@ class ReceiptController extends Controller
     {
         abort_unless(in_array($edition, ['original', 'copy'], true), 404);
         $request->validate(['inline' => ['nullable', 'boolean']]);
+        DB::transaction(function () use ($receipt): void {
+            $current = DB::table('receipts')->where('id', $receipt->id)->lockForUpdate()->first(['cancelled_at', 'exported_at']);
+            abort_if($current === null, 404);
+            abort_if($current->cancelled_at !== null, 409, 'Eine stornierte Quittung kann nicht mehr exportiert werden.');
+            if ($current->exported_at === null) {
+                DB::table('receipts')->where('id', $receipt->id)->update(['exported_at' => now()]);
+            }
+        });
 
         return response($receipt->pdf($edition), 200, [
             'Content-Type' => 'application/pdf', 'Content-Disposition' => ($request->boolean('inline') ? 'inline' : 'attachment').'; filename="'.$receipt->filename($edition).'"',
@@ -100,19 +116,58 @@ class ReceiptController extends Controller
     public function send(Request $request, Receipt $receipt, MailConfigurator $mailConfigurator): RedirectResponse
     {
         $data = $request->validate(['edition' => ['required', Rule::in(['original', 'copy'])], 'recipient' => ['required', 'email:rfc', 'max:255']]);
+        $markedForDelivery = DB::transaction(function () use ($receipt): bool {
+            $current = DB::table('receipts')->where('id', $receipt->id)->lockForUpdate()->first(['cancelled_at', 'exported_at']);
+            if ($current === null || $current->cancelled_at !== null) {
+                throw ValidationException::withMessages(['recipient' => 'Eine stornierte Quittung kann nicht versendet werden.']);
+            }
+            if ($current->exported_at !== null) {
+                return false;
+            }
+            DB::table('receipts')->where('id', $receipt->id)->update(['exported_at' => now()]);
+
+            return true;
+        });
         $mailConfigurator->applyStored();
         try {
             Mail::to($data['recipient'])->send(new ReceiptMail($receipt, $data['edition']));
         } catch (Throwable $exception) {
             report($exception);
+            if ($markedForDelivery) {
+                DB::table('receipts')->where('id', $receipt->id)
+                    ->whereNotExists(fn ($query) => $query->selectRaw('1')->from('receipt_deliveries')->whereColumn('receipt_deliveries.receipt_id', 'receipts.id'))
+                    ->update(['exported_at' => null]);
+            }
 
-            return back()->withErrors(['recipient' => 'Die E-Mail konnte nicht versendet werden. Bitte prüfe die E-Mail-Konfiguration und versuche es erneut.']);
+            return back()->withErrors(['recipient' => 'Die E-Mail konnte nicht versendet werden. Bitte die E-Mail-Konfiguration prüfen und den Versand erneut versuchen.']);
         }
         DB::table('receipt_deliveries')->insert([
             'receipt_id' => $receipt->id, 'edition' => $data['edition'], 'recipient' => $data['recipient'],
             'sent_by' => $request->user()->id, 'sent_by_name' => $request->user()->name, 'created_at' => now(),
         ]);
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Quittung per E-Mail versendet.']);
+
+        return back();
+    }
+
+    public function cancel(Request $request, Receipt $receipt): RedirectResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'max:1000']]);
+        DB::transaction(function () use ($request, $receipt, $data): void {
+            $current = DB::table('receipts')->where('id', $receipt->id)->lockForUpdate()->first(['cancelled_at', 'exported_at']);
+            abort_if($current === null, 404);
+            if ($current->cancelled_at !== null) {
+                return;
+            }
+            if ($current->exported_at !== null || DB::table('receipt_deliveries')->where('receipt_id', $receipt->id)->exists()) {
+                throw ValidationException::withMessages(['reason' => 'Die Quittung wurde bereits exportiert oder versendet und kann deshalb nicht mehr storniert werden.']);
+            }
+            DB::table('receipts')->where('id', $receipt->id)->update([
+                'cancelled_at' => now(), 'cancelled_by' => $request->user()->id,
+                'cancelled_by_name' => $request->user()->name, 'cancellation_reason' => $data['reason'],
+            ]);
+        });
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Quittung '.$receipt->receipt_number.' wurde storniert.']);
 
         return back();
     }

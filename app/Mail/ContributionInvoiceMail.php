@@ -2,8 +2,10 @@
 
 namespace App\Mail;
 
+use App\Models\ClubSetting;
 use App\Models\Contribution;
 use App\Payments\ContributionInvoice;
+use App\PublicSite\PublicPageTemplates;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
@@ -15,16 +17,30 @@ class ContributionInvoiceMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public readonly Contribution $contribution) {}
+    /** @var array<string, mixed> */
+    private array $club;
+
+    private int $settingsVersion;
+
+    public function __construct(public readonly Contribution $contribution)
+    {
+        $settings = ClubSetting::current();
+        $this->club = $settings->data;
+        $this->settingsVersion = $settings->version;
+    }
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Beitragsrechnung '.$this->contribution->invoice_number);
+        return new Envelope(subject: PublicPageTemplates::render('contribution_invoice_mail_subject', $this->club).' · '.$this->contribution->invoice_number);
     }
 
     public function content(): Content
     {
-        return new Content(view: 'mail.contribution-invoice');
+        return new Content(view: 'mail.contribution-invoice', with: [
+            'clubName' => (string) (($this->club['short_name'] ?? null) ?: ($this->club['name'] ?? config('app.name'))),
+            'logoUrl' => ! empty($this->club['logo_path']) ? route('branding.logo', ['v' => $this->settingsVersion]) : null,
+            'messageText' => PublicPageTemplates::render('contribution_invoice_mail_text', $this->club),
+        ]);
     }
 
     /** @return list<Attachment> */

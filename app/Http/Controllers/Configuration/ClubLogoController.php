@@ -46,7 +46,7 @@ class ClubLogoController extends Controller
                 $settings = ClubSetting::query()->whereKey(1)->lockForUpdate()->firstOrFail();
                 abort_unless($request->user()->fresh()?->isAdministrator(), 403);
                 if ($settings->version !== (int) $data['version']) {
-                    throw ValidationException::withMessages(['version' => 'Die Vereinsdaten wurden inzwischen geändert. Bitte lade die Seite neu.']);
+                    throw ValidationException::withMessages(['version' => 'Die Vereinsdaten wurden inzwischen geändert. Bitte die Seite neu laden.']);
                 }
                 $before = $settings->data;
                 $after = [...$before, 'logo_path' => $path];
@@ -74,7 +74,7 @@ class ClubLogoController extends Controller
             $settings = ClubSetting::query()->whereKey(1)->lockForUpdate()->firstOrFail();
             abort_unless($request->user()->fresh()?->isAdministrator(), 403);
             if ($settings->version !== (int) $data['version']) {
-                throw ValidationException::withMessages(['version' => 'Die Vereinsdaten wurden inzwischen geändert. Bitte lade die Seite neu.']);
+                throw ValidationException::withMessages(['version' => 'Die Vereinsdaten wurden inzwischen geändert. Bitte die Seite neu laden.']);
             }
             $before = $settings->data;
             $after = $before;

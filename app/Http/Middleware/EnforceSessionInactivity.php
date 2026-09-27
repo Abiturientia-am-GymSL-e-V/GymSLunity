@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\FormOfAddress;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,7 +25,7 @@ class EnforceSessionInactivity
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return to_route('login')->withErrors(['email' => 'Deine Sitzung wurde wegen Inaktivität beendet.']);
+            return to_route('login')->withErrors(['email' => FormOfAddress::choose('Deine Sitzung wurde wegen Inaktivität beendet.', 'Ihre Sitzung wurde wegen Inaktivität beendet.')]);
         }
 
         $request->session()->put('security.last_activity', $now);

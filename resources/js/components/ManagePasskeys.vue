@@ -4,6 +4,7 @@ import { router } from '@inertiajs/vue3';
 import { KeyRound, Trash2 } from '@lucide/vue';
 import { ref } from 'vue';
 import Heading from '@/components/Heading.vue';
+import StatusAlert from '@/components/StatusAlert.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -63,7 +64,12 @@ const formatDate = (value: string | null) =>
             v-if="!compact"
             variant="small"
             title="Passkeys"
-            description="Melde dich mit Touch ID, Face ID, Windows Hello oder einem Sicherheitsschlüssel an."
+            :description="
+                $address(
+                    'Melde dich mit Touch ID, Face ID, Windows Hello oder einem Sicherheitsschlüssel an.',
+                    'Melden Sie sich mit Touch ID, Face ID, Windows Hello oder einem Sicherheitsschlüssel an.',
+                )
+            "
         />
 
         <div class="space-y-3">
@@ -107,11 +113,21 @@ const formatDate = (value: string | null) =>
                     :disabled="isLoading"
                 />
             </div>
-            <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
-            <p v-else-if="!isSupported" class="text-sm text-muted-foreground">
-                Dieser Browser unterstützt keine Passkeys. Verwende TOTP oder
-                öffne die Seite in einem aktuellen Browser.
-            </p>
+            <StatusAlert
+                v-if="error"
+                type="error"
+                title="Passkey konnte nicht hinzugefügt werden"
+            >
+                {{ error }}
+            </StatusAlert>
+            <StatusAlert v-else-if="!isSupported" type="info">
+                {{
+                    $address(
+                        'Dieser Browser unterstützt keine Passkeys. Verwende TOTP oder öffne die Seite in einem aktuellen Browser.',
+                        'Dieser Browser unterstützt keine Passkeys. Verwenden Sie TOTP oder öffnen Sie die Seite in einem aktuellen Browser.',
+                    )
+                }}
+            </StatusAlert>
             <Button
                 type="submit"
                 :disabled="isLoading || !isSupported || !name.trim()"

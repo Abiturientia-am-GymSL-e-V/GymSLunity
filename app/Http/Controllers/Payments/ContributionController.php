@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Payments;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClubSetting;
+use App\Models\MemberFieldDefinition;
 use App\Payments\CreateContributions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,7 @@ class ContributionController extends Controller
 {
     public function store(Request $request, CreateContributions $creator): RedirectResponse
     {
+        $filterKeys = MemberFieldDefinition::query()->where('is_active', true)->where('filterable', true)->pluck('key')->all();
         $data = $request->validate([
             'period_start' => ['required', 'date_format:Y-m-d'],
             'period_end' => ['required', 'date_format:Y-m-d', 'after_or_equal:period_start'],
@@ -25,6 +27,9 @@ class ContributionController extends Controller
             'payment_method' => ['nullable', 'string', 'max:50'],
             'honorary' => ['required', Rule::in(['include', 'exclude', 'only'])],
             'tax_deductible' => ['required', 'boolean'],
+            'filters' => ['nullable', 'array', 'max:20'],
+            'filters.*.key' => ['required', 'string', 'distinct', Rule::in($filterKeys)],
+            'filters.*.value' => ['required', 'string', 'max:255'],
         ]);
         if (! (bool) (ClubSetting::current()->data['contributions_tax_deductible'] ?? false)) {
             $data['tax_deductible'] = false;

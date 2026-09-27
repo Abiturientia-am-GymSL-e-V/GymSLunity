@@ -372,7 +372,10 @@ function membershipStyle(type: string): string {
                         <p class="mt-2 text-sm text-muted-foreground">
                             {{
                                 filtered
-                                    ? 'Passe die Suche an oder setze die Filter zurück.'
+                                    ? $address(
+                                          'Passe die Suche an oder setze die Filter zurück.',
+                                          'Passen Sie die Suche an oder setzen Sie die Filter zurück.',
+                                      )
                                     : 'Sobald Mitglieder angelegt sind, erscheinen sie in dieser Übersicht.'
                             }}
                         </p>

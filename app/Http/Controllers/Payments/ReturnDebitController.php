@@ -33,7 +33,7 @@ class ReturnDebitController extends Controller
                 'payment_method' => $member->payment_method, 'tax_deductible' => false, 'status' => 'open',
             ]);
             $ledger->charge($contribution, $request->user(), 'return_debit_fee', ['reference' => $data['reference'] ?? null]);
-        });
+        }, attempts: 3);
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Rücklastschriftgebühr wurde belastet.']);
 
         return back();

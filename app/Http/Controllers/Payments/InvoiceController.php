@@ -36,11 +36,16 @@ class InvoiceController extends Controller
                 if ($canSetTaxDeductible && ($data['tax_deductible'] ?? false)) {
                     $contribution->update(['tax_deductible' => true]);
                 }
-                $invoices->number($contribution);
-                $count++;
+                if ($contribution->invoice_number === null) {
+                    $invoices->number($contribution);
+                    $count++;
+                }
             }
-        });
-        Inertia::flash('toast', ['type' => 'success', 'message' => $count.' Beitragsrechnungen erzeugt.']);
+        }, attempts: 3);
+        Inertia::flash('toast', [
+            'type' => $count > 0 ? 'success' : 'info',
+            'message' => $count > 0 ? $count.' Beitragsrechnungen erzeugt.' : 'Alle ausgewählten Rechnungen waren bereits erzeugt.',
+        ]);
 
         return back();
     }
@@ -60,6 +65,25 @@ class InvoiceController extends Controller
         return response($invoices->pdf($contribution), 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="'.$contribution->invoice_number.'.pdf"',
+            'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    public function combined(Request $request, ContributionInvoice $invoices): Response
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ids.*' => ['integer', 'distinct', 'exists:contributions,id'],
+        ]);
+        $contributions = Contribution::query()->whereKey($data['ids'])->where('kind', 'contribution')
+            ->whereNotNull('invoice_number')->orderBy('invoice_number')->get();
+        if ($contributions->count() !== count($data['ids'])) {
+            throw ValidationException::withMessages(['ids' => 'Für den Sammeldownload müssen alle ausgewählten Rechnungen bereits erzeugt sein.']);
+        }
+
+        return response($invoices->combinedPdf($contributions), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="beitragsrechnungen-'.now()->format('Y-m-d-His').'.pdf"',
             'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
         ]);
     }

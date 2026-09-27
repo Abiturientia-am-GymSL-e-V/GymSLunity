@@ -2,7 +2,9 @@
 
 namespace App\Mail;
 
+use App\Models\ClubSetting;
 use App\Models\DonationCertificate;
+use App\Support\FormOfAddress;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
@@ -18,12 +20,17 @@ class DonationCertificateMail extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Ihre Zuwendungsbestätigung '.$this->certificate->certificate_number);
+        return new Envelope(subject: FormOfAddress::choose('Deine Zuwendungsbestätigung ', 'Ihre Zuwendungsbestätigung ').$this->certificate->certificate_number);
     }
 
     public function content(): Content
     {
-        return new Content(view: 'mail.donation-certificate');
+        $settings = ClubSetting::current();
+
+        return new Content(view: 'mail.donation-certificate', with: [
+            'clubName' => (string) ($this->certificate->snapshot['club']['name'] ?? config('app.name')),
+            'logoUrl' => ! empty($settings->data['logo_path']) ? route('branding.logo', ['v' => $settings->version]) : null,
+        ]);
     }
 
     /** @return list<Attachment> */

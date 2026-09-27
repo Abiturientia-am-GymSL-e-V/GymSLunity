@@ -32,7 +32,12 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
         <Heading
             as="h1"
             title="Einstellungen"
-            description="Verwalte dein Profil und deine Kontoeinstellungen"
+            :description="
+                $address(
+                    'Verwalte dein Profil und deine Kontoeinstellungen',
+                    'Verwalten Sie Ihr Profil und Ihre Kontoeinstellungen',
+                )
+            "
         />
 
         <div class="space-y-6">

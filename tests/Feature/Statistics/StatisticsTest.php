@@ -141,6 +141,51 @@ class StatisticsTest extends TestCase
         $this->assertStringContainsString('1990;1;1;0;0;2', $content);
     }
 
+    public function test_finance_status_includes_every_kind_of_charge(): void
+    {
+        $member = Member::factory()->create(['joined_at' => '2020-01-01']);
+        foreach ([
+            ['kind' => 'manual_charge', 'description' => 'Manuelle Forderung', 'due_date' => '2026-09-22'],
+            ['kind' => 'booking', 'description' => 'Buchungsentgelt', 'due_date' => '2026-09-23'],
+        ] as $charge) {
+            Contribution::query()->create([
+                'account_id' => $member->contributionAccount->id,
+                ...$charge,
+                'amount_cents' => 500,
+                'paid_cents' => 0,
+                'period_start' => $charge['due_date'],
+                'period_end' => $charge['due_date'],
+                'status' => 'open',
+            ]);
+        }
+
+        $this->get(route('statistics.finances', [
+            'from' => '2026-09-01',
+            'to' => '2026-09-23',
+            'as_of' => '2026-09-23',
+        ]))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('finances.contributions.count', 2)
+            ->where('finances.contributions.assessed_cents', 1000)
+            ->where('finances.contributions.open_cents', 1000)
+            ->where('finances.contributions.overdue_count', 1)
+            ->where('finances.contributions.overdue_cents', 500)
+            ->where('finances.monthly.0.contributions_cents', 1000));
+    }
+
+    public function test_complete_statistics_report_can_be_downloaded_as_pdf(): void
+    {
+        Member::factory()->create(['joined_at' => '2020-01-01']);
+        $parameters = ['from' => '2026-01-01', 'to' => '2026-09-23', 'as_of' => '2026-09-23'];
+
+        $content = $this->get(route('statistics.pdf', $parameters))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('Content-Disposition', 'attachment; filename="auswertungen-2026-01-01-bis-2026-09-23.pdf"')
+            ->getContent();
+
+        $this->assertStringStartsWith('%PDF-', $content);
+    }
+
     public function test_statistics_reject_periods_longer_than_36_months(): void
     {
         $this->get(route('statistics', [

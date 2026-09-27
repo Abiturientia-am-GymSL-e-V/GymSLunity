@@ -84,11 +84,11 @@ class InstallController extends Controller
             return back()->withErrors([
                 'installation' => app()->hasDebugModeEnabled()
                     ? $exception->getMessage()
-                    : 'Die Installation konnte nicht abgeschlossen werden. Prüfe Datenbankzugang, Dateirechte und das Serverprotokoll.',
+                    : 'Die Installation konnte nicht abgeschlossen werden. Bitte Datenbankzugang, Dateirechte und das Serverprotokoll prüfen.',
             ])->withInput($request->except(['password', 'password_confirmation']));
         }
 
-        return to_route('login')->with('status', 'Installation abgeschlossen. Melde dich mit dem Administratorkonto an und richte Passkey oder TOTP ein.');
+        return to_route('login')->with('status', 'Installation abgeschlossen. Anmeldung mit dem Administratorkonto; anschließend Passkey oder TOTP einrichten.');
     }
 
     private function isInstalled(): bool

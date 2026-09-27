@@ -14,6 +14,7 @@ use App\Models\ClubSetting;
 use App\Models\Donation;
 use App\Models\DonationCertificate;
 use App\Payments\Money;
+use App\Support\FormOfAddress;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -153,7 +154,7 @@ class DonationController extends Controller
             $signatureImage = $request->user()->profileSignature();
             if (! is_string($signatureImage)) {
                 throw ValidationException::withMessages([
-                    'signature_method' => 'In deinem Profil ist noch keine Unterschrift hinterlegt.',
+                    'signature_method' => FormOfAddress::choose('In deinem Profil ist noch keine Unterschrift hinterlegt.', 'In Ihrem Profil ist noch keine Unterschrift hinterlegt.'),
                 ]);
             }
         } elseif ($data['signature_method'] === 'drawn') {

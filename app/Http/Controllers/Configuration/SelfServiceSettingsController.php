@@ -42,7 +42,7 @@ class SelfServiceSettingsController extends Controller
         DB::transaction(function () use ($request, $values): void {
             $settings = ClubSetting::query()->whereKey(1)->lockForUpdate()->firstOrFail();
             if ($settings->version !== (int) $values['version']) {
-                throw ValidationException::withMessages(['version' => 'Die Konfiguration wurde inzwischen geändert. Bitte lade die Seite neu.']);
+                throw ValidationException::withMessages(['version' => 'Die Konfiguration wurde inzwischen geändert. Bitte die Seite neu laden.']);
             }
             $data = array_replace($settings->data, Arr::except($values, 'version'));
             ConfigurationAudit::record($request->user(), 'Selfservice & Formulare', $settings->data, $data);

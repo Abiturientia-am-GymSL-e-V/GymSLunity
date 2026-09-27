@@ -4,6 +4,7 @@ import { Form, Head } from '@inertiajs/vue3';
 import { KeyRound } from '@lucide/vue';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
+import StatusAlert from '@/components/StatusAlert.vue';
 import TextLink from '@/components/TextLink.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,8 +15,8 @@ import { request } from '@/routes/password';
 
 defineOptions({
     layout: {
-        title: 'Willkommen bei GymSLunity',
-        description: 'Melde dich mit deinem Konto an.',
+        title: 'Verwaltungszugang',
+        description: 'Anmeldung mit dem Benutzerkonto.',
     },
 });
 
@@ -30,7 +31,7 @@ const {
     error: passkeyError,
     isSupported: passkeySupported,
 } = usePasskeyVerify({
-    autofill: true,
+    autofill: false,
     onSuccess: (response) => {
         window.location.assign(response.redirect ?? '/dashboard');
     },
@@ -38,14 +39,11 @@ const {
 </script>
 
 <template>
-    <Head title="Anmelden" />
+    <Head title="Verwaltungszugang" />
 
-    <div
-        v-if="status"
-        class="mb-4 text-center text-sm font-medium text-green-600"
-    >
+    <StatusAlert v-if="status" type="success" class="mb-4">
         {{ status }}
-    </div>
+    </StatusAlert>
 
     <Form
         v-bind="store.form()"
@@ -121,9 +119,14 @@ const {
         <KeyRound class="size-4" />
         {{ passkeyLoading ? 'Passkey wird geprüft …' : 'Mit Passkey anmelden' }}
     </Button>
-    <p v-if="passkeyError" class="mt-2 text-sm text-destructive">
+    <StatusAlert
+        v-if="passkeyError"
+        type="error"
+        title="Passkey-Anmeldung fehlgeschlagen"
+        class="mt-3"
+    >
         {{ passkeyError }}
-    </p>
+    </StatusAlert>
     <p
         v-else-if="!passkeySupported"
         class="mt-2 text-center text-sm text-muted-foreground"

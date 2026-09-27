@@ -45,9 +45,12 @@ onMounted(async () => {
                 <LockKeyhole class="size-4" />2FA-Wiederherstellungscodes
             </CardTitle>
             <CardDescription>
-                Mit Wiederherstellungscodes kannst du dich anmelden, falls du
-                den Zugriff auf deine Authenticator-App verlierst. Bewahre sie
-                in einem sicheren Passwortmanager auf.
+                {{
+                    $address(
+                        'Mit Wiederherstellungscodes kannst du dich anmelden, falls du den Zugriff auf deine Authenticator-App verlierst. Bewahre sie in einem sicheren Passwortmanager auf.',
+                        'Mit Wiederherstellungscodes können Sie sich anmelden, falls Sie den Zugriff auf Ihre Authenticator-App verlieren. Bewahren Sie sie in einem sicheren Passwortmanager auf.',
+                    )
+                }}
             </CardDescription>
         </CardHeader>
         <CardContent>
@@ -116,7 +119,14 @@ onMounted(async () => {
                     </div>
                     <p class="text-xs text-muted-foreground select-none">
                         Jeder Wiederherstellungscode kann nur einmal verwendet
-                        werden. Bei Bedarf kannst du über
+                        werden.
+                        {{
+                            $address(
+                                'Bei Bedarf kannst du',
+                                'Bei Bedarf können Sie',
+                            )
+                        }}
+                        über
                         <span class="font-bold">Neue Codes erstellen</span> die
                         bisherigen Codes ersetzen.
                     </p>

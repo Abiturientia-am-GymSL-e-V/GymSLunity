@@ -16,6 +16,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { dashboard, donations, payments } from '@/routes';
 import { index as members, show as member } from '@/routes/members';
 
@@ -56,6 +57,16 @@ type DonationOverview = {
         donated_at: string;
     } | null;
 };
+type UpcomingEvent = {
+    id: number;
+    title: string;
+    location: string | null;
+    starts_at: string;
+    ends_at: string;
+    all_day: boolean;
+    calendar_name: string;
+    color: string;
+};
 
 const props = defineProps<{
     today: string;
@@ -63,6 +74,7 @@ const props = defineProps<{
     birthdays: Birthday[] | null;
     contributionOverview: ContributionOverview | null;
     donationOverview: DonationOverview | null;
+    upcomingEvents: UpcomingEvent[] | null;
 }>();
 const page = usePage();
 
@@ -100,6 +112,17 @@ const relativeBirthday = (days: number) => {
 };
 const percentage = (value: number, total: number) =>
     total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
+const eventDate = (event: UpcomingEvent) => {
+    const start = new Date(event.starts_at);
+    const day = new Intl.DateTimeFormat('de-DE', {
+        weekday: 'short',
+        day: '2-digit',
+        month: '2-digit',
+    }).format(start);
+    return event.all_day
+        ? `${day} · ganztägig`
+        : `${day} · ${new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(start)} Uhr`;
+};
 </script>
 
 <template>
@@ -124,6 +147,7 @@ const percentage = (value: number, total: number) =>
             v-if="
                 !memberOverview &&
                 !birthdays &&
+                !upcomingEvents &&
                 !contributionOverview &&
                 !donationOverview
             "
@@ -131,13 +155,16 @@ const percentage = (value: number, total: number) =>
         >
             <p class="font-medium">Keine Kennzahlen verfügbar</p>
             <p class="mt-1 text-sm text-muted-foreground">
-                Für deinen Zugang sind derzeit keine Verwaltungsbereiche
-                freigeschaltet.
+                Für {{ $address('deinen', 'Ihren') }} Zugang sind derzeit keine
+                Verwaltungsbereiche freigeschaltet.
             </p>
         </div>
 
         <div class="grid items-start gap-5 xl:grid-cols-2">
-            <Card v-if="memberOverview" class="gap-0 overflow-hidden py-0">
+            <Card
+                v-if="memberOverview"
+                class="gap-0 overflow-hidden py-0 xl:col-start-1 xl:row-start-1"
+            >
                 <CardHeader class="border-b py-5">
                     <div class="flex items-start justify-between gap-4">
                         <div class="flex gap-3">
@@ -231,7 +258,10 @@ const percentage = (value: number, total: number) =>
                 </CardContent>
             </Card>
 
-            <Card v-if="birthdays" class="gap-0 overflow-hidden py-0">
+            <Card
+                v-if="birthdays"
+                class="gap-0 overflow-hidden py-0 xl:col-start-2 xl:row-start-1"
+            >
                 <CardHeader class="border-b py-5">
                     <div class="flex items-start gap-3">
                         <span
@@ -306,8 +336,77 @@ const percentage = (value: number, total: number) =>
             </Card>
 
             <Card
+                v-if="upcomingEvents"
+                class="gap-0 overflow-hidden py-0 xl:col-start-2 xl:row-start-2"
+            >
+                <CardHeader class="border-b py-5">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="flex gap-3">
+                            <span
+                                class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
+                            >
+                                <CalendarDays
+                                    class="size-5"
+                                    aria-hidden="true"
+                                />
+                            </span>
+                            <div>
+                                <CardTitle>Anstehende Termine</CardTitle>
+                                <CardDescription
+                                    >Die nächsten Vereinsevents</CardDescription
+                                >
+                            </div>
+                        </div>
+                        <Link
+                            href="/kalender"
+                            class="flex shrink-0 items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+                        >
+                            Öffnen<ArrowRight class="size-4" />
+                        </Link>
+                    </div>
+                </CardHeader>
+                <CardContent class="p-0">
+                    <p
+                        v-if="!upcomingEvents.length"
+                        class="p-8 text-center text-sm text-muted-foreground"
+                    >
+                        Es stehen derzeit keine Termine an.
+                    </p>
+                    <ul v-else class="max-h-[25rem] divide-y overflow-y-auto">
+                        <li
+                            v-for="event in upcomingEvents"
+                            :key="event.id"
+                            class="flex gap-3 px-6 py-3.5"
+                        >
+                            <span
+                                class="mt-1 size-3 shrink-0 rounded-full"
+                                :style="{ backgroundColor: event.color }"
+                            ></span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate font-medium">{{
+                                    event.title
+                                }}</span>
+                                <span
+                                    class="mt-0.5 block text-sm text-muted-foreground"
+                                >
+                                    {{ eventDate(event)
+                                    }}<template v-if="event.location">
+                                        · {{ event.location }}</template
+                                    >
+                                </span>
+                            </span>
+                            <span
+                                class="hidden shrink-0 text-xs text-muted-foreground sm:block"
+                                >{{ event.calendar_name }}</span
+                            >
+                        </li>
+                    </ul>
+                </CardContent>
+            </Card>
+
+            <Card
                 v-if="contributionOverview"
-                class="gap-0 overflow-hidden py-0"
+                class="gap-0 overflow-hidden py-0 xl:col-start-1 xl:row-start-2"
             >
                 <CardHeader class="border-b py-5">
                     <div class="flex items-start justify-between gap-4">
@@ -408,12 +507,12 @@ const percentage = (value: number, total: number) =>
                         </div>
                     </div>
 
-                    <div
+                    <Alert
                         v-if="contributionOverview.overdue_count"
-                        class="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+                        variant="warning"
                     >
-                        <CircleAlert class="size-5 shrink-0" />
-                        <p>
+                        <CircleAlert />
+                        <AlertDescription>
                             <strong
                                 >{{
                                     contributionOverview.overdue_count
@@ -421,12 +520,15 @@ const percentage = (value: number, total: number) =>
                                 überfällig</strong
                             >
                             · {{ money(contributionOverview.overdue_cents) }}
-                        </p>
-                    </div>
+                        </AlertDescription>
+                    </Alert>
                 </CardContent>
             </Card>
 
-            <Card v-if="donationOverview" class="gap-0 overflow-hidden py-0">
+            <Card
+                v-if="donationOverview"
+                class="gap-0 overflow-hidden py-0 xl:col-start-1 xl:row-start-3"
+            >
                 <CardHeader class="border-b py-5">
                     <div class="flex items-start justify-between gap-4">
                         <div class="flex gap-3">

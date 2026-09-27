@@ -3,6 +3,7 @@
 use App\Http\Middleware\AuditSecurityEvent;
 use App\Http\Middleware\EnforceSessionInactivity;
 use App\Http\Middleware\EnsureActiveUser;
+use App\Http\Middleware\EnsureSoftwareModuleEnabled;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RequirePrivilegedTwoFactor;
@@ -39,7 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
             SecurityHeaders::class,
         ]);
 
-        $middleware->alias(['audit' => AuditSecurityEvent::class]);
+        $middleware->alias(['audit' => AuditSecurityEvent::class, 'module' => EnsureSoftwareModuleEnabled::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

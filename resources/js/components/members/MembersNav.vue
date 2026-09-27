@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { FileUp, UserPlus, UsersRound } from '@lucide/vue';
+import { FileUp, UserMinus, UserPlus, UsersRound } from '@lucide/vue';
 import { create, index } from '@/routes/members';
 import { index as importMembers } from '@/routes/members/import';
 
@@ -11,6 +11,12 @@ const links = [
         label: 'Beitrittsanträge',
         url: '/mitglieder/antraege',
         icon: UserPlus,
+        visible: page.props.can.createMembers,
+    },
+    {
+        label: 'Kündigungen',
+        url: '/mitglieder/kuendigungen',
+        icon: UserMinus,
         visible: page.props.can.createMembers,
     },
     {

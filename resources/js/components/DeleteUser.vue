@@ -26,7 +26,12 @@ const passwordInput = useTemplateRef('passwordInput');
         <Heading
             variant="small"
             title="Konto löschen"
-            description="Lösche dein Benutzerkonto dauerhaft."
+            :description="
+                $address(
+                    'Lösche dein Benutzerkonto dauerhaft.',
+                    'Löschen Sie Ihr Benutzerkonto dauerhaft.',
+                )
+            "
         />
         <div
             class="space-y-4 rounded-lg border border-red-100 bg-red-50 p-4 dark:border-red-200/10 dark:bg-red-700/10"
@@ -55,15 +60,21 @@ const passwordInput = useTemplateRef('passwordInput');
                         v-slot="{ errors, processing, reset, clearErrors }"
                     >
                         <DialogHeader class="space-y-3">
-                            <DialogTitle
-                                >Möchtest du dein Konto wirklich
-                                löschen?</DialogTitle
-                            >
+                            <DialogTitle>
+                                {{
+                                    $address(
+                                        'Möchtest du dein Konto wirklich löschen?',
+                                        'Möchten Sie Ihr Konto wirklich löschen?',
+                                    )
+                                }}
+                            </DialogTitle>
                             <DialogDescription>
-                                Dein Benutzerkonto wird dauerhaft gelöscht.
-                                Mitgliedsdaten und bestehende Änderungshistorien
-                                bleiben erhalten. Gib zur Bestätigung dein
-                                Passwort ein.
+                                {{
+                                    $address(
+                                        'Dein Benutzerkonto wird dauerhaft gelöscht. Mitgliedsdaten und bestehende Änderungshistorien bleiben erhalten. Gib zur Bestätigung dein Passwort ein.',
+                                        'Ihr Benutzerkonto wird dauerhaft gelöscht. Mitgliedsdaten und bestehende Änderungshistorien bleiben erhalten. Geben Sie zur Bestätigung Ihr Passwort ein.',
+                                    )
+                                }}
                             </DialogDescription>
                         </DialogHeader>
 

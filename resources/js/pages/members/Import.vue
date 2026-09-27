@@ -11,7 +11,9 @@ import {
 } from '@lucide/vue';
 import { computed } from 'vue';
 import InputError from '@/components/InputError.vue';
+import MemberPageHeader from '@/components/members/MemberPageHeader.vue';
 import MembersNav from '@/components/members/MembersNav.vue';
+import StatusAlert from '@/components/StatusAlert.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,6 +51,7 @@ type MappingState = {
 };
 
 const props = defineProps<{
+    totalMembers: number;
     fields: MemberField[];
     mapping: MappingState | null;
     preview: {
@@ -144,22 +147,20 @@ function examples(header: string): string {
 <template>
     <Head title="Mitglieder importieren" />
     <div class="mx-auto w-full max-w-[1200px] space-y-6 p-4 sm:p-6">
-        <header>
-            <h1 class="text-2xl font-semibold tracking-tight">Mitglieder</h1>
-            <p class="mt-1 text-sm text-muted-foreground">
-                Übernimm mehrere Mitglieder kontrolliert aus einer CSV-Datei.
-            </p>
-        </header>
+        <MemberPageHeader
+            :total-members="totalMembers"
+            description="Übernimm mehrere Mitglieder kontrolliert aus einer CSV-Datei."
+        />
 
         <MembersNav />
 
-        <div
+        <StatusAlert
             v-if="importError"
-            role="alert"
-            class="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+            type="error"
+            title="Import fehlgeschlagen"
         >
             {{ importError }}
-        </div>
+        </StatusAlert>
 
         <section
             class="rounded-xl border bg-card"
@@ -178,8 +179,13 @@ function examples(header: string): string {
                     </p>
                     <p class="mt-1 text-xs text-muted-foreground">
                         Die Vorlage kann direkt importiert werden. Bei Dateien
-                        aus anderen Programmen ordnest du die Spalten im
-                        nächsten Schritt manuell zu.
+                        aus anderen Programmen
+                        {{
+                            $address(
+                                'ordnest du die Spalten im nächsten Schritt manuell zu.',
+                                'ordnen Sie die Spalten im nächsten Schritt manuell zu.',
+                            )
+                        }}
                     </p>
                 </div>
                 <Button as-child variant="outline">

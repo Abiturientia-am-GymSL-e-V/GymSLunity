@@ -5,6 +5,7 @@ import {
     CircleAlert,
     CircleCheck,
     Download,
+    FileDown,
     HandCoins,
     HeartHandshake,
     ListChecks,
@@ -138,6 +139,7 @@ const tabUrl = (path: string) => `${path}?${query.value}`;
 const exportUrl = computed(
     () => `/auswertungen/bestandsmeldung.csv?${query.value}`,
 );
+const reportUrl = computed(() => `/auswertungen/bericht.pdf?${query.value}`);
 const activePath = computed(
     () => tabs.find(([key]) => key === props.activeTab)?.[3] ?? '/auswertungen',
 );
@@ -195,12 +197,12 @@ const periodLabel = computed(
         </nav>
 
         <form
-            class="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4"
+            class="grid gap-3 rounded-xl border bg-card p-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[repeat(3,minmax(0,1fr))_auto] 2xl:items-end"
             @submit.prevent="applyFilters"
         >
-            <div class="min-w-40 flex-1 sm:flex-none">
-                <Label for="statistics-from">Zeitraum von</Label
-                ><Input
+            <div class="min-w-0 space-y-2">
+                <Label for="statistics-from">Zeitraum von</Label>
+                <Input
                     id="statistics-from"
                     v-model="filterForm.from"
                     name="from"
@@ -209,9 +211,9 @@ const periodLabel = computed(
                     required
                 />
             </div>
-            <div class="min-w-40 flex-1 sm:flex-none">
-                <Label for="statistics-to">Zeitraum bis</Label
-                ><Input
+            <div class="min-w-0 space-y-2">
+                <Label for="statistics-to">Zeitraum bis</Label>
+                <Input
                     id="statistics-to"
                     v-model="filterForm.to"
                     name="to"
@@ -221,9 +223,9 @@ const periodLabel = computed(
                     required
                 />
             </div>
-            <div class="min-w-40 flex-1 sm:flex-none">
-                <Label for="statistics-as-of">Bestand zum</Label
-                ><Input
+            <div class="min-w-0 space-y-2 sm:col-span-2 xl:col-span-1">
+                <Label for="statistics-as-of">Bestand zum</Label>
+                <Input
                     id="statistics-as-of"
                     v-model="filterForm.as_of"
                     name="as_of"
@@ -232,9 +234,19 @@ const periodLabel = computed(
                     required
                 />
             </div>
-            <Button type="submit" variant="outline"
-                >Auswertung aktualisieren</Button
+            <div
+                class="flex flex-col gap-2 sm:col-span-2 sm:flex-row xl:col-span-3 2xl:col-span-1 2xl:flex-nowrap"
             >
+                <Button type="submit" variant="outline">
+                    Auswertung aktualisieren
+                </Button>
+                <Button as-child>
+                    <a :href="reportUrl">
+                        <FileDown class="size-4" aria-hidden="true" />
+                        PDF-Bericht
+                    </a>
+                </Button>
+            </div>
         </form>
 
         <template v-if="activeTab === 'overview'">
@@ -493,7 +505,7 @@ const periodLabel = computed(
             <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <Card class="gap-2 py-5"
                     ><CardHeader class="px-5 pb-0"
-                        ><CardDescription>Sollbeiträge</CardDescription
+                        ><CardDescription>Sollstellungen</CardDescription
                         ><CardTitle class="text-2xl tabular-nums">{{
                             money(finances.contributions.assessed_cents)
                         }}</CardTitle></CardHeader
@@ -559,7 +571,8 @@ const periodLabel = computed(
                     ><CardHeader class="border-b py-5"
                         ><CardTitle class="text-base">Beitragsstatus</CardTitle
                         ><CardDescription
-                            >Forderungen im Auswertungszeitraum</CardDescription
+                            >Alle Forderungen im
+                            Auswertungszeitraum</CardDescription
                         ></CardHeader
                     ><CardContent class="space-y-5 py-5"
                         ><div>

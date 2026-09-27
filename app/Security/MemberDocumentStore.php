@@ -27,19 +27,40 @@ final class MemberDocumentStore
         return $contents;
     }
 
-    public function store(int $memberId, string $kind, string $contents, bool $submittedOnline): void
+    /** @param array{mandate_reference?: string|null, mandate_signed_at?: string|null} $metadata */
+    public function store(int $memberId, string $kind, string $contents, bool $submittedOnline, array $metadata = []): int
     {
         $sealed = Crypt::encryptString($contents);
-        DB::table('member_documents')->upsert([[
+        $sequence = $kind === 'sepa'
+            ? ((int) DB::table('member_documents')->where('member_id', $memberId)->where('kind', $kind)->max('sequence')) + 1
+            : 1;
+        $values = [
             'member_id' => $memberId,
             'kind' => $kind,
+            'sequence' => $sequence,
+            'mandate_reference' => $metadata['mandate_reference'] ?? null,
+            'mandate_signed_at' => $metadata['mandate_signed_at'] ?? null,
+            'revoked_at' => null,
+            'revocation_reason' => null,
             'submitted_online' => $submittedOnline,
             'encrypted' => true,
             'content_sha256' => hash('sha256', $contents),
             'contents' => $sealed,
             'created_at' => now(),
             'updated_at' => now(),
-        ]], ['member_id', 'kind'], ['submitted_online', 'encrypted', 'content_sha256', 'contents', 'updated_at']);
+        ];
+        if ($kind === 'sepa') {
+            return DB::table('member_documents')->insertGetId($values);
+        }
+        DB::table('member_documents')->updateOrInsert(
+            ['member_id' => $memberId, 'kind' => $kind, 'sequence' => 1],
+            $values,
+        );
+
+        return (int) DB::table('member_documents')
+            ->where('member_id', $memberId)
+            ->where('kind', $kind)
+            ->value('id');
     }
 
     public function read(mixed $stored, bool $encrypted = false, ?string $checksum = null): string

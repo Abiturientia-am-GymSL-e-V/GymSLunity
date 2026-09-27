@@ -3,6 +3,7 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ArchiveX, Eye, PackagePlus, PackageSearch, Search } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import InputError from '@/components/InputError.vue';
+import StatusAlert from '@/components/StatusAlert.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -729,27 +730,26 @@ function closeDisposal(value: boolean) {
                                 :message="createForm.errors.useful_life_years"
                             />
                         </div>
-                        <div
-                            class="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950 md:col-span-2 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100"
+                        <StatusAlert
+                            type="info"
+                            title="Hinweis zur Bewertung"
+                            class="md:col-span-2"
                         >
-                            <p class="font-medium">Hinweis zur Bewertung</p>
-                            <p class="mt-1">
-                                Die lineare Abschreibung wird ab dem
-                                Anschaffungsmonat monatsgenau berechnet. Die
-                                Nutzungsdauer ist nach den tatsächlichen
-                                Verhältnissen festzulegen; die amtlichen
-                                <a
-                                    class="underline underline-offset-2"
-                                    href="https://www.bundesfinanzministerium.de/Web/DE/Themen/Steuern/Steuerverwaltungu-Steuerrecht/Betriebspruefung/AfA_Tabellen/afa_tabellen.html"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    >AfA-Tabellen</a
-                                >
-                                dienen als Schätzhilfe. Eine Sofortabschreibung
-                                sollte nur verwendet werden, wenn die jeweiligen
-                                steuerlichen Voraussetzungen erfüllt sind.
-                            </p>
-                        </div>
+                            Die lineare Abschreibung wird ab dem
+                            Anschaffungsmonat monatsgenau berechnet. Die
+                            Nutzungsdauer ist nach den tatsächlichen
+                            Verhältnissen festzulegen; die amtlichen
+                            <a
+                                class="underline underline-offset-2"
+                                href="https://www.bundesfinanzministerium.de/Web/DE/Themen/Steuern/Steuerverwaltungu-Steuerrecht/Betriebspruefung/AfA_Tabellen/afa_tabellen.html"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                >AfA-Tabellen</a
+                            >
+                            dienen als Schätzhilfe. Eine Sofortabschreibung
+                            sollte nur verwendet werden, wenn die jeweiligen
+                            steuerlichen Voraussetzungen erfüllt sind.
+                        </StatusAlert>
                     </div>
                 </section>
 

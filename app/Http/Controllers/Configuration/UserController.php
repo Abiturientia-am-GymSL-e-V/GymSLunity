@@ -65,7 +65,7 @@ class UserController extends Controller
             abort_unless($request->user()->fresh()?->isAdministrator(), 403);
             $current = $user ? User::query()->whereKey($user->getKey())->lockForUpdate()->firstOrFail() : new User;
             if ($current->exists && $current->lock_version !== (int) $data['lock_version']) {
-                throw ValidationException::withMessages(['lock_version' => 'Dieses Konto wurde inzwischen geändert. Bitte lade die Benutzerliste neu.']);
+                throw ValidationException::withMessages(['lock_version' => 'Dieses Konto wurde inzwischen geändert. Bitte die Benutzerliste neu laden.']);
             }
             $before = $current->exists ? $this->snapshot($current) : [];
             if ($current->is($request->user()) && (! $data['is_active'] || ! $data['verified'] || ! in_array('admin', $data['roles'], true))) {

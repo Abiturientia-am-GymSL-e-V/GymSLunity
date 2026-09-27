@@ -2,6 +2,8 @@
 
 namespace App\Members;
 
+use App\Support\Iban;
+
 final class MemberReportValue
 {
     /** @param array<string, mixed> $field */
@@ -21,6 +23,9 @@ final class MemberReportValue
         }
         if (($field['type'] ?? '') === 'decimal') {
             return number_format((float) $value, 2, ',', '.').(($field['key'] ?? '') === 'sponsor_contribution' ? ' €' : '');
+        }
+        if (($field['key'] ?? '') === 'iban') {
+            return Iban::format((string) $value);
         }
 
         return (string) $value;

@@ -8,8 +8,15 @@ use Illuminate\Support\Arr;
 
 final class MemberFields
 {
+    public const SELFSERVICE_PROTECTED = [
+        'email', 'deceased_at', 'joined_at', 'left_at', 'department_role', 'club_role',
+        'iban', 'mandate_reference', 'mandate_signed_at', 'account_holder_first_name',
+        'account_holder_last_name', 'account_holder_street', 'account_holder_postal_code',
+        'account_holder_city', 'account_holder_country', 'mandate_type',
+    ];
+
     public const ADDITIONAL_FIELDS = [
-        'gender', 'sponsor_contribution', 'iban', 'mandate_reference', 'mandate_signed_at',
+        'gender', 'sponsor_contribution', 'iban', 'mandate_reference', 'mandate_signed_at', 'mandate_type',
         'account_holder_first_name', 'account_holder_last_name', 'account_holder_street',
         'account_holder_postal_code', 'account_holder_city', 'account_holder_country', 'payment_method',
     ];
@@ -88,7 +95,28 @@ final class MemberFields
             'activeOptions' => $activeOptions, 'readOnly' => false,
             'emptyLabel' => in_array($definition->key, ['department_role', 'club_role'], true) ? 'Keine' : 'Nicht hinterlegt',
             'custom' => $definition->is_custom, 'filterable' => $definition->filterable, 'showInTable' => $definition->show_in_table,
+            'selfserviceVisible' => $definition->selfservice_visible,
+            'selfserviceEditable' => $definition->selfservice_editable,
         ];
+    }
+
+    /** @return list<array{key: string, title: string, fields: list<array<string, mixed>>}> */
+    public static function selfserviceSections(?Member $member = null): array
+    {
+        return array_values(collect(self::sections($member))
+            ->map(fn (array $section): array => [
+                ...$section,
+                'fields' => array_values(array_map(
+                    fn (array $field): array => [
+                        ...$field,
+                        'readOnly' => ! $field['selfserviceEditable'] || in_array($field['key'], self::SELFSERVICE_PROTECTED, true),
+                    ],
+                    array_filter($section['fields'], fn (array $field): bool => $field['selfserviceVisible']),
+                )),
+            ])
+            ->filter(fn (array $section): bool => $section['fields'] !== [])
+            ->values()
+            ->all());
     }
 
     /** @return list<array<string, mixed>> */

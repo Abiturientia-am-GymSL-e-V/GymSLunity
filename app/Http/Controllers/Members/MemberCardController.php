@@ -39,7 +39,7 @@ class MemberCardController extends Controller
         if ($unknown !== []) {
             $sections[] = ['title' => 'Weitere gespeicherte Angaben', 'rows' => array_map(fn (string $key): array => ['label' => $key, 'value' => MemberReportValue::format($snapshot[$key])], $unknown)];
         }
-        $documents = DB::table('member_documents')->where('member_id', $member->getKey())->whereIn('kind', ['application', 'sepa'])->get(['kind', 'submitted_online', 'created_at'])->map(function (object $document) use ($timezone): object {
+        $documents = DB::table('member_documents')->where('member_id', $member->getKey())->whereIn('kind', ['application', 'sepa'])->get(['id', 'kind', 'submitted_online', 'mandate_reference', 'revoked_at', 'created_at'])->map(function (object $document) use ($timezone): object {
             $document->created_at = CarbonImmutable::parse($document->created_at, config('app.timezone'))->setTimezone($timezone)->format('d.m.Y H:i T');
 
             return $document;

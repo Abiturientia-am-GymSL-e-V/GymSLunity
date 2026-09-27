@@ -21,6 +21,7 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { useAppearance } from '@/composables/useAppearance';
 import { useTwoFactorAuth } from '@/composables/useTwoFactorAuth';
+import { address } from '@/lib/formOfAddress';
 import { confirm } from '@/routes/two-factor';
 import type { TwoFactorConfigContent } from '@/types';
 
@@ -52,8 +53,10 @@ const modalConfig = computed<TwoFactorConfigContent>(() => {
     if (props.twoFactorEnabled) {
         return {
             title: 'Zwei-Faktor-Authentifizierung aktiviert',
-            description:
+            description: address(
                 'Die Zwei-Faktor-Authentifizierung ist aktiviert. Scanne den QR-Code oder gib den Einrichtungsschlüssel in deiner Authenticator-App ein.',
+                'Die Zwei-Faktor-Authentifizierung ist aktiviert. Scannen Sie den QR-Code oder geben Sie den Einrichtungsschlüssel in Ihrer Authenticator-App ein.',
+            ),
             buttonText: 'Schließen',
         };
     }
@@ -61,16 +64,20 @@ const modalConfig = computed<TwoFactorConfigContent>(() => {
     if (showVerificationStep.value) {
         return {
             title: 'Bestätigungscode prüfen',
-            description:
+            description: address(
                 'Gib den sechsstelligen Code aus deiner Authenticator-App ein.',
+                'Geben Sie den sechsstelligen Code aus Ihrer Authenticator-App ein.',
+            ),
             buttonText: 'Weiter',
         };
     }
 
     return {
         title: 'Zwei-Faktor-Authentifizierung aktivieren',
-        description:
+        description: address(
             'Scanne den QR-Code oder gib den Einrichtungsschlüssel in deiner Authenticator-App ein.',
+            'Scannen Sie den QR-Code oder geben Sie den Einrichtungsschlüssel in Ihrer Authenticator-App ein.',
+        ),
         buttonText: 'Weiter',
     };
 });

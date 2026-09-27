@@ -5,6 +5,7 @@ namespace App\SelfService;
 use App\Configuration\ClubData;
 use App\Donations\DonationPurposes;
 use App\Models\ClubSetting;
+use App\Support\Iban;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 
@@ -62,9 +63,24 @@ TEXT,
     public static function rendered(): array
     {
         $data = ClubSetting::current()->data;
+        $result = [];
+        foreach (self::defaults() as $key => $default) {
+            $result[$key] = self::renderText((string) ($data[$key] ?? $default), $data);
+        }
+
+        return $result;
+    }
+
+    /** @param array<string, mixed>|null $data */
+    public static function renderText(string $text, ?array $data = null): string
+    {
+        $data ??= ClubSetting::current()->data;
         $replacements = [];
         foreach (ClubData::fields() as $field) {
-            $replacements['{{verein.'.$field['key'].'}}'] = (string) ($data[$field['key']] ?? '');
+            $value = (string) ($data[$field['key']] ?? '');
+            $replacements['{{verein.'.$field['key'].'}}'] = $field['key'] === 'iban'
+                ? Iban::format($value)
+                : $value;
         }
         $purposeCodes = is_array($data['donation_purpose_codes'] ?? null) ? $data['donation_purpose_codes'] : [];
         $notice = match ($data['tax_privilege_notice_type'] ?? null) {
@@ -87,11 +103,7 @@ TEXT,
         $replacements['{{verein.deductible_scope}}'] = ($data['contributions_tax_deductible'] ?? false)
             ? 'Spenden und Mitgliedsbeiträge'
             : 'Spenden';
-        $result = [];
-        foreach (self::defaults() as $key => $default) {
-            $result[$key] = strtr($data[$key] ?? $default, $replacements);
-        }
 
-        return $result;
+        return strtr($text, $replacements);
     }
 }

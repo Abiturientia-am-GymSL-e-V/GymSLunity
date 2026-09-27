@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Configuration\SoftwareModules;
+use App\Models\ClubCalendarEvent;
+use App\Models\ClubSetting;
 use App\Models\Contribution;
 use App\Models\Donation;
 use App\Models\Member;
@@ -16,9 +19,11 @@ class DashboardController extends Controller
     public function __invoke(Request $request): Response
     {
         $today = CarbonImmutable::today();
+        $modules = SoftwareModules::values(ClubSetting::current());
         $canViewMembers = $request->user()?->can('viewAny', Member::class) ?? false;
-        $canViewPayments = $request->user()?->can('view-payments') ?? false;
-        $canViewDonations = $request->user()?->can('view-donations') ?? false;
+        $canViewPayments = $modules['payments'] && ($request->user()?->can('view-payments') ?? false);
+        $canViewDonations = $modules['donations'] && ($request->user()?->can('view-donations') ?? false);
+        $canViewCalendar = $modules['calendar'] && ($request->user()?->can('view-calendar') ?? false);
 
         return Inertia::render('Dashboard', [
             'today' => $today->format('Y-m-d'),
@@ -26,7 +31,21 @@ class DashboardController extends Controller
             'birthdays' => $canViewMembers ? $this->birthdays($today) : null,
             'contributionOverview' => $canViewPayments ? $this->contributionOverview($today) : null,
             'donationOverview' => $canViewDonations ? $this->donationOverview($today) : null,
+            'upcomingEvents' => $canViewCalendar ? $this->upcomingEvents($today) : null,
         ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function upcomingEvents(CarbonImmutable $today): array
+    {
+        return array_values(ClubCalendarEvent::query()->with('calendar')
+            ->where('ends_at', '>=', $today->startOfDay())
+            ->orderBy('starts_at')->limit(10)->get()
+            ->map(fn (ClubCalendarEvent $event): array => [
+                'id' => $event->id, 'title' => $event->title, 'location' => $event->location,
+                'starts_at' => $event->starts_at->format('Y-m-d\TH:i:s'), 'ends_at' => $event->ends_at->format('Y-m-d\TH:i:s'),
+                'all_day' => $event->all_day, 'calendar_name' => $event->calendar->name, 'color' => $event->calendar->color,
+            ])->all());
     }
 
     /** @return array<string, mixed> */

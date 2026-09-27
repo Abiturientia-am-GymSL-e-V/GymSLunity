@@ -7,6 +7,7 @@ import { alertVariants } from "."
 const props = defineProps<{
   class?: HTMLAttributes["class"]
   variant?: AlertVariants["variant"]
+  role?: HTMLAttributes["role"]
 }>()
 </script>
 
@@ -14,7 +15,7 @@ const props = defineProps<{
   <div
     data-slot="alert"
     :class="cn(alertVariants({ variant }), props.class)"
-    role="alert"
+    :role="props.role ?? (variant === 'destructive' || variant === 'warning' ? 'alert' : 'status')"
   >
     <slot />
   </div>

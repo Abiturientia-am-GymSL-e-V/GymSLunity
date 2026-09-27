@@ -3,7 +3,9 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { List, ReceiptText } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import SignaturePad from '@/components/SignaturePad.vue';
+import StatusAlert from '@/components/StatusAlert.vue';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 type Row = {
@@ -15,6 +17,8 @@ type Row = {
     payer: string;
     payee: string;
     purpose: string;
+    exported_at: string | null;
+    cancelled_at: string | null;
 };
 const props = defineProps<{
     activeTab: 'create' | 'list';
@@ -101,18 +105,6 @@ function reset() {
         <nav class="flex flex-wrap gap-2 border-b pb-4" aria-label="Quittungen">
             <Link
                 href="/formulare/quittungen"
-                :aria-current="activeTab === 'create' ? 'page' : undefined"
-                prefetch
-                class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
-                :class="
-                    activeTab === 'create'
-                        ? 'bg-muted text-foreground'
-                        : 'text-muted-foreground'
-                "
-            >
-                <ReceiptText class="size-4" />Quittung erstellen</Link
-            ><Link
-                href="/formulare/quittungen/archiv"
                 :aria-current="activeTab === 'list' ? 'page' : undefined"
                 prefetch
                 class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
@@ -122,9 +114,19 @@ function reset() {
                         : 'text-muted-foreground'
                 "
             >
-                <List class="size-4" />Quittungen anzeigen ({{
-                    receipts.total
-                }})
+                <List class="size-4" />Übersicht ({{ receipts.total }})</Link
+            ><Link
+                href="/formulare/quittungen/anlegen"
+                :aria-current="activeTab === 'create' ? 'page' : undefined"
+                prefetch
+                class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
+                :class="
+                    activeTab === 'create'
+                        ? 'bg-muted text-foreground'
+                        : 'text-muted-foreground'
+                "
+            >
+                <ReceiptText class="size-4" />Quittung erstellen
             </Link>
         </nav>
         <form
@@ -251,17 +253,22 @@ function reset() {
                                 >Name und Adresse *</span
                             ><Textarea
                                 v-model="form.payer"
+                                class="min-h-24"
                                 rows="3"
                                 maxlength="1000"
                                 required
                             />
                         </label>
-                        <p
-                            v-else
-                            class="rounded-md bg-muted p-3 whitespace-pre-line"
-                        >
-                            {{ clubAddress }}
-                        </p>
+                        <div v-else class="space-y-2">
+                            <span class="block text-sm font-medium"
+                                >Name und Adresse</span
+                            >
+                            <p
+                                class="min-h-24 rounded-md bg-muted p-3 whitespace-pre-line"
+                            >
+                                {{ clubAddress }}
+                            </p>
+                        </div>
                         <label class="block space-y-2"
                             ><span class="block text-sm font-medium"
                                 >E-Mail Zahlungsgeber (optional)</span
@@ -294,17 +301,22 @@ function reset() {
                                 >Name und Adresse *</span
                             ><Textarea
                                 v-model="form.payee"
+                                class="min-h-24"
                                 rows="3"
                                 maxlength="1000"
                                 required
                             />
                         </label>
-                        <p
-                            v-else
-                            class="rounded-md bg-muted p-3 whitespace-pre-line"
-                        >
-                            {{ clubAddress }}
-                        </p>
+                        <div v-else class="space-y-2">
+                            <span class="block text-sm font-medium"
+                                >Name und Adresse</span
+                            >
+                            <p
+                                class="min-h-24 rounded-md bg-muted p-3 whitespace-pre-line"
+                            >
+                                {{ clubAddress }}
+                            </p>
+                        </div>
                         <label class="block space-y-2"
                             ><span class="block text-sm font-medium"
                                 >E-Mail Zahlungsempfänger (optional)</span
@@ -354,8 +366,12 @@ function reset() {
                                     >Digital unterzeichnen</span
                                 ><span
                                     class="block text-xs text-muted-foreground"
-                                    >Mit deinem angemeldeten Benutzerkonto, Name
-                                    und Zeitstempel unterzeichnen.</span
+                                    >{{
+                                        $address(
+                                            'Mit deinem angemeldeten Benutzerkonto, Name und Zeitstempel unterzeichnen.',
+                                            'Mit Ihrem angemeldeten Benutzerkonto, Name und Zeitstempel unterzeichnen.',
+                                        )
+                                    }}</span
                                 ></span
                             >
                         </label>
@@ -428,25 +444,23 @@ function reset() {
                     >
                     <p class="text-sm text-muted-foreground">
                         Original und Kopie werden unverändert gespeichert.
-                        Anschließend kannst du sie herunterladen, drucken oder
-                        per E-Mail versenden. Es erfolgt keine automatische
-                        Buchung auf einem Beitragskonto.
+                        {{
+                            $address(
+                                'Anschließend kannst du sie herunterladen, drucken oder per E-Mail versenden.',
+                                'Anschließend können Sie sie herunterladen, drucken oder per E-Mail versenden.',
+                            )
+                        }}
+                        Es erfolgt keine automatische Buchung auf einem
+                        Beitragskonto.
                     </p>
                 </div>
             </section>
-            <div
+            <StatusAlert
                 v-if="Object.keys(form.errors).length"
-                role="alert"
-                class="space-y-1 rounded-md border border-destructive p-3"
-            >
-                <p
-                    v-for="error in form.errors"
-                    :key="error"
-                    class="text-sm text-destructive"
-                >
-                    {{ error }}
-                </p>
-            </div>
+                type="error"
+                title="Quittung nicht ausgestellt"
+                :messages="Object.values(form.errors)"
+            />
             <div class="flex gap-3">
                 <Button
                     :disabled="
@@ -469,7 +483,7 @@ function reset() {
                 class="flex gap-3"
                 @submit.prevent="
                     router.get(
-                        '/formulare/quittungen/archiv',
+                        '/formulare/quittungen',
                         { search },
                         { preserveState: true },
                     )
@@ -481,42 +495,118 @@ function reset() {
                     placeholder="Nummer, Name oder Zahlungsgrund"
                 /><Button variant="outline">Suchen</Button>
             </form>
-            <p v-if="!receipts.data.length" class="text-muted-foreground">
-                Keine Quittungen gefunden.
-            </p>
-            <article
-                v-for="receipt in receipts.data"
-                :key="receipt.id"
-                class="flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-card p-5"
-            >
-                <div class="space-y-1">
-                    <Link
-                        :href="`/formulare/quittungen/${receipt.id}`"
-                        class="font-semibold underline"
-                        >{{ receipt.receipt_number }}</Link
-                    >
-                    <p class="text-sm">
-                        {{
-                            new Date(
-                                receipt.receipt_date + 'T00:00:00',
-                            ).toLocaleDateString('de-DE')
-                        }}
-                        · {{ money(receipt.amount_cents) }}
-                        {{ receipt.currency }}
-                    </p>
-                    <p class="line-clamp-2 text-sm">
-                        {{ receipt.payer }} → {{ receipt.payee }}
-                    </p>
-                    <p class="line-clamp-2 text-sm text-muted-foreground">
-                        {{ receipt.purpose }}
-                    </p>
+            <section class="overflow-hidden rounded-xl border bg-card">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-muted/50">
+                            <tr class="border-b">
+                                <th class="px-4 py-3 text-left font-medium">
+                                    Quittung
+                                </th>
+                                <th class="px-4 py-3 text-left font-medium">
+                                    Zahlungsweg
+                                </th>
+                                <th class="px-4 py-3 text-left font-medium">
+                                    Zahlungsgrund
+                                </th>
+                                <th class="px-4 py-3 text-right font-medium">
+                                    Betrag
+                                </th>
+                                <th class="px-4 py-3 text-left font-medium">
+                                    Status
+                                </th>
+                                <th class="px-4 py-3 text-right font-medium">
+                                    Aktion
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="receipt in receipts.data"
+                                :key="receipt.id"
+                                class="border-b last:border-0"
+                            >
+                                <td class="px-4 py-4">
+                                    <Link
+                                        :href="
+                                            '/formulare/quittungen/' +
+                                            receipt.id
+                                        "
+                                        class="font-mono font-semibold text-primary hover:underline"
+                                        >{{ receipt.receipt_number }}</Link
+                                    >
+                                    <p
+                                        class="mt-1 text-xs text-muted-foreground"
+                                    >
+                                        {{
+                                            new Date(
+                                                receipt.receipt_date +
+                                                    'T00:00:00',
+                                            ).toLocaleDateString('de-DE')
+                                        }}
+                                    </p>
+                                </td>
+                                <td class="max-w-64 px-4 py-4">
+                                    <p class="truncate">
+                                        {{ receipt.payer.split('\n')[0] }}
+                                    </p>
+                                    <p class="truncate text-muted-foreground">
+                                        an {{ receipt.payee.split('\n')[0] }}
+                                    </p>
+                                </td>
+                                <td
+                                    class="max-w-72 px-4 py-4 text-muted-foreground"
+                                >
+                                    <p class="line-clamp-2">
+                                        {{ receipt.purpose }}
+                                    </p>
+                                </td>
+                                <td
+                                    class="px-4 py-4 text-right font-medium whitespace-nowrap"
+                                >
+                                    {{ money(receipt.amount_cents) }}
+                                    {{ receipt.currency }}
+                                </td>
+                                <td class="px-4 py-4">
+                                    <Badge
+                                        :variant="
+                                            receipt.cancelled_at
+                                                ? 'destructive'
+                                                : receipt.exported_at
+                                                  ? 'secondary'
+                                                  : 'default'
+                                        "
+                                        >{{
+                                            receipt.cancelled_at
+                                                ? 'Storniert'
+                                                : receipt.exported_at
+                                                  ? 'Ausgegeben'
+                                                  : 'Nicht ausgegeben'
+                                        }}</Badge
+                                    >
+                                </td>
+                                <td class="px-4 py-4 text-right">
+                                    <Button as-child size="sm" variant="outline"
+                                        ><Link
+                                            :href="
+                                                '/formulare/quittungen/' +
+                                                receipt.id
+                                            "
+                                            >Öffnen</Link
+                                        ></Button
+                                    >
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
-                <Button as-child variant="outline"
-                    ><Link :href="`/formulare/quittungen/${receipt.id}`"
-                        >Öffnen & herunterladen</Link
-                    ></Button
+                <p
+                    v-if="!receipts.data.length"
+                    class="p-8 text-center text-sm text-muted-foreground"
                 >
-            </article>
+                    Keine Quittungen gefunden.
+                </p>
+            </section>
             <div class="flex gap-4">
                 <Link
                     v-if="receipts.prev_page_url"

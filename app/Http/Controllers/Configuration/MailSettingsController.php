@@ -39,7 +39,7 @@ class MailSettingsController extends Controller
             $settings = MailSetting::query()->whereKey(1)->lockForUpdate()->firstOrFail();
             abort_unless($request->user()->fresh()?->isAdministrator(), 403);
             if ($settings->version !== (int) $data['version']) {
-                throw ValidationException::withMessages(['version' => 'Die E-Mail-Konfiguration wurde inzwischen geändert. Bitte lade die Seite neu.']);
+                throw ValidationException::withMessages(['version' => 'Die E-Mail-Konfiguration wurde inzwischen geändert. Bitte die Seite neu laden.']);
             }
             $before = $settings->auditData();
             $settings->fill(Arr::only($data, [

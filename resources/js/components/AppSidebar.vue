@@ -14,6 +14,8 @@ import {
     HeartHandshake,
     Boxes,
     Info,
+    CalendarDays,
+    CalendarRange,
 } from '@lucide/vue';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
@@ -77,6 +79,12 @@ const mainNavItems = computed<NavItem[]>(() => [
         : []),
     ...(page.props.can.viewInventory
         ? [{ title: 'Inventar', href: inventory(), icon: Boxes }]
+        : []),
+    ...(page.props.can.viewCalendar
+        ? [{ title: 'Kalender', href: '/kalender', icon: CalendarDays }]
+        : []),
+    ...(page.props.can.viewBookings
+        ? [{ title: 'Buchungen', href: '/buchungen', icon: CalendarRange }]
         : []),
     ...(page.props.can.viewCommunication
         ? [

@@ -27,12 +27,12 @@ final class BulkUpdateMembers
         return DB::transaction(function () use ($memberNumbers, $values, $actor, $configurationVersion): array {
             $configuration = ClubSetting::query()->whereKey(1)->sharedLock()->firstOrFail();
             if ($configuration->fields_version !== $configurationVersion) {
-                throw ValidationException::withMessages(['form' => 'Die Mitgliederfelder wurden inzwischen geändert. Bitte lade die Liste neu.']);
+                throw ValidationException::withMessages(['form' => 'Die Mitgliederfelder wurden inzwischen geändert. Bitte die Liste neu laden.']);
             }
             abort_unless($actor->fresh()?->can('updateAny', Member::class), 403);
             $members = Member::query()->whereIn('member_number', $memberNumbers)->orderBy('id')->lockForUpdate()->get();
             if ($members->count() !== count($memberNumbers)) {
-                throw ValidationException::withMessages(['members' => 'Mindestens ein ausgewähltes Mitglied ist nicht mehr vorhanden. Bitte lade die Liste neu.']);
+                throw ValidationException::withMessages(['members' => 'Mindestens ein ausgewähltes Mitglied ist nicht mehr vorhanden. Bitte die Liste neu laden.']);
             }
 
             $changed = 0;

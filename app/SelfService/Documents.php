@@ -14,8 +14,9 @@ final class Documents
 {
     public function __construct(private readonly MemberDocumentStore $documentStore) {}
 
-    public function store(Member $member, string $kind, string $signature, ?string $guardian, ?string $guardianName, Request $request): void
+    public function store(Member $member, string $kind, string $signature, ?string $guardian, ?string $guardianName, Request $request): string
     {
+        $settings = ClubSetting::current();
         $options = new Options;
         $options->set('isRemoteEnabled', false);
         $options->set('isPhpEnabled', false);
@@ -24,11 +25,17 @@ final class Documents
             'application' => $kind === 'application' ? DB::table('membership_applications')->where('member_id', $member->id)->first(['membership_type']) : null,
             'member' => $member, 'kind' => $kind, 'signature' => $signature,
             'guardian' => $guardian, 'guardianName' => $guardianName,
-            'club' => ClubSetting::current()->data, 'texts' => FormTemplates::rendered(),
-            'timestamp' => now()->format('d.m.Y H:i:s T'), 'ip' => $request->ip(),
+            'club' => $settings->data, 'logo' => $settings->logoDataUri(), 'texts' => FormTemplates::rendered(),
+            'timestamp' => now()->setTimezone(config('app.display_timezone'))->format('d.m.Y H:i:s T'), 'ip' => $request->ip(),
         ])->render());
         $pdf->setPaper('A4');
         $pdf->render();
-        $this->documentStore->store($member->id, $kind, $pdf->output(), true);
+        $contents = $pdf->output();
+        $this->documentStore->store($member->id, $kind, $contents, true, $kind === 'sepa' ? [
+            'mandate_reference' => $member->mandate_reference,
+            'mandate_signed_at' => $member->mandate_signed_at?->format('Y-m-d'),
+        ] : []);
+
+        return $contents;
     }
 }

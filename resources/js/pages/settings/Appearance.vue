@@ -23,7 +23,12 @@ defineOptions({
         <Heading
             variant="small"
             title="Erscheinungsbild"
-            description="Wähle das Erscheinungsbild für deinen Account"
+            :description="
+                $address(
+                    'Wähle das Erscheinungsbild für deinen Account',
+                    'Wählen Sie das Erscheinungsbild für Ihren Account',
+                )
+            "
         />
         <AppearanceTabs />
     </div>

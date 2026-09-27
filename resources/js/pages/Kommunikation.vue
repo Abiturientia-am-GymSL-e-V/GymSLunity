@@ -19,6 +19,7 @@ import {
 import { computed, reactive, ref, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
 import RichTextEditor from '@/components/communication/RichTextEditor.vue';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -649,10 +650,12 @@ const selectClass =
             <Card class="gap-0 overflow-hidden py-0">
                 <CardHeader class="border-b py-5"
                     ><CardTitle class="text-base">Empfängervorschau</CardTitle
-                    ><CardDescription
-                        >Kontrolliere die Auswahl, bevor du versendest oder PDFs
-                        erzeugst.</CardDescription
-                    ></CardHeader
+                    ><CardDescription>{{
+                        $address(
+                            'Kontrolliere die Auswahl, bevor du versendest oder PDFs erzeugst.',
+                            'Kontrollieren Sie die Auswahl, bevor Sie versenden oder PDFs erzeugen.',
+                        )
+                    }}</CardDescription></CardHeader
                 >
                 <CardContent class="overflow-x-auto p-0"
                     ><table class="w-full min-w-[720px] text-sm">
@@ -734,17 +737,17 @@ const selectClass =
                     >
                     <CardContent class="py-5"
                         ><form class="space-y-5" @submit.prevent="sendMails">
-                            <div
+                            <Alert
                                 v-if="mailConfiguration.driver === 'log'"
-                                class="flex gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                                variant="warning"
                             >
-                                <AlertTriangle class="mt-0.5 size-5 shrink-0" />
-                                <p>
+                                <AlertTriangle />
+                                <AlertDescription>
                                     Der Mailtransport steht auf „Log“.
                                     Nachrichten werden protokolliert, aber nicht
                                     an echte Postfächer zugestellt.
-                                </p>
-                            </div>
+                                </AlertDescription>
+                            </Alert>
                             <InputError :message="mailRecipientError" />
                             <div class="grid gap-2">
                                 <Label for="mail-subject">Betreff</Label

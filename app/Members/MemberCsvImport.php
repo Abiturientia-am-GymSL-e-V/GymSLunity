@@ -45,6 +45,7 @@ final class MemberCsvImport
         'iban' => ['iban', 'kontonummeriban'],
         'mandate_reference' => ['mandatsreferenz', 'mandatereference'],
         'mandate_signed_at' => ['mandatsdatum', 'mandatunterzeichnetam'],
+        'mandate_type' => ['mandatsart', 'mandatstyp', 'mandatetype'],
     ];
 
     /** @return list<string> */
@@ -59,6 +60,9 @@ final class MemberCsvImport
         $required = ['member_number'];
         foreach (MemberFields::sections() as $section) {
             foreach ($section['fields'] as $field) {
+                if ($field['key'] === 'mandate_type') {
+                    continue;
+                }
                 if ($field['required'] || ($field['type'] === 'boolean' && ! $field['custom'])) {
                     $required[] = $field['key'];
                 }
@@ -138,10 +142,10 @@ final class MemberCsvImport
     {
         $payload = $this->get($token, $user);
         if ($payload === null || ($payload['stage'] ?? null) !== 'mapping') {
-            throw ValidationException::withMessages(['mapping' => 'Die Spaltenzuordnung ist abgelaufen. Bitte lade die CSV-Datei erneut hoch.']);
+            throw ValidationException::withMessages(['mapping' => 'Die Spaltenzuordnung ist abgelaufen. Bitte die CSV-Datei erneut hochladen.']);
         }
         if ($payload['configuration_version'] !== ClubSetting::current()->fields_version) {
-            throw ValidationException::withMessages(['mapping' => 'Die Mitgliedsfelder wurden geändert. Bitte lade die CSV-Datei erneut hoch.']);
+            throw ValidationException::withMessages(['mapping' => 'Die Mitgliedsfelder wurden geändert. Bitte die CSV-Datei erneut hochladen.']);
         }
         $payload = $this->finalizeMapping($payload, $mapping, true);
         Cache::put($this->cacheKey($token), $payload, now()->addMinutes(30));
@@ -161,18 +165,18 @@ final class MemberCsvImport
     {
         $payload = $this->get($token, $user);
         if ($payload === null) {
-            throw ValidationException::withMessages(['form' => 'Die Importvorschau ist abgelaufen. Bitte prüfe die CSV-Datei erneut.']);
+            throw ValidationException::withMessages(['form' => 'Die Importvorschau ist abgelaufen. Bitte die CSV-Datei erneut prüfen.']);
         }
         if (($payload['stage'] ?? null) !== 'preview') {
-            throw ValidationException::withMessages(['form' => 'Bitte ordne zuerst die CSV-Spalten den Mitgliedsfeldern zu.']);
+            throw ValidationException::withMessages(['form' => 'Bitte zuerst die CSV-Spalten den Mitgliedsfeldern zuordnen.']);
         }
         if ($payload['configuration_version'] !== ClubSetting::current()->fields_version) {
-            throw ValidationException::withMessages(['form' => 'Die Mitgliedsfelder wurden seit der Vorschau geändert. Bitte prüfe die CSV-Datei erneut.']);
+            throw ValidationException::withMessages(['form' => 'Die Mitgliedsfelder wurden seit der Vorschau geändert. Bitte die CSV-Datei erneut prüfen.']);
         }
         $current = $this->validateRows($payload['raw_rows']);
         if ($current['error_count'] > 0) {
             Cache::put($this->cacheKey($token), [...$payload, ...$current], now()->addMinutes(30));
-            throw ValidationException::withMessages(['form' => 'Der Import enthält inzwischen Fehler. Bitte prüfe die aktualisierte Vorschau.']);
+            throw ValidationException::withMessages(['form' => 'Der Import enthält inzwischen Fehler. Bitte die aktualisierte Vorschau prüfen.']);
         }
 
         DB::transaction(function () use ($current, $user, $create, $payload): void {
@@ -215,7 +219,7 @@ final class MemberCsvImport
         }
         $missing = array_diff($this->requiredColumns(), array_keys($targets));
         if ($missing !== []) {
-            throw ValidationException::withMessages(['mapping' => 'Bitte ordne alle Pflichtfelder zu: '.implode(', ', $missing).'.']);
+            throw ValidationException::withMessages(['mapping' => 'Bitte alle Pflichtfelder zuordnen: '.implode(', ', $missing).'.']);
         }
 
         $mappedRows = [];
@@ -394,6 +398,10 @@ final class MemberCsvImport
      */
     private function normalize(array $values): array
     {
+        if (! isset($values['mandate_type']) || trim((string) $values['mandate_type']) === '') {
+            $values['mandate_type'] = 'recurring';
+        }
+
         $fields = [];
         foreach (MemberFields::sections() as $section) {
             foreach ($section['fields'] as $field) {

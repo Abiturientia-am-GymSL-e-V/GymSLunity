@@ -21,6 +21,7 @@ class MemberCreateTest extends TestCase
         $this->get(route('members.create'))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('members/Create')
             ->has('sections')
+            ->where('totalMembers', 0)
             ->where('suggestedMemberNumber', 1)
             ->where('can.createMembers', true));
 
