@@ -14,7 +14,7 @@ final class UserRoles
         'vereinsverwaltung' => 'Mitglieder und die allgemeine Vereinsorganisation verwalten.', 'mv' => 'Mitglieder lesen und bearbeiten.',
         'auditor' => 'Mitglieder, Dokumente und Änderungshistorie lesen.',
         'bh' => 'Finanzen und Spenden verwalten sowie Auswertungen einsehen.',
-        'beitragsverwaltung' => 'Beiträge festlegen, einziehen und verbuchen.', 'bv' => 'Beiträge festlegen, einziehen und verbuchen.',
+        'bv' => 'Beiträge festlegen, einziehen und verbuchen.',
         'kp' => 'Buchhaltung und Auswertungen prüfen.',
     ];
 
