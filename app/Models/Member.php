@@ -99,6 +99,17 @@ class Member extends Model
         });
     }
 
+    /**
+     * Joined (possibly with a future entry date), not left and not deceased.
+     * Unlike isCurrentMember(), an approved future entry already counts.
+     */
+    public function hasActiveOrUpcomingMembership(): bool
+    {
+        return $this->joined_at !== null
+            && $this->deceased_at === null
+            && ($this->left_at === null || $this->left_at->isFuture());
+    }
+
     /** Joined (not in the future), not left and not deceased. */
     public function isCurrentMember(): bool
     {

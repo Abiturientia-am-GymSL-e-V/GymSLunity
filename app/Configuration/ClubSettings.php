@@ -98,9 +98,20 @@ final class ClubSettings
     /** @return list<string> labels of the missing SEPA creditor fields */
     public function missingSepaFields(): array
     {
+        return self::missingSepaFieldsIn($this->data());
+    }
+
+    /**
+     * For checks on a row locked inside a transaction.
+     *
+     * @param  array<string, mixed>  $data
+     * @return list<string>
+     */
+    public static function missingSepaFieldsIn(array $data): array
+    {
         return array_values(array_filter(
             self::SEPA_FIELDS,
-            fn (string $label, string $key): bool => $this->text($key) === '',
+            fn (string $label, string $key): bool => ! is_string($data[$key] ?? null) || trim($data[$key]) === '',
             ARRAY_FILTER_USE_BOTH,
         ));
     }

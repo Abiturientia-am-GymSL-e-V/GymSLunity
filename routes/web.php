@@ -53,7 +53,11 @@ use App\Http\Controllers\Payments\TransactionExportController;
 use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\SelfService\AccessController;
 use App\Http\Controllers\SelfService\BookingController as SelfServiceBookingController;
+use App\Http\Controllers\SelfService\CancellationController as SelfServiceCancellationController;
+use App\Http\Controllers\SelfService\DocumentController as SelfServiceDocumentController;
+use App\Http\Controllers\SelfService\FormController as SelfServiceFormController;
 use App\Http\Controllers\SelfService\PortalController;
+use App\Http\Controllers\SelfService\ProfileController as SelfServiceProfileController;
 use App\Http\Controllers\StatisticsController;
 use App\Http\Middleware\EnsureSelfService;
 use App\Models\ClubSetting;
@@ -275,14 +279,15 @@ Route::middleware(EnsureSelfService::class)->prefix('selfservice')->group(functi
         ->middleware('throttle:10,1')
         ->name('selfservice.email.confirm');
     Route::post('abmelden', [AccessController::class, 'logout']);
-    Route::get('/', [PortalController::class, 'index']);
-    Route::patch('profil', [PortalController::class, 'update'])->middleware('throttle:20,1');
-    Route::patch('mitgliedschaft/kuendigen', [PortalController::class, 'cancelMembership'])->middleware('throttle:5,1');
-    Route::delete('mitgliedschaft/kuendigen', [PortalController::class, 'withdrawCancellation'])->middleware('throttle:5,1');
-    Route::get('beitritt', [PortalController::class, 'form'])->defaults('kind', 'application');
-    Route::get('mandat', [PortalController::class, 'form'])->defaults('kind', 'sepa');
-    Route::post('formulare/{kind}', [PortalController::class, 'submit'])->middleware('throttle:5,1');
-    Route::get('dokumente/{kind}', [PortalController::class, 'document'])->middleware(['throttle:30,1', 'audit:document_access']);
+    Route::get('/', PortalController::class);
+    Route::patch('profil', [SelfServiceProfileController::class, 'update'])->middleware('throttle:20,1');
+    Route::patch('mitgliedschaft/kuendigen', [SelfServiceCancellationController::class, 'store'])->middleware('throttle:5,1');
+    Route::delete('mitgliedschaft/kuendigen', [SelfServiceCancellationController::class, 'destroy'])->middleware('throttle:5,1');
+    Route::get('beitritt', [SelfServiceFormController::class, 'show'])->defaults('kind', 'application');
+    Route::get('mandat', [SelfServiceFormController::class, 'show'])->defaults('kind', 'sepa');
+    Route::post('formulare/application', [SelfServiceFormController::class, 'storeApplication'])->middleware('throttle:5,1');
+    Route::post('formulare/sepa', [SelfServiceFormController::class, 'storeMandate'])->middleware('throttle:5,1');
+    Route::get('dokumente/{kind}', SelfServiceDocumentController::class)->middleware(['throttle:30,1', 'audit:document_access']);
     Route::middleware('module:bookings')->group(function () {
         Route::get('buchungen', [SelfServiceBookingController::class, 'index'])->name('selfservice.bookings.index');
         Route::post('buchungen', [SelfServiceBookingController::class, 'store'])->middleware('throttle:10,1')->name('selfservice.bookings.store');

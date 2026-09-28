@@ -678,6 +678,11 @@ class SelfServiceTest extends TestCase
         $values = ['version' => 0, 'lock_version' => 0, 'accepted' => true, 'signature' => $this->signature(), 'iban' => 'invalid', 'account_holder_first_name' => 'Ada', 'account_holder_last_name' => 'Test', 'account_holder_street' => 'Straße 1', 'account_holder_postal_code' => '12345', 'account_holder_city' => 'Ort', 'account_holder_country' => 'DE'];
         $this->signIn($member)->postJson('/selfservice/formulare/sepa', $values)->assertUnprocessable()->assertJsonValidationErrors('iban');
         $values['iban'] = 'de89 3704 0044 0532 0130 00';
+        // The club cannot collect without its own IBAN, so no mandate either.
+        $this->post('/selfservice/formulare/sepa', $values)->assertSessionHasErrors(['accepted' => 'Der Verein muss zunächst folgende Angaben konfigurieren: Vereins-IBAN.']);
+        $settings = ClubSetting::current();
+        $settings->update(['data' => [...$settings->data, 'iban' => 'DE02120300000000202051']]);
+        $values['version'] = $settings->fresh()->version;
         $this->post('/selfservice/formulare/sepa', $values)->assertSessionHasNoErrors()->assertRedirect('/selfservice');
         $this->assertSame('DE89370400440532013000', $member->fresh()->iban);
         $this->assertSame('SEPA-Lastschrift', $member->fresh()->payment_method);
