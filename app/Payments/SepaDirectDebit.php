@@ -19,7 +19,8 @@ final class SepaDirectDebit
 {
     public const NS = 'urn:iso:std:iso:20022:tech:xsd:pain.008.001.08';
 
-    public function __construct(private readonly ClubSettings $clubSettings,
+    public function __construct(
+        private readonly ClubSettings $clubSettings,
         private readonly ContributionLedger $ledger,
         private readonly SepaXmlValidator $validator,
     ) {}

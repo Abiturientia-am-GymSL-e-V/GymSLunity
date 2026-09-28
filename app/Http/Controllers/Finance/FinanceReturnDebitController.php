@@ -6,12 +6,10 @@ namespace App\Http\Controllers\Finance;
 
 use App\Finance\FinanceReturnDebit;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Finance\StoreFinanceReturnDebitRequest;
 use App\Models\FinanceInvoice;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -55,20 +53,9 @@ class FinanceReturnDebitController extends Controller
         ]);
     }
 
-    public function store(Request $request, int $row, FinanceReturnDebit $returnDebit): RedirectResponse
+    public function store(StoreFinanceReturnDebitRequest $request, int $row, FinanceReturnDebit $returnDebit): RedirectResponse
     {
-        $request->merge(['fee_amount' => str_replace(',', '.', (string) $request->input('fee_amount'))]);
-        $data = $request->validate([
-            'invoice_id' => ['required', 'integer', 'exists:finance_invoices,id'],
-            'fee_amount' => ['required', 'decimal:0,2', 'min:0.01', 'max:9999999.99'],
-            'description' => ['required', 'string', 'max:500'],
-            'due_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
-            'vat_rate' => ['required', Rule::in([0, 7, 19])],
-            'tax_exemption_reason' => ['nullable', 'string', 'max:500'],
-        ]);
-        if ((int) $data['vat_rate'] === 0 && trim((string) ($data['tax_exemption_reason'] ?? '')) === '') {
-            throw ValidationException::withMessages(['tax_exemption_reason' => 'Für 0 % Umsatzsteuer ist ein Befreiungs- oder Nichtsteuerbarkeitsgrund erforderlich.']);
-        }
+        $data = $request->validated();
         $feeInvoice = $returnDebit->handle($row, $data, $request->user());
         Inertia::flash('toast', [
             'type' => 'success',

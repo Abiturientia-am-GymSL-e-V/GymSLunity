@@ -6,13 +6,13 @@ namespace App\Http\Controllers\SelfService;
 
 use App\Bookings\BookingManager;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SelfService\StoreBookingRequest;
 use App\Models\BookingResource;
 use App\Models\Member;
 use App\Models\ResourceBooking;
 use App\SelfService\Access;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -48,17 +48,10 @@ class BookingController extends Controller
         ]);
     }
 
-    public function store(Request $request, BookingManager $manager): RedirectResponse
+    public function store(StoreBookingRequest $request, BookingManager $manager): RedirectResponse
     {
         $member = Access::member($request);
-        $this->ensureActive($member);
-        $data = $request->validate([
-            'resource_id' => ['required', 'integer', 'exists:booking_resources,id'],
-            'title' => ['required', 'string', 'max:255'], 'notes' => ['nullable', 'string', 'max:5000'],
-            'starts_at' => ['required', 'date_format:Y-m-d\TH:i', 'after:now'], 'ends_at' => ['required', 'date_format:Y-m-d\TH:i'],
-            'recurrence' => ['required', Rule::in(['none', 'weekly', 'monthly'])],
-            'occurrences' => ['required_if:recurrence,weekly,monthly', 'integer', 'min:1', 'max:52'],
-        ]);
+        $data = $request->validated();
         $resource = BookingResource::query()->whereKey((int) $data['resource_id'])->firstOrFail();
         $bookings = $manager->create($resource, $member, $data);
         $confirmed = collect($bookings)->every(fn (ResourceBooking $booking): bool => $booking->status === 'confirmed');
@@ -79,7 +72,6 @@ class BookingController extends Controller
 
     private function ensureActive(Member $member): void
     {
-        abort_unless($member->joined_at !== null && ! $member->joined_at->isFuture()
-            && $member->deceased_at === null && ($member->left_at === null || $member->left_at->isFuture()), 403);
+        abort_unless($member->isCurrentMember(), 403);
     }
 }

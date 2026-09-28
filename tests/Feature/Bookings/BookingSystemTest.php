@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Bookings;
 
+use App\Bookings\BookingManager;
 use App\Configuration\SoftwareModules;
 use App\Models\BookingResource;
 use App\Models\ClubSetting;
@@ -48,6 +49,31 @@ class BookingSystemTest extends TestCase
         $this->assertSame(5000, $booking->price_cents);
         $this->assertNull($booking->member_id);
         $this->assertNull($booking->charge_transaction_id);
+    }
+
+    public function test_resource_hierarchy_and_auto_approval_are_validated(): void
+    {
+        $this->actingAs(User::factory()->create(['roles' => ['admin']]));
+        $defaults = ['allowed_membership_types' => [], 'auto_approve_membership_types' => [], 'price_mode' => 'free', 'is_active' => true];
+        $building = BookingResource::query()->create([...$defaults, 'name' => 'Gebäude', 'price_cents' => 0]);
+        $room = BookingResource::query()->create([...$defaults, 'name' => 'Raum', 'parent_id' => $building->id, 'price_cents' => 0]);
+        $payload = fn (array $values): array => [...$defaults, 'description' => null, 'location' => null, 'inventory_item_id' => null, 'price' => null, ...$values];
+
+        $this->patch(route('bookings.resources.update', $building), $payload(['name' => 'Gebäude', 'parent_id' => $room->id]))
+            ->assertSessionHasErrors(['parent_id' => 'Eine Ressource kann nicht unter sich selbst oder einer eigenen Teilressource eingeordnet werden.']);
+        $this->patch(route('bookings.resources.update', $building), $payload(['name' => 'Gebäude', 'parent_id' => $building->id]))
+            ->assertSessionHasErrors('parent_id');
+        $this->assertNull($building->fresh()->parent_id);
+
+        $types = array_keys(app(BookingManager::class)->membershipTypes());
+        $this->post(route('bookings.resources.store'), $payload([
+            'name' => 'Halle', 'parent_id' => null,
+            'allowed_membership_types' => [$types[0]], 'auto_approve_membership_types' => [$types[1]],
+        ]))->assertSessionHasErrors(['auto_approve_membership_types' => 'Automatische Freigaben sind nur für zugelassene Mitgliedsarten möglich.']);
+
+        $this->patch(route('bookings.resources.update', $room), $payload(['name' => 'Raum 1', 'parent_id' => $building->id]))
+            ->assertSessionHasNoErrors();
+        $this->assertSame('Raum 1', $room->fresh()->name);
     }
 
     public function test_member_series_is_auto_confirmed_charged_and_single_occurrence_can_be_cancelled(): void

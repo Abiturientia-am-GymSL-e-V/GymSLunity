@@ -7,10 +7,10 @@ namespace App\Http\Controllers\Configuration;
 use App\Configuration\ClubSettings;
 use App\Configuration\ConfigurationAudit;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Configuration\UpdatePublicPagesRequest;
 use App\Models\ClubSetting;
 use App\PublicSite\PublicPageTemplates;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -34,24 +34,9 @@ class PublicPageSettingsController extends Controller
         ]);
     }
 
-    public function update(Request $request): RedirectResponse
+    public function update(UpdatePublicPagesRequest $request): RedirectResponse
     {
-        $values = $request->validate([
-            'version' => ['required', 'integer'],
-            'imprint_text' => ['required', 'string', 'max:20000'],
-            'privacy_text' => ['required', 'string', 'max:30000'],
-            'member_access_mail_subject' => ['required', 'string', 'max:255'],
-            'member_access_mail_text' => ['required', 'string', 'max:12000'],
-            'join_mail_subject' => ['required', 'string', 'max:255'],
-            'join_mail_text' => ['required', 'string', 'max:12000'],
-            'welcome_mail_subject' => ['required', 'string', 'max:255'],
-            'welcome_mail_text' => ['required', 'string', 'max:12000'],
-            'contribution_invoice_mail_subject' => ['required', 'string', 'max:255'],
-            'contribution_invoice_mail_text' => ['required', 'string', 'max:12000'],
-        ]);
-        foreach (array_keys(PublicPageTemplates::defaults()) as $key) {
-            PublicPageTemplates::validate($values[$key]);
-        }
+        $values = $request->validated();
 
         DB::transaction(function () use ($request, $values): void {
             $settings = ClubSetting::query()->whereKey(1)->lockForUpdate()->firstOrFail();

@@ -9,25 +9,24 @@ use App\Configuration\ConfigurationAudit;
 use App\Donations\DonationCertificateGenerator;
 use App\Donations\DonationPurposes;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Configuration\UpdateDonationSettingsRequest;
 use App\Models\ClubSetting;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DonationSettingsController extends Controller
 {
-    public function __construct(private readonly ClubSettings $clubSettings) {}
-
     private const KEYS = [
         'donation_purpose_codes', 'contributions_tax_deductible', 'tax_privilege_notice_type',
         'tax_privilege_notice_date', 'tax_privilege_assessment_period',
         'certificate_machine_generated_notified',
     ];
+
+    public function __construct(private readonly ClubSettings $clubSettings) {}
 
     public function edit(): Response
     {
@@ -42,18 +41,9 @@ class DonationSettingsController extends Controller
         ]);
     }
 
-    public function update(Request $request): RedirectResponse
+    public function update(UpdateDonationSettingsRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'version' => ['required', 'integer', 'min:0'],
-            'donation_purpose_codes' => ['required', 'array', 'min:1'],
-            'donation_purpose_codes.*' => ['required', 'string', 'distinct', Rule::in(array_keys(DonationPurposes::options()))],
-            'contributions_tax_deductible' => ['required', 'boolean'],
-            'tax_privilege_notice_type' => ['required', Rule::in(['exemption_notice', 'corporate_tax_attachment', 'section_60a_notice'])],
-            'tax_privilege_notice_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
-            'tax_privilege_assessment_period' => ['nullable', 'required_unless:tax_privilege_notice_type,section_60a_notice', 'string', 'max:30'],
-            'certificate_machine_generated_notified' => ['required', 'boolean'],
-        ]);
+        $data = $request->validated();
         DB::transaction(function () use ($request, $data): void {
             $settings = ClubSetting::query()->whereKey(1)->lockForUpdate()->firstOrFail();
             abort_unless($request->user()->fresh()?->isAdministrator(), 403);

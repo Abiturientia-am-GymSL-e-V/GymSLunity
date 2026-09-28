@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Inventory\DisposeInventoryItemRequest;
+use App\Http\Requests\Inventory\StoreInventoryItemRequest;
 use App\Inventory\InventoryOptions;
 use App\Inventory\InventorySequence;
 use App\Models\InventoryItem;
 use App\Payments\Money;
-use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -50,27 +50,9 @@ class InventoryController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreInventoryItemRequest $request): RedirectResponse
     {
-        $this->normalizeMoney($request, 'acquisition_cost');
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'category' => ['required', Rule::in(array_keys(InventoryOptions::categories()))],
-            'description' => ['nullable', 'string', 'max:2000'],
-            'manufacturer' => ['nullable', 'string', 'max:255'],
-            'model' => ['nullable', 'string', 'max:255'],
-            'serial_number' => ['nullable', 'string', 'max:255'],
-            'location' => ['required', 'string', 'max:255'],
-            'responsible_person' => ['nullable', 'string', 'max:255'],
-            'acquisition_type' => ['required', Rule::in(array_keys(InventoryOptions::acquisitionTypes()))],
-            'acquisition_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
-            'acquisition_cost' => ['required', 'decimal:0,2', 'min:0', 'max:9999999.99'],
-            'document_reference' => ['nullable', 'string', 'max:255'],
-            'depreciation_method' => ['required', Rule::in(array_keys(InventoryOptions::depreciationMethods()))],
-            'useful_life_years' => ['nullable', 'required_if:depreciation_method,linear', 'integer', 'min:1', 'max:100'],
-        ], [
-            'useful_life_years.required_if' => 'Bitte die betriebsgewöhnliche Nutzungsdauer angeben.',
-        ]);
+        $data = $request->validated();
 
         $item = DB::transaction(function () use ($data, $request): InventoryItem {
             $number = InventorySequence::next();
@@ -101,25 +83,9 @@ class InventoryController extends Controller
         return to_route('inventory');
     }
 
-    public function dispose(Request $request, InventoryItem $inventoryItem): RedirectResponse
+    public function dispose(DisposeInventoryItemRequest $request, InventoryItem $inventoryItem): RedirectResponse
     {
-        if ($inventoryItem->status !== 'active') {
-            throw ValidationException::withMessages(['status' => 'Für diesen Gegenstand wurde bereits ein Abgang erfasst.']);
-        }
-
-        $this->normalizeMoney($request, 'disposal_proceeds');
-        $data = $request->validate([
-            'status' => ['required', Rule::in(['sold', 'lost', 'disposed'])],
-            'disposed_at' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
-            'disposal_proceeds' => ['nullable', 'required_if:status,sold', 'decimal:0,2', 'min:0', 'max:9999999.99'],
-            'disposal_note' => ['nullable', 'string', 'max:2000'],
-        ], [
-            'disposal_proceeds.required_if' => 'Bitte den Verkaufserlös angeben.',
-        ]);
-
-        if (CarbonImmutable::parse($data['disposed_at'])->lessThan($inventoryItem->acquisition_date)) {
-            throw ValidationException::withMessages(['disposed_at' => 'Das Abgangsdatum darf nicht vor dem Anschaffungsdatum liegen.']);
-        }
+        $data = $request->validated();
 
         DB::transaction(function () use ($data, $inventoryItem, $request): void {
             $lockedItem = InventoryItem::query()->lockForUpdate()->findOrFail($inventoryItem->id);
@@ -139,13 +105,6 @@ class InventoryController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Der Abgang von '.$inventoryItem->inventory_number.' wurde erfasst.']);
 
         return to_route('inventory');
-    }
-
-    private function normalizeMoney(Request $request, string $field): void
-    {
-        if (is_string($request->input($field))) {
-            $request->merge([$field => str_replace(',', '.', trim($request->input($field)))]);
-        }
     }
 
     /** @return array<string, mixed> */

@@ -14,8 +14,6 @@ use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
-    public function __construct(private readonly ClubSettings $clubSettings) {}
-
     /**
      * The root template that's loaded on the first page visit.
      *
@@ -24,6 +22,8 @@ class HandleInertiaRequests extends Middleware
      * @var string
      */
     protected $rootView = 'app';
+
+    public function __construct(private readonly ClubSettings $clubSettings) {}
 
     /**
      * Determines the current asset version.

@@ -13,8 +13,6 @@ use Throwable;
 
 class ConfigurationBackup
 {
-    public function __construct(private readonly ClubSettings $clubSettings) {}
-
     private const FORMAT = 'gymslunity-configuration-backup';
 
     private const VERSION = 2;
@@ -27,6 +25,8 @@ class ConfigurationBackup
 
     /** @var list<string> */
     private const MAIL_COLUMNS = ['id', 'driver', 'from_address', 'from_name', 'reply_to_address', 'reply_to_name', 'smtp_host', 'smtp_port', 'smtp_security', 'smtp_username', 'smtp_password', 'smtp_timeout', 'smtp_local_domain', 'sendmail_path', 'version', 'created_at', 'updated_at'];
+
+    public function __construct(private readonly ClubSettings $clubSettings) {}
 
     public function export(): string
     {

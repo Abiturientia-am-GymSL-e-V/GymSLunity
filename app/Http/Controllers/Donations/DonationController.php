@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Donations;
 
 use App\Configuration\ClubSettings;
-use App\Configuration\Countries;
 use App\Configuration\MailConfigurator;
 use App\Documents\SignatureImage;
 use App\Donations\DonationAudit;
@@ -13,6 +12,8 @@ use App\Donations\DonationCertificateGenerator;
 use App\Donations\DonationPurposes;
 use App\Donations\DonationSequence;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Donations\DonationReportRequest;
+use App\Http\Requests\Donations\StoreDonationRequest;
 use App\Mail\DonationCertificateMail;
 use App\Members\MemberReportWriter;
 use App\Models\Donation;
@@ -85,40 +86,9 @@ class DonationController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreDonationRequest $request): RedirectResponse
     {
-        if (is_string($request->input('amount'))) {
-            $request->merge(['amount' => str_replace(',', '.', trim($request->input('amount')))]);
-        }
-        if (is_string($request->input('donor_country'))) {
-            $request->merge(['donor_country' => strtoupper(trim($request->input('donor_country')))]);
-        }
-        $data = $request->validate([
-            'donor_name' => ['required', 'string', 'max:255'],
-            'donor_street' => ['required', 'string', 'max:255'],
-            'donor_postal_code' => ['required', 'string', 'max:20'],
-            'donor_city' => ['required', 'string', 'max:255'],
-            'donor_country' => ['required', 'string', Rule::in(array_keys(Countries::all()))],
-            'donor_email' => ['nullable', 'email:rfc', 'max:255'],
-            'donation_type' => ['required', Rule::in(['money', 'material', 'membership_fee', 'expense_waiver'])],
-            'amount' => ['required', 'decimal:0,2', 'min:0.01', 'max:9999999.99'],
-            'donated_at' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
-            'purpose_code' => ['required', Rule::in(array_keys(DonationPurposes::options()))],
-            'description' => ['nullable', 'required_if:donation_type,material', 'string', 'max:600'],
-            'asset_origin' => ['nullable', 'required_if:donation_type,material', Rule::in(['business', 'private', 'unknown'])],
-            'valuation_document_reference' => ['nullable', 'string', 'max:255'],
-        ], [
-            'description.required_if' => 'Bitte die Sachzuwendung genau mit Alter, Zustand und Kaufpreis beschreiben.',
-            'asset_origin.required_if' => 'Bitte die Herkunft der Sachzuwendung angeben.',
-        ]);
-        $club = $this->clubSettings->data();
-        $configuredCodes = is_array($club['donation_purpose_codes'] ?? null) ? $club['donation_purpose_codes'] : [];
-        if (! in_array($data['purpose_code'], $configuredCodes, true)) {
-            throw ValidationException::withMessages(['purpose_code' => 'Der Zweck ist nicht in den Spenden-Stammdaten freigegeben.']);
-        }
-        if ($data['donation_type'] === 'membership_fee' && ! (bool) ($club['contributions_tax_deductible'] ?? false)) {
-            throw ValidationException::withMessages(['donation_type' => 'Mitgliedsbeiträge sind laut Konfiguration nicht als Zuwendung abzugsfähig.']);
-        }
+        $data = $request->validated();
 
         $donation = DB::transaction(function () use ($request, $data): Donation {
             $year = (int) substr($data['donated_at'], 0, 4);
@@ -291,15 +261,9 @@ class DonationController extends Controller
         return back();
     }
 
-    public function report(Request $request): HttpResponse
+    public function report(DonationReportRequest $request): HttpResponse
     {
-        $filters = $request->validate([
-            'from' => ['nullable', 'date_format:Y-m-d'],
-            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
-            'q' => ['nullable', 'string', 'max:100'],
-            'donation_type' => ['nullable', Rule::in(['money', 'material', 'membership_fee', 'expense_waiver'])],
-            'certificate_status' => ['nullable', Rule::in(['open', 'issued', 'revoked'])],
-        ]);
+        $filters = $request->validated();
         $query = Donation::query()->with(['certificate.revocation'])->latest('donated_at')->latest('id');
         if (is_string($filters['from'] ?? null)) {
             $query->whereDate('donated_at', '>=', $filters['from']);

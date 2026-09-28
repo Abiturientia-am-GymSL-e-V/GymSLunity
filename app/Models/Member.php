@@ -99,6 +99,13 @@ class Member extends Model
         });
     }
 
+    /** Joined (not in the future), not left and not deceased. */
+    public function isCurrentMember(): bool
+    {
+        return $this->joined_at !== null && ! $this->joined_at->isFuture()
+            && $this->deceased_at === null && ($this->left_at === null || $this->left_at->isFuture());
+    }
+
     /** @return HasOne<ContributionAccount, $this> */
     public function contributionAccount(): HasOne
     {

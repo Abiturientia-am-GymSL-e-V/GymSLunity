@@ -8,6 +8,7 @@ use App\Models\BookingResource;
 use App\Models\ContributionAccount;
 use App\Models\ContributionTransaction;
 use App\Models\Member;
+use App\Models\MemberFieldDefinition;
 use App\Models\ResourceBooking;
 use App\Models\User;
 use App\Support\FormOfAddress;
@@ -53,7 +54,7 @@ final class BookingManager
         }
 
         return DB::transaction(function () use ($resource, $member, $data, $actor, $manual, $status, $seriesId, $ranges): array {
-            $relatedIds = $this->relatedResourceIds($resource);
+            $relatedIds = $resource->relatedIds();
             BookingResource::query()->whereIn('id', $relatedIds)->orderBy('id')->lockForUpdate()->get();
             $locked = BookingResource::query()->whereKey($resource->id)->firstOrFail();
             $created = [];
@@ -130,6 +131,17 @@ final class BookingManager
         }, attempts: 3);
     }
 
+    /** @return array<string, string> active membership types (value => label) */
+    public function membershipTypes(): array
+    {
+        $field = MemberFieldDefinition::query()->where('key', 'membership_type')->first();
+        if (! $field) {
+            return Member::query()->distinct()->orderBy('membership_type')->pluck('membership_type', 'membership_type')->filter()->all();
+        }
+
+        return collect($field->options)->where('active', true)->pluck('label', 'value')->all();
+    }
+
     public function canRequest(BookingResource $resource, Member $member): bool
     {
         $allowed = $resource->allowed_membership_types ?? [];
@@ -155,7 +167,7 @@ final class BookingManager
 
     private function assertAvailable(BookingResource $resource, CarbonImmutable $start, CarbonImmutable $end, ?int $except = null): void
     {
-        $ids = $this->relatedResourceIds($resource);
+        $ids = $resource->relatedIds();
         $conflict = ResourceBooking::query()
             ->whereIn('resource_id', $ids)
             ->whereIn('status', ['requested', 'confirmed'])
@@ -166,26 +178,6 @@ final class BookingManager
         if ($conflict) {
             throw ValidationException::withMessages(['starts_at' => 'Die Ressource oder eine verbundene Teilressource ist in diesem Zeitraum bereits belegt.']);
         }
-    }
-
-    /** @return list<int> */
-    private function relatedResourceIds(BookingResource $resource): array
-    {
-        $resources = BookingResource::query()->get(['id', 'parent_id']);
-        $ids = [$resource->id];
-        $parent = $resource->parent_id;
-        while ($parent !== null) {
-            $ids[] = $parent;
-            $parent = $resources->firstWhere('id', $parent)?->parent_id;
-        }
-        $frontier = [$resource->id];
-        while ($frontier !== []) {
-            $children = $resources->whereIn('parent_id', $frontier)->pluck('id')->map(fn ($id): int => (int) $id)->all();
-            $ids = [...$ids, ...$children];
-            $frontier = $children;
-        }
-
-        return array_values(array_unique($ids));
     }
 
     private function price(BookingResource $resource, CarbonImmutable $start, CarbonImmutable $end): int

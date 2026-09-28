@@ -7,13 +7,12 @@ namespace App\Http\Controllers\Configuration;
 use App\Configuration\ClubSettings;
 use App\Configuration\ConfigurationAudit;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Configuration\UpdateSelfServiceSettingsRequest;
 use App\Models\ClubSetting;
 use App\SelfService\FormTemplates;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -32,18 +31,9 @@ class SelfServiceSettingsController extends Controller
         ]);
     }
 
-    public function update(Request $request): RedirectResponse
+    public function update(UpdateSelfServiceSettingsRequest $request): RedirectResponse
     {
-        $values = $request->validate([
-            'version' => ['required', 'integer'], 'selfservice_enabled' => ['required', 'boolean'], 'public_join_enabled' => ['required', 'boolean'],
-            'membership_activation' => ['required', Rule::in(['immediate', 'approval'])],
-            'application_text' => ['required', 'string', 'max:12000'], 'sepa_text' => ['required', 'string', 'max:12000'], 'guardian_text' => ['required', 'string', 'max:6000'],
-            'receipt_notes' => ['required', 'string', 'max:12000'],
-            'receipt_donation_notes' => ['required', 'string', 'max:12000'],
-        ]);
-        foreach (array_keys(FormTemplates::defaults()) as $key) {
-            FormTemplates::validate($values[$key]);
-        }
+        $values = $request->validated();
         DB::transaction(function () use ($request, $values): void {
             $settings = ClubSetting::query()->whereKey(1)->lockForUpdate()->firstOrFail();
             if ($settings->version !== (int) $values['version']) {

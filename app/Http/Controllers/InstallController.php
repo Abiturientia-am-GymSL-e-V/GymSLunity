@@ -32,6 +32,8 @@ class InstallController extends Controller
             return to_route('login');
         }
 
+        // Deliberately inline instead of a form request: the installer must
+        // redirect an installed system before validating anything.
         $validator = Validator::make($request->all(), [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email:rfc', 'max:255'],

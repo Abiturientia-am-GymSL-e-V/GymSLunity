@@ -6,35 +6,18 @@ namespace App\Http\Controllers\Payments;
 
 use App\Configuration\ClubSettings;
 use App\Http\Controllers\Controller;
-use App\Models\MemberFieldDefinition;
+use App\Http\Requests\Payments\StoreContributionsRequest;
 use App\Payments\CreateContributions;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class ContributionController extends Controller
 {
     public function __construct(private readonly ClubSettings $clubSettings) {}
 
-    public function store(Request $request, CreateContributions $creator): RedirectResponse
+    public function store(StoreContributionsRequest $request, CreateContributions $creator): RedirectResponse
     {
-        $filterKeys = MemberFieldDefinition::query()->where('is_active', true)->where('filterable', true)->pluck('key')->all();
-        $data = $request->validate([
-            'period_start' => ['required', 'date_format:Y-m-d'],
-            'period_end' => ['required', 'date_format:Y-m-d', 'after_or_equal:period_start'],
-            'due_date' => ['required', 'date_format:Y-m-d'],
-            'description' => ['required', 'string', 'max:255'],
-            'amount_mode' => ['required', Rule::in(['fixed', 'member'])],
-            'amount' => ['nullable', 'required_if:amount_mode,fixed', 'decimal:0,2', 'min:0.01', 'max:9999999.99'],
-            'membership_type' => ['nullable', 'string', 'max:80'],
-            'payment_method' => ['nullable', 'string', 'max:50'],
-            'honorary' => ['required', Rule::in(['include', 'exclude', 'only'])],
-            'tax_deductible' => ['required', 'boolean'],
-            'filters' => ['nullable', 'array', 'max:20'],
-            'filters.*.key' => ['required', 'string', 'distinct', Rule::in($filterKeys)],
-            'filters.*.value' => ['required', 'string', 'max:255'],
-        ]);
+        $data = $request->contributionRun();
         if (! $this->clubSettings->enabled('contributions_tax_deductible')) {
             $data['tax_deductible'] = false;
         }

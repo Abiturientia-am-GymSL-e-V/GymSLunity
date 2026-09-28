@@ -9,17 +9,17 @@ use App\Configuration\MailConfigurator;
 use App\Documents\SignatureImage;
 use App\Forms\FinanceMandates;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Forms\FinanceMandateFilterRequest;
+use App\Http\Requests\Forms\StoreFinanceMandateRequest;
 use App\Mail\FinanceMandateMail;
 use App\Members\MemberReportWriter;
 use App\Models\FinanceMandate;
-use App\Rules\Iban;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -29,26 +29,12 @@ class FinanceMandateController extends Controller
 {
     public function __construct(private readonly ClubSettings $clubSettings) {}
 
-    public function index(Request $request): Response
+    public function index(FinanceMandateFilterRequest $request): Response
     {
         $tab = (string) $request->route('tab', 'overview');
         abort_unless(in_array($tab, ['overview', 'create'], true), 404);
-        $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:100'],
-            'from' => ['nullable', 'date_format:Y-m-d'],
-            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
-            'status' => ['nullable', Rule::in(['all', 'pending', 'signed', 'revoked'])],
-            'mandate_type' => ['nullable', Rule::in(['all', 'recurring', 'one_off'])],
-            'page' => ['nullable', 'integer', 'min:1'],
-        ]);
-        $search = trim((string) ($filters['search'] ?? ''));
-        $normalizedFilters = [
-            'search' => $search,
-            'from' => $filters['from'] ?? '',
-            'to' => $filters['to'] ?? '',
-            'status' => $filters['status'] ?? 'all',
-            'mandate_type' => $filters['mandate_type'] ?? 'all',
-        ];
+        $normalizedFilters = $request->filters();
+        $search = $normalizedFilters['search'];
         $mandates = $this->filteredQuery($normalizedFilters)
             ->select(['id', 'mandate_reference', 'debtor_name', 'debtor_email', 'iban', 'mandate_type', 'status', 'signed_at', 'signature_method', 'revoked_at', 'revoked_by_name', 'revocation_reason', 'encrypted_signing_token', 'created_at'])
             ->latest('id')->paginate(20)->withQueryString()
@@ -68,16 +54,9 @@ class FinanceMandateController extends Controller
         ]);
     }
 
-    public function report(Request $request): HttpResponse
+    public function report(FinanceMandateFilterRequest $request): HttpResponse
     {
-        $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:100'],
-            'from' => ['nullable', 'date_format:Y-m-d'],
-            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
-            'status' => ['nullable', Rule::in(['pending', 'signed', 'revoked'])],
-            'mandate_type' => ['nullable', Rule::in(['recurring', 'one_off'])],
-        ]);
-        $filters['search'] = trim((string) ($filters['search'] ?? ''));
+        $filters = $request->filters();
         $query = $this->filteredQuery($filters)
             ->select(['id', 'mandate_reference', 'debtor_name', 'debtor_email', 'iban', 'mandate_type', 'status', 'signed_at', 'revoked_at', 'revocation_reason', 'created_at'])
             ->latest('created_at')->latest('id');
@@ -100,16 +79,9 @@ class FinanceMandateController extends Controller
         ]);
     }
 
-    public function store(Request $request, FinanceMandates $mandates): RedirectResponse
+    public function store(StoreFinanceMandateRequest $request, FinanceMandates $mandates): RedirectResponse
     {
-        $request->merge(['iban' => strtoupper(preg_replace('/\s+/', '', (string) $request->input('iban')) ?? ''), 'debtor_country' => strtoupper((string) $request->input('debtor_country'))]);
-        $data = $request->validate([
-            'creation_key' => ['required', 'uuid'], 'debtor_name' => ['required', 'string', 'max:255'],
-            'debtor_street' => ['required', 'string', 'max:255'], 'debtor_postal_code' => ['required', 'string', 'max:20'],
-            'debtor_city' => ['required', 'string', 'max:255'], 'debtor_country' => ['required', 'string', 'size:2'],
-            'debtor_email' => ['nullable', 'email:rfc', 'max:255'], 'iban' => ['required', 'string', 'max:42', new Iban],
-            'mandate_type' => ['required', Rule::in(['recurring', 'one_off'])],
-        ]);
+        $data = $request->validated();
         $mandate = $mandates->create($data, $request->user());
         Inertia::flash('toast', ['type' => 'success', 'message' => 'SEPA-Mandat '.$mandate->mandate_reference.' wurde angelegt. Es ist bis zur Unterschrift nicht verwendbar.']);
 

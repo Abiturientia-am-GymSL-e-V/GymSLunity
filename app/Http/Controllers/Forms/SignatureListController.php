@@ -5,32 +5,26 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Forms;
 
 use App\Configuration\ClubSettings;
+use App\Forms\SignatureListColumns;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Forms\SignatureListRequest;
 use App\Members\MemberFields;
 use App\Members\MemberReportValue;
 use App\Members\MemberReportWriter;
 use App\Models\Member;
-use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class SignatureListController extends Controller
 {
-    public function __construct(private readonly ClubSettings $clubSettings) {}
-
-    private const EXCLUDED_COLUMNS = [
-        'iban', 'mandate_reference', 'mandate_signed_at', 'mandate_type', 'account_holder_first_name',
-        'account_holder_last_name', 'account_holder_street', 'account_holder_postal_code',
-        'account_holder_city', 'account_holder_country', 'payment_method',
-    ];
-
     private const EXCLUDED_FILTERS = [
         'iban', 'mandate_reference', 'mandate_signed_at', 'mandate_type', 'account_holder_first_name',
         'account_holder_last_name', 'account_holder_street', 'account_holder_postal_code',
         'account_holder_city', 'account_holder_country',
     ];
+
+    public function __construct(private readonly ClubSettings $clubSettings) {}
 
     public function index(): Response
     {
@@ -57,8 +51,7 @@ class SignatureListController extends Controller
                     )->all(),
                 ];
             });
-        $columns = collect(MemberFields::directoryFields())
-            ->reject(fn (array $field): bool => in_array($field['key'], self::EXCLUDED_COLUMNS, true))
+        $columns = SignatureListColumns::fields()->values()
             ->map(fn (array $field): array => ['key' => $field['key'], 'label' => $field['label']])
             ->prepend(['key' => 'member_number', 'label' => 'Mitgliedsnummer'])
             ->push(['key' => 'signature', 'label' => 'Unterschrift'])
@@ -71,20 +64,10 @@ class SignatureListController extends Controller
         ]);
     }
 
-    public function document(Request $request): HttpResponse
+    public function document(SignatureListRequest $request): HttpResponse
     {
-        $available = collect(MemberFields::directoryFields())
-            ->reject(fn (array $field): bool => in_array($field['key'], self::EXCLUDED_COLUMNS, true))
-            ->keyBy('key');
-        $allowed = $available->keys()->push('member_number')->push('signature')->all();
-        $data = $request->validate([
-            'title' => ['required', 'string', 'max:150'],
-            'event_date' => ['nullable', 'date_format:Y-m-d'],
-            'member_numbers' => ['required', 'array', 'min:1', 'max:1000'],
-            'member_numbers.*' => ['required', 'integer', 'distinct', Rule::exists('members', 'member_number')],
-            'columns' => ['required', 'array', 'min:1', 'max:12'],
-            'columns.*' => ['required', 'string', 'distinct', Rule::in($allowed)],
-        ]);
+        $available = SignatureListColumns::fields();
+        $data = $request->validated();
         $selected = $request->collect('member_numbers')
             ->mapWithKeys(fn (mixed $number, int $position): array => [(int) $number => $position]);
         $members = Member::query()->whereIn('member_number', $selected->keys())->get(Member::LIST_FIELDS)

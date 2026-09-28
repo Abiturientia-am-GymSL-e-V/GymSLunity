@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Configuration;
 use App\Configuration\ClubSettings;
 use App\Configuration\ConfigurationAudit;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Configuration\MemberFieldRequest;
 use App\Members\MemberFields;
 use App\Models\ClubSetting;
 use App\Models\Member;
@@ -17,7 +18,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -35,33 +35,19 @@ class MemberFieldController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(MemberFieldRequest $request): RedirectResponse
     {
         return $this->save($request);
     }
 
-    public function update(Request $request, MemberFieldDefinition $field): RedirectResponse
+    public function update(MemberFieldRequest $request, MemberFieldDefinition $field): RedirectResponse
     {
         return $this->save($request, $field);
     }
 
-    private function save(Request $request, ?MemberFieldDefinition $field = null): RedirectResponse
+    private function save(MemberFieldRequest $request, ?MemberFieldDefinition $field = null): RedirectResponse
     {
-        $data = $request->validate([
-            'version' => ['required', 'integer', 'min:0'], 'label' => ['required', 'string', 'max:120'],
-            'type' => ['required', Rule::in($field && ! $field->is_custom ? [$field->type] : ['text', 'number', 'decimal', 'date', 'boolean', 'select'])],
-            'section' => ['required', Rule::in(array_keys(MemberFields::SECTIONS))],
-            'is_active' => ['required', 'boolean'], 'required' => ['required', 'boolean'],
-            'filterable' => ['required', 'boolean'], 'show_in_table' => ['required', 'boolean'],
-            'selfservice_visible' => ['sometimes', 'boolean'],
-            'selfservice_editable' => ['sometimes', 'boolean'],
-            'options' => ['present', 'array', 'max:100'],
-            'options.*' => ['array:value,label,active'],
-            'options.*.value' => ['required', 'string', 'max:'.($field->max_length ?? 255), 'distinct:strict', Rule::notIn(['__empty__', '__all__', '__any__', '__none__'])],
-            'options.*.label' => ['required', 'string', 'max:120'], 'options.*.active' => ['required', 'boolean'],
-            'remove_options' => ['sometimes', 'array', 'max:100'],
-            'remove_options.*' => ['required', 'string', 'distinct'],
-        ], ['required' => 'Dieses Feld ist erforderlich.', 'in' => 'Diese Auswahl ist nicht zulässig.', 'distinct' => 'Auswahlwerte müssen eindeutig sein.', 'max' => 'Der Wert ist zu lang oder die Liste zu groß.']);
+        $data = $request->validated();
 
         DB::transaction(function () use ($data, $request, $field): void {
             $settings = $this->lockedSettings((int) $data['version']);

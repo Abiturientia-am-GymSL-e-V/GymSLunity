@@ -6,8 +6,9 @@ namespace App\Http\Controllers\Forms;
 
 use App\Configuration\ClubSettings;
 use App\Configuration\MailConfigurator;
-use App\Documents\SignatureImage;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Forms\ReceiptFilterRequest;
+use App\Http\Requests\Forms\StoreReceiptRequest;
 use App\Mail\ReceiptMail;
 use App\Members\MemberReportWriter;
 use App\Models\Receipt;
@@ -30,7 +31,7 @@ class ReceiptController extends Controller
 {
     public function __construct(private readonly ClubSettings $clubSettings) {}
 
-    public function index(Request $request): Response
+    public function index(ReceiptFilterRequest $request): Response
     {
         $tab = (string) $request->route('tab', 'list');
         $tabs = [
@@ -38,20 +39,7 @@ class ReceiptController extends Controller
             'create' => ['Quittung erstellen', route('receipts.create')],
         ];
         abort_unless(isset($tabs[$tab]), 404);
-        $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:100'],
-            'from' => ['nullable', 'date_format:Y-m-d'],
-            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
-            'status' => ['nullable', Rule::in(['all', 'available', 'exported', 'cancelled'])],
-            'page' => ['nullable', 'integer', 'min:1'],
-        ]);
-        $search = trim($filters['search'] ?? '');
-        $normalizedFilters = [
-            'search' => $search,
-            'from' => $filters['from'] ?? '',
-            'to' => $filters['to'] ?? '',
-            'status' => $filters['status'] ?? 'all',
-        ];
+        $normalizedFilters = $request->filters();
         $receipts = $this->filteredQuery($normalizedFilters)
             ->select(['id', 'receipt_number', 'receipt_date', 'amount_cents', 'currency', 'payer', 'payee', 'purpose', 'created_by_name', 'exported_at', 'cancelled_at'])
             ->latest('receipt_date')->latest('id')->paginate(20)->withQueryString();
@@ -66,15 +54,9 @@ class ReceiptController extends Controller
         ]);
     }
 
-    public function report(Request $request): HttpResponse
+    public function report(ReceiptFilterRequest $request): HttpResponse
     {
-        $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:100'],
-            'from' => ['nullable', 'date_format:Y-m-d'],
-            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
-            'status' => ['nullable', Rule::in(['available', 'exported', 'cancelled'])],
-        ]);
-        $filters['search'] = trim($filters['search'] ?? '');
+        $filters = $request->filters();
         $query = $this->filteredQuery($filters)
             ->select(['id', 'receipt_number', 'receipt_date', 'amount_cents', 'currency', 'payer', 'payee', 'purpose', 'exported_at', 'cancelled_at'])
             ->latest('receipt_date')->latest('id');
@@ -97,28 +79,9 @@ class ReceiptController extends Controller
         ]);
     }
 
-    public function store(Request $request, IssueReceipt $issue): RedirectResponse
+    public function store(StoreReceiptRequest $request, IssueReceipt $issue): RedirectResponse
     {
-        $data = $request->validate([
-            'creation_key' => ['required', 'uuid'],
-            'receipt_number' => ['nullable', 'string', 'max:40', 'regex:/\A[A-Za-z0-9][A-Za-z0-9_\/-]*\z/'],
-            'receipt_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:1900-01-01', 'before_or_equal:today'],
-            'amount' => ['bail', 'required', 'string', 'regex:/\A\d{1,9}(?:[.,]\d{1,2})?\z/', function ($attribute, $value, $fail): void {
-                if ((float) str_replace(',', '.', $value) <= 0) {
-                    $fail('Der Betrag muss größer als null sein.');
-                }
-            }],
-            'currency' => ['required', 'string', 'regex:/\A[A-Z]{3}\z/'],
-            'vat_rate' => ['required', Rule::in([0, 7, 19])],
-            'vat_reason' => ['nullable', 'required_unless:vat_rate,19', 'string', 'max:500'],
-            'payer_source' => ['required', Rule::in(['club', 'other'])], 'payee_source' => ['required', Rule::in(['club', 'other'])],
-            'payer' => ['nullable', 'required_if:payer_source,other', 'string', 'max:1000'], 'payee' => ['nullable', 'required_if:payee_source,other', 'string', 'max:1000'],
-            'payer_email' => ['nullable', 'email:rfc', 'max:255'], 'payee_email' => ['nullable', 'email:rfc', 'max:255'],
-            'purpose' => ['required', 'string', 'max:1000'], 'signer_name' => ['required', 'string', 'max:255'],
-            'signature_method' => ['required', Rule::in(['digital', 'profile', 'drawn'])],
-            'signature_data' => [Rule::requiredIf(fn (): bool => $request->input('signature_method') === 'drawn'), 'nullable', 'string', 'max:'.SignatureImage::MAX_DATA_URL_LENGTH],
-            'confirmed' => ['accepted'],
-        ]);
+        $data = $request->validated();
         $receipt = $issue->handle($data, $request->user(), $request->ip());
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Quittung '.$receipt->receipt_number.' ausgestellt. Original und Kopie stehen bereit.']);
 

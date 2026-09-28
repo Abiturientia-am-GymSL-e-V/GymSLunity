@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Configuration;
 use App\Configuration\ConfigurationAudit;
 use App\Configuration\UserRoles;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Configuration\UserRequest;
 use App\Models\ClubSetting;
 use App\Models\User;
 use App\Security\SecurityAudit;
@@ -15,8 +16,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -41,26 +40,19 @@ class UserController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(UserRequest $request): RedirectResponse
     {
         return $this->save($request);
     }
 
-    public function update(Request $request, User $user): RedirectResponse
+    public function update(UserRequest $request, User $user): RedirectResponse
     {
         return $this->save($request, $user);
     }
 
-    private function save(Request $request, ?User $user = null): RedirectResponse
+    private function save(UserRequest $request, ?User $user = null): RedirectResponse
     {
-        $request->merge(['email' => Str::lower(trim($request->string('email')->toString()))]);
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'], 'email' => ['required', 'email:rfc', 'max:255', Rule::unique('users')->ignore($user)],
-            'password' => [$user ? 'nullable' : 'required', 'string', 'max:72', 'confirmed', Password::default()],
-            'roles' => ['present', 'array', 'max:7'], 'roles.*' => ['required', 'string', 'distinct', Rule::in(array_keys(UserRoles::LABELS))],
-            'is_active' => ['required', 'boolean'], 'verified' => ['required', 'boolean'],
-            'lock_version' => [$user ? 'required' : 'nullable', 'integer', 'min:0'],
-        ], ['required' => 'Dieses Feld ist erforderlich.', 'unique' => 'Diese E-Mail-Adresse ist bereits vergeben.', 'email' => 'Bitte eine gültige E-Mail-Adresse eingeben.', 'min' => 'Das Passwort muss mindestens 12 Zeichen enthalten.', 'confirmed' => 'Die Passwörter stimmen nicht überein.', 'in' => 'Diese Rolle ist nicht zulässig.']);
+        $data = $request->validated();
 
         DB::transaction(function () use ($request, $data, $user): void {
             ClubSetting::query()->whereKey(1)->lockForUpdate()->firstOrFail();

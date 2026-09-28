@@ -18,8 +18,6 @@ use RuntimeException;
 
 final class MemberCsvImport
 {
-    public function __construct(private readonly ClubSettings $clubSettings) {}
-
     private const MAX_ROWS = 1000;
 
     private const MAX_COLUMNS = 200;
@@ -51,6 +49,8 @@ final class MemberCsvImport
         'mandate_signed_at' => ['mandatsdatum', 'mandatunterzeichnetam'],
         'mandate_type' => ['mandatsart', 'mandatstyp', 'mandatetype'],
     ];
+
+    public function __construct(private readonly ClubSettings $clubSettings) {}
 
     /** @return list<string> */
     public function columns(): array

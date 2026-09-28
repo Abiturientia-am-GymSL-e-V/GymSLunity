@@ -52,4 +52,38 @@ class BookingResource extends Model
     {
         return $this->hasMany(ResourceBooking::class, 'resource_id');
     }
+
+    /** @return list<int> ids of every resource below this one */
+    public function descendantIds(): array
+    {
+        $resources = self::query()->get(['id', 'parent_id']);
+        $ids = [];
+        $frontier = [$this->id];
+        while ($frontier !== []) {
+            $children = $resources->whereIn('parent_id', $frontier)->pluck('id')->map(fn ($id): int => (int) $id)->all();
+            $ids = [...$ids, ...$children];
+            $frontier = $children;
+        }
+
+        return array_values($ids);
+    }
+
+    /**
+     * This resource with all ancestors and descendants. Booking any of them
+     * blocks the others (a building contains its rooms).
+     *
+     * @return list<int>
+     */
+    public function relatedIds(): array
+    {
+        $resources = self::query()->get(['id', 'parent_id']);
+        $ids = [$this->id];
+        $parent = $this->parent_id;
+        while ($parent !== null) {
+            $ids[] = (int) $parent;
+            $parent = $resources->firstWhere('id', $parent)?->parent_id;
+        }
+
+        return array_values(array_unique([...$ids, ...$this->descendantIds()]));
+    }
 }

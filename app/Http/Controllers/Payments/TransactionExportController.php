@@ -6,9 +6,9 @@ namespace App\Http\Controllers\Payments;
 
 use App\Configuration\ClubSettings;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Payments\TransactionExportRequest;
 use App\Payments\TransactionReport;
 use App\Security\SafeCsv;
-use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -16,16 +16,9 @@ class TransactionExportController extends Controller
 {
     public function __construct(private readonly ClubSettings $clubSettings) {}
 
-    public function __invoke(Request $request, TransactionReport $report): StreamedResponse|Response
+    public function __invoke(TransactionExportRequest $request, TransactionReport $report): StreamedResponse|Response
     {
-        $filters = $request->validate([
-            'from' => ['required', 'date_format:Y-m-d'],
-            'to' => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
-            'q' => ['nullable', 'string', 'max:100'],
-            'kind' => ['nullable', 'string', 'max:100'],
-            'direction' => ['nullable', 'in:all,charge,credit'],
-            'format' => ['required', 'in:csv,print'],
-        ]);
+        $filters = $request->filters();
         $entries = $report->entries($filters);
 
         if ($filters['format'] === 'print') {
