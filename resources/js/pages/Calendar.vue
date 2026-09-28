@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import {
+    CalendarDays,
     CalendarPlus,
     ChevronLeft,
     ChevronRight,
+    Download,
+    List,
     Plus,
     Settings2,
     Trash2,
@@ -11,6 +14,8 @@ import {
 import { computed, ref } from 'vue';
 import ManageCalendarsDialog from '@/components/calendar/ManageCalendarsDialog.vue';
 import InputError from '@/components/InputError.vue';
+import SearchableDropdown from '@/components/SearchableDropdown.vue';
+import StatusAlert from '@/components/StatusAlert.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -68,6 +73,7 @@ const days = computed(() => {
 const visible = ref<Record<number, boolean>>(
     Object.fromEntries(props.calendars.map((calendar) => [calendar.id, true])),
 );
+const viewMode = ref<'month' | 'list'>('month');
 const eventsOn = (date: string) =>
     props.events.filter((event) => {
         if (!visible.value[event.calendar_id]) return false;
@@ -102,6 +108,64 @@ const selectedEvent = ref<CalendarEvent | null>(null);
 const writableCalendars = computed(() =>
     props.calendars.filter((calendar) => calendar.type !== 'birthdays'),
 );
+const writableCalendarOptions = computed(() =>
+    writableCalendars.value.map((calendar) => ({
+        value: String(calendar.id),
+        label: calendar.name,
+    })),
+);
+const listedEvents = computed(() => {
+    const from = monthDate.value;
+    const until = new Date(from);
+    until.setMonth(until.getMonth() + 1);
+
+    return props.events.filter(
+        (event) =>
+            visible.value[event.calendar_id] &&
+            new Date(event.starts_at) < until &&
+            new Date(event.ends_at) > from,
+    );
+});
+const visibleCalendarIds = computed(() =>
+    props.calendars
+        .filter((calendar) => visible.value[calendar.id])
+        .map((calendar) => calendar.id),
+);
+const reportUrl = computed(() => {
+    const params = new URLSearchParams({ month: props.month });
+    for (const id of visibleCalendarIds.value) {
+        params.append('calendars[]', String(id));
+    }
+
+    return `/kalender/terminliste.pdf?${params.toString()}`;
+});
+const dateFormatter = new Intl.DateTimeFormat('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+});
+function eventPeriod(event: CalendarEvent) {
+    const start = new Date(event.starts_at);
+    const end = new Date(event.ends_at);
+    const displayEnd = new Date(end);
+    if (event.all_day) displayEnd.setDate(displayEnd.getDate() - 1);
+    const startDate = dateFormatter.format(start);
+    const endDate = dateFormatter.format(displayEnd);
+
+    if (event.all_day) {
+        return startDate === endDate
+            ? `${startDate} · ganztägig`
+            : `${startDate}–${endDate} · ganztägig`;
+    }
+    if (startDate === endDate) {
+        return `${startDate} · ${formatTime(event.starts_at)}–${formatTime(event.ends_at)}`;
+    }
+
+    return `${startDate}, ${formatTime(event.starts_at)} – ${endDate}, ${formatTime(event.ends_at)}`;
+}
+function selectEventCalendar(value: string) {
+    eventForm.calendar_id = Number(value);
+}
 const eventForm = useForm({
     calendar_id: writableCalendars.value[0]?.id ?? 0,
     title: '',
@@ -285,9 +349,43 @@ const addCalendar = () => manageDialog.value?.add();
                     <h2 class="text-lg font-semibold capitalize">
                         {{ monthTitle }}
                     </h2>
-                    <div class="w-[7.5rem]"></div>
+                    <div class="flex flex-wrap gap-2">
+                        <Button
+                            size="sm"
+                            :variant="
+                                viewMode === 'month' ? 'default' : 'outline'
+                            "
+                            :aria-pressed="viewMode === 'month'"
+                            @click="viewMode = 'month'"
+                        >
+                            <CalendarDays class="size-4" />Monat
+                        </Button>
+                        <Button
+                            size="sm"
+                            :variant="
+                                viewMode === 'list' ? 'default' : 'outline'
+                            "
+                            :aria-pressed="viewMode === 'list'"
+                            @click="viewMode = 'list'"
+                        >
+                            <List class="size-4" />Liste
+                        </Button>
+                        <Button
+                            v-if="visibleCalendarIds.length"
+                            size="sm"
+                            variant="outline"
+                            as-child
+                        >
+                            <a :href="reportUrl">
+                                <Download class="size-4" />PDF
+                            </a>
+                        </Button>
+                        <Button v-else size="sm" variant="outline" disabled>
+                            <Download class="size-4" />PDF
+                        </Button>
+                    </div>
                 </div>
-                <div class="overflow-x-auto">
+                <div v-if="viewMode === 'month'" class="overflow-x-auto">
                     <div class="min-w-[700px]">
                         <div
                             class="grid grid-cols-7 border-b bg-muted/30 text-center text-xs font-medium text-muted-foreground"
@@ -363,12 +461,83 @@ const addCalendar = () => manageDialog.value?.add();
                         </div>
                     </div>
                 </div>
+                <div v-else class="p-4">
+                    <StatusAlert
+                        v-if="!listedEvents.length"
+                        type="info"
+                        title="Keine Termine"
+                    >
+                        In den ausgewählten Kalendern gibt es in diesem Monat
+                        keine Termine.
+                    </StatusAlert>
+                    <div v-else class="overflow-x-auto rounded-lg border">
+                        <table class="w-full min-w-[720px] text-sm">
+                            <thead class="bg-muted/60 text-left">
+                                <tr>
+                                    <th class="px-4 py-3 font-medium">
+                                        Zeitraum
+                                    </th>
+                                    <th class="px-4 py-3 font-medium">
+                                        Termin
+                                    </th>
+                                    <th class="px-4 py-3 font-medium">
+                                        Kalender
+                                    </th>
+                                    <th class="px-4 py-3 font-medium">Ort</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y">
+                                <tr
+                                    v-for="event in listedEvents"
+                                    :key="event.id"
+                                    class="align-top"
+                                >
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        {{ eventPeriod(event) }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <button
+                                            v-if="event.editable"
+                                            type="button"
+                                            class="text-left font-medium underline-offset-4 hover:underline"
+                                            @click="openEvent(event)"
+                                        >
+                                            {{ event.title }}
+                                        </button>
+                                        <p v-else class="font-medium">
+                                            {{ event.title }}
+                                        </p>
+                                        <p
+                                            v-if="event.description"
+                                            class="mt-1 text-xs text-muted-foreground"
+                                        >
+                                            {{ event.description }}
+                                        </p>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span
+                                            class="mr-2 inline-block size-2.5 rounded-full"
+                                            :style="{
+                                                backgroundColor: event.color,
+                                            }"
+                                            aria-hidden="true"
+                                        ></span>
+                                        {{ event.calendar_name }}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        {{ event.location || '–' }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </section>
         </div>
     </div>
 
     <Dialog v-model:open="eventOpen">
-        <DialogContent class="sm:max-w-xl">
+        <DialogContent class="sm:max-w-2xl">
             <DialogHeader
                 ><DialogTitle>{{
                     selectedEvent ? 'Termin bearbeiten' : 'Termin anlegen'
@@ -378,8 +547,8 @@ const addCalendar = () => manageDialog.value?.add();
                     Termin.</DialogDescription
                 ></DialogHeader
             >
-            <form class="grid gap-4 sm:grid-cols-2" @submit.prevent="saveEvent">
-                <div class="space-y-2 sm:col-span-2">
+            <form class="grid gap-5 sm:grid-cols-2" @submit.prevent="saveEvent">
+                <div class="min-w-0 space-y-2 sm:col-span-2">
                     <Label for="event-title">Titel</Label
                     ><Input
                         id="event-title"
@@ -388,23 +557,21 @@ const addCalendar = () => manageDialog.value?.add();
                         autofocus
                     /><InputError :message="eventForm.errors.title" />
                 </div>
-                <div class="space-y-2">
+                <div class="min-w-0 space-y-2">
                     <Label for="event-calendar">Kalender</Label
-                    ><select
+                    ><SearchableDropdown
                         id="event-calendar"
-                        v-model="eventForm.calendar_id"
-                        class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                    >
-                        <option
-                            v-for="calendar in writableCalendars"
-                            :key="calendar.id"
-                            :value="calendar.id"
-                        >
-                            {{ calendar.name }}
-                        </option></select
-                    ><InputError :message="eventForm.errors.calendar_id" />
+                        :model-value="String(eventForm.calendar_id)"
+                        :options="writableCalendarOptions"
+                        aria-label="Kalender auswählen"
+                        search-placeholder="Kalender suchen"
+                        empty-text="Kein Kalender gefunden"
+                        trigger-class="h-9 w-full rounded-md border border-input bg-background px-3 shadow-xs"
+                        @update:model-value="selectEventCalendar"
+                    />
+                    <InputError :message="eventForm.errors.calendar_id" />
                 </div>
-                <div class="space-y-2">
+                <div class="min-w-0 space-y-2">
                     <Label for="event-location">Ort</Label
                     ><Input id="event-location" v-model="eventForm.location" />
                 </div>
@@ -412,13 +579,14 @@ const addCalendar = () => manageDialog.value?.add();
                     ><Checkbox v-model="eventForm.all_day" />
                     <span class="text-sm">Ganztägig</span></label
                 >
-                <div class="space-y-2">
+                <div class="min-w-0 space-y-2 sm:col-span-2">
                     <Label for="event-start">Beginn</Label
                     ><Input
                         v-if="eventForm.all_day"
                         id="event-start"
                         :model-value="eventForm.starts_at.slice(0, 10)"
                         type="date"
+                        class="date-safe"
                         required
                         @update:model-value="
                             eventForm.starts_at = `${String($event)}T00:00`
@@ -428,16 +596,18 @@ const addCalendar = () => manageDialog.value?.add();
                         id="event-start"
                         v-model="eventForm.starts_at"
                         type="datetime-local"
+                        class="date-safe"
                         required
                     /><InputError :message="eventForm.errors.starts_at" />
                 </div>
-                <div class="space-y-2">
+                <div class="min-w-0 space-y-2 sm:col-span-2">
                     <Label for="event-end">Ende</Label
                     ><Input
                         v-if="eventForm.all_day"
                         id="event-end"
                         :model-value="eventForm.ends_at.slice(0, 10)"
                         type="date"
+                        class="date-safe"
                         required
                         @update:model-value="
                             eventForm.ends_at = `${String($event)}T00:00`
@@ -447,10 +617,11 @@ const addCalendar = () => manageDialog.value?.add();
                         id="event-end"
                         v-model="eventForm.ends_at"
                         type="datetime-local"
+                        class="date-safe"
                         required
                     /><InputError :message="eventForm.errors.ends_at" />
                 </div>
-                <div class="space-y-2 sm:col-span-2">
+                <div class="min-w-0 space-y-2 sm:col-span-2">
                     <Label for="event-description">Beschreibung</Label
                     ><Textarea
                         id="event-description"

@@ -21,6 +21,10 @@ final class CalendarAccess
 
     private function matches(Member $member, string $field, string $expected): bool
     {
+        if ($field === '*' && $expected === '*') {
+            return true;
+        }
+
         $value = str_starts_with($field, 'custom_')
             ? ($member->custom_values[$field] ?? null)
             : $member->getAttribute($field);
