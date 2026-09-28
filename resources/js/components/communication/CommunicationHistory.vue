@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { formatDateTime, formatNumber } from '@/lib/format';
-import type { Campaign, Delivery } from '@/types/communication';
 import { Link } from '@inertiajs/vue3';
 import { Archive, Mail } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +9,8 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { formatDateTime, formatNumber } from '@/lib/format';
+import type { Campaign, Delivery } from '@/types/communication';
 
 defineProps<{
     campaigns: Campaign[];

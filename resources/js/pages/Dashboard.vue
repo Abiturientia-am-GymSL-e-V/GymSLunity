@@ -17,9 +17,9 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { formatMoney } from '@/lib/format';
 import { dashboard, donations, payments } from '@/routes';
 import { index as members, show as member } from '@/routes/members';
-import { formatMoney } from '@/lib/format';
 
 type MembershipCount = { label: string; count: number };
 type MemberOverview = {

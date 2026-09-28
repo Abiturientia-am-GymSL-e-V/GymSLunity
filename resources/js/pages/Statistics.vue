@@ -2,12 +2,9 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     ChartBar,
-    CircleAlert,
-    CircleCheck,
     Download,
     FileDown,
     HandCoins,
-    HeartHandshake,
     ListChecks,
     TrendingDown,
     TrendingUp,
@@ -17,9 +14,9 @@ import {
 } from '@lucide/vue';
 import { computed, reactive } from 'vue';
 import BarBreakdown from '@/components/statistics/BarBreakdown.vue';
+import DataQualityReport from '@/components/statistics/DataQualityReport.vue';
+import FinanceReport from '@/components/statistics/FinanceReport.vue';
 import MemberTrendChart from '@/components/statistics/MemberTrendChart.vue';
-import MoneyComparisonChart from '@/components/statistics/MoneyComparisonChart.vue';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -30,7 +27,8 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatDate, formatMoney } from '@/lib/format';
+import { formatDate } from '@/lib/format';
+import type { DataQuality, FinanceStatistics } from '@/types/statistics';
 
 type Tab = 'overview' | 'members' | 'finances' | 'quality';
 type Breakdown = { label: string; count: number };
@@ -70,39 +68,8 @@ const props = defineProps<{
         cities: Breakdown[];
     };
     stockReport: StockRow[];
-    finances: {
-        contributions: {
-            count: number;
-            assessed_cents: number;
-            paid_cents: number;
-            open_cents: number;
-            overdue_count: number;
-            overdue_cents: number;
-            collection_rate: number;
-        };
-        donations: {
-            count: number;
-            amount_cents: number;
-            average_cents: number;
-            by_type: { label: string; count: number; amount_cents: number }[];
-        };
-        monthly: {
-            key: string;
-            label: string;
-            contributions_cents: number;
-            donations_cents: number;
-        }[];
-    };
-    dataQuality: {
-        score: number;
-        checks: {
-            key: string;
-            label: string;
-            description: string;
-            count: number;
-            percentage: number;
-        }[];
-    };
+    finances: FinanceStatistics;
+    dataQuality: DataQuality;
 }>();
 
 defineOptions({
@@ -497,271 +464,11 @@ const periodLabel = computed(
         </template>
 
         <template v-else-if="activeTab === 'finances'">
-            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <Card class="gap-2 py-5"
-                    ><CardHeader class="px-5 pb-0"
-                        ><CardDescription>Sollstellungen</CardDescription
-                        ><CardTitle class="text-2xl tabular-nums">{{
-                            formatMoney(finances.contributions.assessed_cents)
-                        }}</CardTitle></CardHeader
-                    ><CardContent class="px-5 text-xs text-muted-foreground"
-                        >{{
-                            number(finances.contributions.count)
-                        }}
-                        Forderungen</CardContent
-                    ></Card
-                >
-                <Card class="gap-2 py-5"
-                    ><CardHeader class="px-5 pb-0"
-                        ><CardDescription>Bezahlt</CardDescription
-                        ><CardTitle class="text-2xl tabular-nums">{{
-                            formatMoney(finances.contributions.paid_cents)
-                        }}</CardTitle></CardHeader
-                    ><CardContent class="px-5 text-xs text-muted-foreground"
-                        >Zahlungsquote
-                        {{ finances.contributions.collection_rate }}
-                        %</CardContent
-                    ></Card
-                >
-                <Card class="gap-2 py-5"
-                    ><CardHeader class="px-5 pb-0"
-                        ><CardDescription>Offene Beiträge</CardDescription
-                        ><CardTitle class="text-2xl tabular-nums">{{
-                            formatMoney(finances.contributions.open_cents)
-                        }}</CardTitle></CardHeader
-                    ><CardContent class="px-5 text-xs text-muted-foreground"
-                        >Davon
-                        {{ formatMoney(finances.contributions.overdue_cents) }}
-                        überfällig</CardContent
-                    ></Card
-                >
-                <Card class="gap-2 py-5"
-                    ><CardHeader class="px-5 pb-0"
-                        ><CardDescription>Spenden</CardDescription
-                        ><CardTitle class="text-2xl tabular-nums">{{
-                            formatMoney(finances.donations.amount_cents)
-                        }}</CardTitle></CardHeader
-                    ><CardContent class="px-5 text-xs text-muted-foreground"
-                        >{{ number(finances.donations.count) }} Spenden · Ø
-                        {{
-                            formatMoney(finances.donations.average_cents)
-                        }}</CardContent
-                    ></Card
-                >
-            </div>
-            <Card class="gap-0 py-0"
-                ><CardHeader class="border-b py-5"
-                    ><CardTitle class="text-base"
-                        >Beiträge und Spenden im Zeitverlauf</CardTitle
-                    ><CardDescription
-                        >Monatliche Sollstellung und Spendeneingänge ·
-                        {{ periodLabel }}</CardDescription
-                    ></CardHeader
-                ><CardContent class="py-5"
-                    ><MoneyComparisonChart
-                        :points="finances.monthly" /></CardContent
-            ></Card>
-            <div class="grid gap-4 lg:grid-cols-2">
-                <Card class="gap-0 py-0"
-                    ><CardHeader class="border-b py-5"
-                        ><CardTitle class="text-base">Beitragsstatus</CardTitle
-                        ><CardDescription
-                            >Alle Forderungen im
-                            Auswertungszeitraum</CardDescription
-                        ></CardHeader
-                    ><CardContent class="space-y-5 py-5"
-                        ><div>
-                            <div class="mb-2 flex justify-between text-sm">
-                                <span>Bezahlt</span
-                                ><strong
-                                    >{{
-                                        finances.contributions.collection_rate
-                                    }}
-                                    %</strong
-                                >
-                            </div>
-                            <div
-                                class="h-3 overflow-hidden rounded-full bg-muted"
-                            >
-                                <div
-                                    class="h-full rounded-full bg-emerald-500"
-                                    :style="{
-                                        width: `${Math.min(100, finances.contributions.collection_rate)}%`,
-                                    }"
-                                />
-                            </div>
-                        </div>
-                        <div
-                            class="flex items-center justify-between rounded-lg border p-4"
-                        >
-                            <div class="flex items-center gap-3">
-                                <CircleAlert class="size-5 text-amber-600" />
-                                <div>
-                                    <p class="font-medium">
-                                        Überfällige Forderungen
-                                    </p>
-                                    <p class="text-xs text-muted-foreground">
-                                        Aktuell offen und bereits fällig
-                                    </p>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <strong class="tabular-nums">{{
-                                    formatMoney(
-                                        finances.contributions.overdue_cents,
-                                    )
-                                }}</strong>
-                                <p class="text-xs text-muted-foreground">
-                                    {{
-                                        number(
-                                            finances.contributions
-                                                .overdue_count,
-                                        )
-                                    }}
-                                    Vorgänge
-                                </p>
-                            </div>
-                        </div></CardContent
-                    ></Card
-                >
-                <Card class="gap-0 py-0"
-                    ><CardHeader class="border-b py-5"
-                        ><CardTitle class="text-base">Spendenarten</CardTitle
-                        ><CardDescription
-                            >Volumen und Anzahl im Zeitraum</CardDescription
-                        ></CardHeader
-                    ><CardContent class="divide-y py-1"
-                        ><div
-                            v-for="item in finances.donations.by_type"
-                            :key="item.label"
-                            class="flex items-center justify-between gap-4 py-4"
-                        >
-                            <div class="flex items-center gap-3">
-                                <HeartHandshake
-                                    class="size-5 text-muted-foreground"
-                                />
-                                <div>
-                                    <p class="font-medium">{{ item.label }}</p>
-                                    <p class="text-xs text-muted-foreground">
-                                        {{ number(item.count) }} Buchungen
-                                    </p>
-                                </div>
-                            </div>
-                            <strong class="tabular-nums">{{
-                                formatMoney(item.amount_cents)
-                            }}</strong>
-                        </div>
-                        <p
-                            v-if="finances.donations.by_type.length === 0"
-                            class="py-6 text-sm text-muted-foreground"
-                        >
-                            Keine Spenden im gewählten Zeitraum.
-                        </p></CardContent
-                    ></Card
-                >
-            </div>
+            <FinanceReport :finances="finances" :period-label="periodLabel" />
         </template>
 
         <template v-else>
-            <Card class="gap-0 overflow-hidden py-0"
-                ><CardContent
-                    class="grid gap-6 p-5 sm:grid-cols-[auto_1fr] sm:items-center"
-                    ><div
-                        class="relative grid size-32 place-items-center rounded-full"
-                        :style="{
-                            background: `conic-gradient(var(--primary) ${dataQuality.score}%, var(--muted) 0)`,
-                        }"
-                    >
-                        <div
-                            class="grid size-24 place-items-center rounded-full bg-card text-center"
-                        >
-                            <div>
-                                <strong class="text-3xl tabular-nums"
-                                    >{{ dataQuality.score }} %</strong
-                                >
-                                <p class="text-xs text-muted-foreground">
-                                    Vollständig
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    <div>
-                        <h2 class="text-lg font-semibold">
-                            Datenbestand zum Stichtag
-                        </h2>
-                        <p class="mt-1 max-w-2xl text-sm text-muted-foreground">
-                            Der Wert berücksichtigt E-Mail-Adresse,
-                            Geburtsdatum, Geschlecht, Anschrift und Zahlungsart
-                            aller aktiven Mitglieder. Das SEPA-Mandat wird
-                            zusätzlich geprüft, sofern Lastschrift gewählt
-                            wurde.
-                        </p>
-                    </div></CardContent
-                ></Card
-            >
-            <div class="grid gap-4 lg:grid-cols-2">
-                <Card
-                    v-for="check in dataQuality.checks"
-                    :key="check.key"
-                    class="gap-0 py-0"
-                    ><CardContent class="flex items-start gap-4 p-5"
-                        ><div
-                            class="rounded-lg p-2"
-                            :class="
-                                check.count
-                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                                    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                            "
-                        >
-                            <CircleAlert
-                                v-if="check.count"
-                                class="size-5"
-                            /><CircleCheck v-else class="size-5" />
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <div class="flex items-start justify-between gap-3">
-                                <div>
-                                    <h2 class="font-semibold">
-                                        {{ check.label }}
-                                    </h2>
-                                    <p
-                                        class="mt-1 text-sm text-muted-foreground"
-                                    >
-                                        {{ check.description }}
-                                    </p>
-                                </div>
-                                <Badge
-                                    :variant="
-                                        check.count ? 'secondary' : 'outline'
-                                    "
-                                    class="shrink-0 tabular-nums"
-                                    >{{ number(check.count) }}</Badge
-                                >
-                            </div>
-                            <div
-                                class="mt-4 h-2 overflow-hidden rounded-full bg-muted"
-                            >
-                                <div
-                                    class="h-full rounded-full"
-                                    :class="
-                                        check.count
-                                            ? 'bg-amber-500'
-                                            : 'bg-emerald-500'
-                                    "
-                                    :style="{
-                                        width: `${check.count ? Math.max(2, check.percentage) : 100}%`,
-                                    }"
-                                />
-                            </div>
-                            <p
-                                class="mt-1.5 text-right text-xs text-muted-foreground"
-                            >
-                                {{ check.percentage }} % betroffen
-                            </p>
-                        </div></CardContent
-                    ></Card
-                >
-            </div>
+            <DataQualityReport :data-quality="dataQuality" />
         </template>
     </div>
 </template>

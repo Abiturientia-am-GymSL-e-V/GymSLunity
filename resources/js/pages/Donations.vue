@@ -2,6 +2,9 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { Ban, BookOpen, FileClock, FilePlus2, Settings2 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import DonationCreateForm from '@/components/donations/DonationCreateForm.vue';
+import DonationLedger from '@/components/donations/DonationLedger.vue';
+import OpenCertificates from '@/components/donations/OpenCertificates.vue';
 import InputError from '@/components/InputError.vue';
 import SignaturePad from '@/components/SignaturePad.vue';
 import StatusAlert from '@/components/StatusAlert.vue';
@@ -18,9 +21,6 @@ import {
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
-import DonationCreateForm from '@/components/donations/DonationCreateForm.vue';
-import DonationLedger from '@/components/donations/DonationLedger.vue';
-import OpenCertificates from '@/components/donations/OpenCertificates.vue';
 import { formatMoney } from '@/lib/format';
 import type {
     Certificate,

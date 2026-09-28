@@ -1,16 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import {
-    ArrowLeft,
-    Check,
-    Download,
-    FileText,
-    Printer,
-    Pencil,
-    Save,
-    Upload,
-    X,
-} from '@lucide/vue';
+import { ArrowLeft, Check, Printer, Pencil, Save, X } from '@lucide/vue';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import MemberHistoryPanel from '@/components/members/MemberHistory.vue';
@@ -28,7 +18,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 
 import { Spinner } from '@/components/ui/spinner';
 import { address } from '@/lib/formOfAddress';
@@ -44,6 +33,8 @@ import type {
     MemberSection,
     MemberValue,
 } from '@/types/members';
+import MandateHistory from '@/components/members/MandateHistory.vue';
+import MemberDocuments from '@/components/members/MemberDocuments.vue';
 
 const props = defineProps<{
     member: MemberDetail;
@@ -103,9 +94,6 @@ let removeNavigationListener: (() => void) | undefined;
 let lastUrl = '';
 let lastState: unknown;
 type DocumentKind = 'application' | 'sepa';
-const documentKinds: Array<{ kind: DocumentKind; label: string }> = [
-    { kind: 'application', label: 'Mitgliedsantrag' },
-];
 const documentUploads = {
     application: useForm<{ document: File | null }>({ document: null }),
     sepa: useForm<{ document: File | null }>({ document: null }),
@@ -266,14 +254,6 @@ onBeforeUnmount(() => {
     removeNavigationListener?.();
     window.removeEventListener('beforeunload', beforeUnload);
 });
-function documentFor(kind: DocumentKind) {
-    return props.documents.find((document) => document.kind === kind);
-}
-function dateOnly(value: string | null) {
-    return value
-        ? value.slice(0, 10).split('-').reverse().join('.')
-        : 'Nicht hinterlegt';
-}
 function chooseDocument(kind: DocumentKind, event: Event) {
     documentUploads[kind].document =
         (event.target as HTMLInputElement).files?.[0] ?? null;
@@ -506,247 +486,20 @@ const adult = computed(() => {
                     </div>
                 </section>
 
-                <section
-                    class="rounded-xl border bg-card"
-                    aria-labelledby="documents-title"
-                >
-                    <h2
-                        id="documents-title"
-                        class="border-b px-5 py-4 text-sm font-semibold"
-                    >
-                        Dokumente
-                    </h2>
-                    <div class="divide-y px-5">
-                        <div
-                            v-for="document in documentKinds"
-                            :key="document.kind"
-                            class="flex flex-wrap items-center justify-between gap-3 py-4"
-                        >
-                            <div class="flex items-center gap-3">
-                                <FileText
-                                    class="size-5 text-muted-foreground"
-                                    aria-hidden="true"
-                                />
-                                <div>
-                                    <p class="text-sm font-medium">
-                                        {{ document.label }}
-                                    </p>
-                                    <p
-                                        class="mt-1 text-xs text-muted-foreground"
-                                    >
-                                        {{
-                                            documentFor(document.kind)
-                                                ? documentFor(document.kind)
-                                                      ?.submitted_online
-                                                    ? 'Online eingereicht'
-                                                    : 'Hinterlegt'
-                                                : 'Kein Dokument hinterlegt'
-                                        }}
-                                    </p>
-                                </div>
-                            </div>
-                            <Button
-                                v-if="documentFor(document.kind)"
-                                as-child
-                                variant="outline"
-                                size="sm"
-                                ><a
-                                    :href="documentFor(document.kind)?.url"
-                                    target="_blank"
-                                    rel="noopener"
-                                    ><Download class="size-4" />PDF
-                                    herunterladen</a
-                                ></Button
-                            >
-                            <div
-                                v-if="editing"
-                                class="basis-full space-y-2 rounded-lg border bg-muted/30 p-3"
-                            >
-                                <Label
-                                    :for="`document-${document.kind}`"
-                                    class="text-xs"
-                                    >{{
-                                        documentFor(document.kind)
-                                            ? `${document.label} ersetzen`
-                                            : `${document.label} hochladen`
-                                    }}</Label
-                                >
-                                <div class="flex flex-col gap-2 sm:flex-row">
-                                    <Input
-                                        :id="`document-${document.kind}`"
-                                        type="file"
-                                        accept="application/pdf,.pdf"
-                                        :disabled="
-                                            documentUploads[document.kind]
-                                                .processing
-                                        "
-                                        :aria-invalid="
-                                            !!documentUploads[document.kind]
-                                                .errors.document
-                                        "
-                                        :aria-describedby="`error-document-${document.kind}`"
-                                        @change="
-                                            chooseDocument(
-                                                document.kind,
-                                                $event,
-                                            )
-                                        "
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="secondary"
-                                        :disabled="
-                                            !documentUploads[document.kind]
-                                                .document ||
-                                            documentUploads[document.kind]
-                                                .processing
-                                        "
-                                        @click="uploadDocument(document.kind)"
-                                        ><Spinner
-                                            v-if="
-                                                documentUploads[document.kind]
-                                                    .processing
-                                            "
-                                        /><Upload v-else class="size-4" />{{
-                                            documentFor(document.kind)
-                                                ? 'Ersetzen'
-                                                : 'Hochladen'
-                                        }}</Button
-                                    >
-                                </div>
-                                <p class="text-xs text-muted-foreground">
-                                    PDF, maximal 10 MB
-                                </p>
-                                <InputError
-                                    :id="`error-document-${document.kind}`"
-                                    :message="
-                                        documentUploads[document.kind].errors
-                                            .document
-                                    "
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </section>
-                <section
-                    class="rounded-xl border bg-card"
-                    aria-labelledby="mandates-title"
-                >
-                    <div class="border-b px-5 py-4">
-                        <h2 id="mandates-title" class="text-sm font-semibold">
-                            SEPA-Mandatshistorie
-                        </h2>
-                        <p class="mt-1 text-xs text-muted-foreground">
-                            Aktuelle und widerrufene Mandate bleiben vollständig
-                            nachvollziehbar.
-                        </p>
-                    </div>
-                    <div v-if="mandates.length" class="divide-y px-5">
-                        <div
-                            v-for="mandate in mandates"
-                            :key="mandate.id"
-                            class="flex flex-wrap items-start justify-between gap-4 py-4"
-                        >
-                            <div class="min-w-0 space-y-1">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <p class="text-sm font-medium">
-                                        {{
-                                            mandate.mandate_reference ||
-                                            `Mandat #${mandate.id}`
-                                        }}
-                                    </p>
-                                    <Badge
-                                        :variant="
-                                            mandate.active
-                                                ? 'default'
-                                                : 'secondary'
-                                        "
-                                    >
-                                        {{
-                                            mandate.active
-                                                ? 'Aktiv'
-                                                : 'Widerrufen / archiviert'
-                                        }}
-                                    </Badge>
-                                </div>
-                                <p class="text-xs text-muted-foreground">
-                                    Unterzeichnet:
-                                    {{ dateOnly(mandate.mandate_signed_at) }} ·
-                                    {{
-                                        mandate.submitted_online
-                                            ? 'Online eingereicht'
-                                            : 'Manuell hinterlegt'
-                                    }}
-                                </p>
-                                <p
-                                    v-if="mandate.revoked_at"
-                                    class="text-xs text-muted-foreground"
-                                >
-                                    Widerrufen:
-                                    {{ memberTimestamp(mandate.revoked_at) }}
-                                    <template v-if="mandate.revocation_reason">
-                                        · {{ mandate.revocation_reason }}
-                                    </template>
-                                </p>
-                            </div>
-                            <Button as-child variant="outline" size="sm">
-                                <a
-                                    :href="mandate.url"
-                                    target="_blank"
-                                    rel="noopener"
-                                    ><Download class="size-4" />PDF
-                                    herunterladen</a
-                                >
-                            </Button>
-                        </div>
-                    </div>
-                    <p v-else class="px-5 py-4 text-sm text-muted-foreground">
-                        Noch kein SEPA-Mandat hinterlegt.
-                    </p>
-                    <div
-                        v-if="editing"
-                        class="m-5 space-y-2 rounded-lg border bg-muted/30 p-3"
-                    >
-                        <Label for="document-sepa" class="text-xs">
-                            Neues SEPA-Mandat zur Historie hinzufügen
-                        </Label>
-                        <div class="flex flex-col gap-2 sm:flex-row">
-                            <Input
-                                id="document-sepa"
-                                type="file"
-                                accept="application/pdf,.pdf"
-                                :disabled="documentUploads.sepa.processing"
-                                :aria-invalid="
-                                    !!documentUploads.sepa.errors.document
-                                "
-                                aria-describedby="error-document-sepa"
-                                @change="chooseDocument('sepa', $event)"
-                            />
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                :disabled="
-                                    !documentUploads.sepa.document ||
-                                    documentUploads.sepa.processing
-                                "
-                                @click="uploadDocument('sepa')"
-                            >
-                                <Spinner
-                                    v-if="documentUploads.sepa.processing"
-                                />
-                                <Upload v-else class="size-4" />Hochladen
-                            </Button>
-                        </div>
-                        <p class="text-xs text-muted-foreground">
-                            PDF, maximal 10 MB. Ein bisher aktives Dokument wird
-                            archiviert.
-                        </p>
-                        <InputError
-                            id="error-document-sepa"
-                            :message="documentUploads.sepa.errors.document"
-                        />
-                    </div>
-                </section>
+                <MemberDocuments
+                    :documents="documents"
+                    :editing="editing"
+                    :uploads="documentUploads"
+                    @choose="chooseDocument"
+                    @upload="uploadDocument"
+                />
+                <MandateHistory
+                    :mandates="mandates"
+                    :editing="editing"
+                    :upload="documentUploads.sepa"
+                    @choose="chooseDocument('sepa', $event)"
+                    @upload="uploadDocument('sepa')"
+                />
                 <p class="text-xs leading-relaxed text-muted-foreground">
                     {{
                         `Angelegt am ${memberTimestamp(member.created_at)} · Zuletzt geändert am ${memberTimestamp(member.updated_at)} · Version ${member.lock_version}`

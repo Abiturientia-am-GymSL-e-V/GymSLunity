@@ -1,9 +1,4 @@
 <script setup lang="ts">
-import { formatNumber } from '@/lib/format';
-import type {
-    RecipientPreviewRow,
-    RecipientSummary,
-} from '@/types/communication';
 import { AtSign, MapPin, UsersRound } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -13,6 +8,11 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { formatNumber } from '@/lib/format';
+import type {
+    RecipientPreviewRow,
+    RecipientSummary,
+} from '@/types/communication';
 
 defineProps<{
     summary: RecipientSummary;

@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import type { MemberField } from '@/types/members';
-import type {
-    RecipientFilterOptions,
-    RecipientFilters,
-} from '@/types/communication';
 import { RotateCcw, Search } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import type {
+    RecipientFilterOptions,
+    RecipientFilters,
+} from '@/types/communication';
+import type { MemberField } from '@/types/members';
 
 /**
  * The filter form edits the page's reactive draft in place; the page

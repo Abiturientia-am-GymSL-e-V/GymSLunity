@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { useForm, usePage } from '@inertiajs/vue3';
-import { donationTypeOptions } from '@/lib/donations';
-import type { DonationConfiguration, DonationType } from '@/types/donations';
 import { FilePlus2 } from '@lucide/vue';
 import CountryInput from '@/components/CountryInput.vue';
 import InputError from '@/components/InputError.vue';
@@ -11,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import { donationTypeOptions } from '@/lib/donations';
+import type { DonationConfiguration, DonationType } from '@/types/donations';
 
 const props = defineProps<{
     purposes: Array<{ value: string; label: string }>;

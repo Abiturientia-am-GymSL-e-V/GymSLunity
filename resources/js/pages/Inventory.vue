@@ -3,6 +3,8 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 import { PackagePlus, PackageSearch } from '@lucide/vue';
 import { ref } from 'vue';
 import InputError from '@/components/InputError.vue';
+import InventoryCreateForm from '@/components/inventory/InventoryCreateForm.vue';
+import InventoryOverview from '@/components/inventory/InventoryOverview.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -16,8 +18,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { formatDate, formatMoney } from '@/lib/format';
-import InventoryCreateForm from '@/components/inventory/InventoryCreateForm.vue';
-import InventoryOverview from '@/components/inventory/InventoryOverview.vue';
 import type {
     InventoryItem,
     InventoryOptions,

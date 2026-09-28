@@ -4,10 +4,10 @@ import { Download, Printer } from '@lucide/vue';
 import StatusAlert from '@/components/StatusAlert.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { saveBlob, xsrfToken } from '@/lib/download';
 import { address } from '@/lib/formOfAddress';
 import type { MemberColumn } from './columns';
 import type { MemberField, MemberFilters } from '@/types/members';
-import { saveBlob, xsrfToken } from '@/lib/download';
 
 const props = defineProps<{
     filters: MemberFilters;

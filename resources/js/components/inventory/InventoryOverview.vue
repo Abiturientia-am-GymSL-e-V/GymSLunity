@@ -1,17 +1,17 @@
 <script setup lang="ts">
+import { Link } from '@inertiajs/vue3';
+import { ArchiveX, Eye, PackagePlus, Search } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { formatDate, formatMoney } from '@/lib/format';
 import type {
     InventoryItem,
     InventoryOptions,
     InventoryStatus,
     InventorySummary,
 } from '@/types/inventory';
-import { Link } from '@inertiajs/vue3';
-import { ArchiveX, Eye, PackagePlus, Search } from '@lucide/vue';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { formatDate, formatMoney } from '@/lib/format';
 
 const props = defineProps<{
     items: InventoryItem[];

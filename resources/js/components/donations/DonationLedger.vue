@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { donationTypeLabels, donationTypeOptions } from '@/lib/donations';
-import type {
-    Certificate,
-    Donation,
-    DonationConfiguration,
-} from '@/types/donations';
 import { Ban, Download, Mail, PenLine, RotateCcw } from '@lucide/vue';
+import { computed, ref } from 'vue';
 import SearchableDropdown from '@/components/SearchableDropdown.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { donationTypeLabels, donationTypeOptions } from '@/lib/donations';
 import { formatDate, formatMoney } from '@/lib/format';
+import type {
+    Certificate,
+    Donation,
+    DonationConfiguration,
+} from '@/types/donations';
 
 const props = defineProps<{
     donations: Donation[];

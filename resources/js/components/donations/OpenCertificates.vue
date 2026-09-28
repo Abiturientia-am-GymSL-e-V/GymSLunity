@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { donationTypeLabels } from '@/lib/donations';
-import type { Donation, DonationConfiguration } from '@/types/donations';
 import { PenLine } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { donationTypeLabels } from '@/lib/donations';
 import { formatDate, formatMoney } from '@/lib/format';
+import type { Donation, DonationConfiguration } from '@/types/donations';
 
 defineProps<{
     donations: Donation[];

@@ -11,8 +11,11 @@ import {
     X,
 } from '@lucide/vue';
 import { computed, reactive, ref, watch } from 'vue';
-import InputError from '@/components/InputError.vue';
+import CommunicationHistory from '@/components/communication/CommunicationHistory.vue';
+import RecipientFilter from '@/components/communication/RecipientFilter.vue';
+import RecipientPreview from '@/components/communication/RecipientPreview.vue';
 import RichTextEditor from '@/components/communication/RichTextEditor.vue';
+import InputError from '@/components/InputError.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,9 +28,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatNumber } from '@/lib/format';
-import CommunicationHistory from '@/components/communication/CommunicationHistory.vue';
-import RecipientFilter from '@/components/communication/RecipientFilter.vue';
-import RecipientPreview from '@/components/communication/RecipientPreview.vue';
 import type {
     Campaign,
     CommunicationTab,

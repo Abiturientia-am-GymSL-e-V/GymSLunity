@@ -14,6 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatDate, formatMoney } from '@/lib/format';
 import { formatIban } from '@/lib/formatIban';
 import {
     Dialog,
@@ -25,7 +26,6 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import type { MemberSection, MemberValue } from '@/types/members';
-import { formatDate, formatMoney } from '@/lib/format';
 
 type GiroCode = {
     amount: string;
