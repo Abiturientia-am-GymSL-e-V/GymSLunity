@@ -121,6 +121,12 @@ class CalendarController extends Controller
             }
         }
 
+        $result[] = [
+            'key' => '*',
+            'label' => 'Alle Mitglieder',
+            'options' => [['value' => '*', 'label' => 'Alle']],
+        ];
+
         return $result;
     }
 

@@ -11,6 +11,8 @@ use App\Models\Member;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\View;
+use Illuminate\View\View as BladeView;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -59,6 +61,49 @@ class CalendarManagementTest extends TestCase
         $this->assertDatabaseCount('club_calendar_events', 0);
     }
 
+    public function test_filtered_month_can_be_exported_as_pdf(): void
+    {
+        $this->signIn();
+        $general = ClubCalendar::query()->where('type', 'general')->sole();
+        $birthdays = ClubCalendar::query()->where('type', 'birthdays')->sole();
+        ClubCalendarEvent::query()->create([
+            'club_calendar_id' => $general->id,
+            'title' => 'Mitgliederversammlung',
+            'location' => 'Aula',
+            'starts_at' => '2026-09-18 18:00:00',
+            'ends_at' => '2026-09-18 20:00:00',
+            'all_day' => false,
+        ]);
+        Member::factory()->create(['birth_date' => '1990-09-10']);
+
+        $renderedTitles = [];
+        View::composer('calendar.report', function (BladeView $view) use (&$renderedTitles): void {
+            $renderedTitles = $view->getData()['events']->pluck('title')->all();
+        });
+
+        $this->get(route('calendar.report', [
+            'month' => '2026-09',
+            'calendars' => [$general->id],
+        ]))->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('Content-Disposition', 'attachment; filename="terminliste-2026-09.pdf"')
+            ->assertHeader('X-Content-Type-Options', 'nosniff')
+            ->assertSee('%PDF-', false);
+
+        $this->assertSame(['Mitgliederversammlung'], $renderedTitles);
+        $this->assertNotSame($general->id, $birthdays->id);
+    }
+
+    public function test_calendar_report_filters_are_validated(): void
+    {
+        $this->signIn();
+
+        $this->get(route('calendar.report', [
+            'month' => '2026-13',
+            'calendars' => [999999, 999999],
+        ]))->assertSessionHasErrors(['month', 'calendars.0', 'calendars.1']);
+    }
+
     public function test_public_and_member_specific_combined_feeds_are_ical(): void
     {
         $this->signIn();
@@ -95,10 +140,34 @@ class CalendarManagementTest extends TestCase
         $this->assertDatabaseHas('member_calendar_tokens', ['member_id' => $member->id]);
     }
 
+    public function test_calendar_can_be_shared_with_all_members(): void
+    {
+        $this->signIn();
+        $calendar = ClubCalendar::query()->where('type', 'general')->sole();
+
+        $this->put(route('calendar.rules.update', $calendar), [
+            'rules' => [['field_key' => '*', 'value' => '*']],
+        ])->assertSessionHasNoErrors();
+
+        $member = Member::factory()->create();
+        $settings = ClubSetting::current();
+        $settings->update(['data' => [...$settings->data, 'selfservice_enabled' => true]]);
+        $session = ['selfservice' => ['email' => strtolower($member->email), 'member_id' => $member->id, 'until' => time() + 1800]];
+
+        $this->withSession($session)->get('/selfservice')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('calendarSubscription.calendars.0.name', $calendar->name));
+        $this->assertDatabaseHas('club_calendar_rules', [
+            'club_calendar_id' => $calendar->id,
+            'field_key' => '*',
+            'value' => '*',
+        ]);
+    }
+
     public function test_calendar_permission_is_enforced(): void
     {
         $this->signIn('bh');
         $this->get(route('calendar.index'))->assertForbidden();
+        $this->get(route('calendar.report'))->assertForbidden();
         $this->post(route('calendar.store'), ['name' => 'Nicht erlaubt', 'color' => '#000000'])->assertForbidden();
     }
 }

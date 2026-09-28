@@ -6,6 +6,7 @@ use App\Http\Controllers\Bookings\BookingController;
 use App\Http\Controllers\Calendar\CalendarController;
 use App\Http\Controllers\Calendar\CalendarEventController;
 use App\Http\Controllers\Calendar\CalendarFeedController;
+use App\Http\Controllers\Calendar\CalendarReportController;
 use App\Http\Controllers\CommunicationController;
 use App\Http\Controllers\Configuration\BackupController;
 use App\Http\Controllers\Configuration\ClubController;
@@ -198,6 +199,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
     Route::middleware(['module:calendar', 'can:view-calendar'])->prefix('kalender')->name('calendar.')->group(function () {
         Route::get('/', [CalendarController::class, 'index'])->name('index');
+        Route::get('terminliste.pdf', CalendarReportController::class)->middleware(['throttle:sensitive', 'audit:data_export'])->name('report');
         Route::post('/', [CalendarController::class, 'store'])->name('store');
         Route::patch('{calendar}', [CalendarController::class, 'update'])->name('update');
         Route::delete('{calendar}', [CalendarController::class, 'destroy'])->name('destroy');

@@ -3,6 +3,7 @@ import { router, useForm } from '@inertiajs/vue3';
 import { Copy, Link2, Plus, Trash2 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
+import SearchableDropdown from '@/components/SearchableDropdown.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -32,6 +33,16 @@ const managed = computed(
 );
 const calendarForm = useForm({ name: '', color: '#2563eb' });
 const ruleForm = useForm<{ rules: CalendarShareRule[] }>({ rules: [] });
+const creating = ref(false);
+const calendarOptions = computed(() =>
+    props.calendars.map((calendar) => ({
+        value: String(calendar.id),
+        label: calendar.name,
+    })),
+);
+const shareFieldOptions = computed(() =>
+    props.shareFields.map((item) => ({ value: item.key, label: item.label })),
+);
 function loadManaged() {
     if (!managed.value) return;
     calendarForm.defaults({
@@ -62,13 +73,41 @@ function saveCalendar() {
             preserveScroll: true,
         });
 }
+function selectManaged(value: string) {
+    managedId.value = Number(value);
+}
 function addCalendar() {
-    const form = useForm({ name: 'Neuer Kalender', color: '#16a34a' });
+    const usedNames = new Set(props.calendars.map((calendar) => calendar.name));
+    let number = 1;
+    let name = 'Neuer Kalender';
+    while (usedNames.has(name)) {
+        number++;
+        name = `Neuer Kalender ${number}`;
+    }
+    const colors = [
+        '#16a34a',
+        '#7c3aed',
+        '#ea580c',
+        '#0891b2',
+        '#dc2626',
+        '#4f46e5',
+    ];
+    const customCount = props.calendars.filter(
+        (calendar) => calendar.type === 'custom',
+    ).length;
+    const form = useForm({
+        name,
+        color: colors[customCount % colors.length],
+    });
+    creating.value = true;
     form.post('/kalender', {
         preserveScroll: true,
         onSuccess: () => {
-            managedId.value = props.calendars.at(-1)?.id ?? managedId.value;
+            managedId.value = Math.max(
+                ...props.calendars.map((calendar) => calendar.id),
+            );
         },
+        onFinish: () => (creating.value = false),
     });
 }
 function removeCalendar() {
@@ -98,6 +137,19 @@ function field(key: string) {
 }
 function changeRuleField(rule: CalendarShareRule) {
     rule.value = field(rule.field_key)?.options[0]?.value ?? '';
+}
+function selectRuleField(rule: CalendarShareRule, value: string) {
+    rule.field_key = value;
+    changeRuleField(rule);
+}
+function selectRuleValue(rule: CalendarShareRule, value: string) {
+    rule.value = value;
+}
+function ruleValueOptions(rule: CalendarShareRule) {
+    return (field(rule.field_key)?.options ?? []).map((option) => ({
+        value: option.value,
+        label: option.label,
+    }));
 }
 function saveRules() {
     if (managed.value)
@@ -142,46 +194,52 @@ defineExpose({ open, add: addCalendar });
                 ></DialogHeader
             >
             <div class="flex gap-2">
-                <select
-                    v-model="managedId"
-                    class="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
-                >
-                    <option
-                        v-for="calendar in calendars"
-                        :key="calendar.id"
-                        :value="calendar.id"
-                    >
-                        {{ calendar.name }}
-                    </option></select
-                ><Button variant="outline" @click="addCalendar"
+                <SearchableDropdown
+                    id="managed-calendar"
+                    :model-value="String(managedId)"
+                    :options="calendarOptions"
+                    root-class="min-w-0 flex-1"
+                    trigger-class="h-9 w-full rounded-md border border-input bg-background px-3 shadow-xs"
+                    aria-label="Kalender zur Verwaltung auswählen"
+                    search-placeholder="Kalender suchen"
+                    empty-text="Kein Kalender gefunden"
+                    @update:model-value="selectManaged"
+                />
+                <Button
+                    type="button"
+                    variant="outline"
+                    :disabled="creating"
+                    @click="addCalendar"
                     ><Plus class="size-4" />Neu</Button
                 >
             </div>
             <template v-if="managed">
                 <form
-                    class="grid gap-3 rounded-lg border p-4 sm:grid-cols-[1fr_5rem_auto]"
+                    class="grid gap-5 rounded-lg border p-4 sm:grid-cols-[minmax(0,1fr)_5rem_auto]"
                     @submit.prevent="saveCalendar"
                 >
-                    <div class="space-y-2">
-                        <Label>Name</Label
+                    <div class="min-w-0 space-y-2">
+                        <Label for="calendar-name">Name</Label
                         ><Input
+                            id="calendar-name"
                             v-model="calendarForm.name"
                             required
                         /><InputError :message="calendarForm.errors.name" />
                     </div>
-                    <div class="space-y-2">
-                        <Label>Farbe</Label
+                    <div class="min-w-0 space-y-2">
+                        <Label for="calendar-color">Farbe</Label
                         ><Input
+                            id="calendar-color"
                             v-model="calendarForm.color"
                             type="color"
                             class="px-1"
                         />
                     </div>
-                    <div class="flex items-end">
-                        <Button :disabled="calendarForm.processing"
-                            >Speichern</Button
-                        >
-                    </div>
+                    <Button
+                        class="h-9 sm:self-end"
+                        :disabled="calendarForm.processing"
+                        >Speichern</Button
+                    >
                 </form>
                 <section class="space-y-3 rounded-lg border p-4">
                     <div>
@@ -191,9 +249,10 @@ defineExpose({ open, add: addCalendar });
                             abonnieren.
                         </p>
                     </div>
-                    <div v-if="managed.public_url" class="flex gap-2">
+                    <div v-if="managed.public_url" class="flex flex-wrap gap-2">
                         <Input
                             :model-value="managed.public_url"
+                            class="min-w-0 flex-1"
                             readonly
                         /><Button
                             variant="outline"
@@ -230,32 +289,26 @@ defineExpose({ open, add: addCalendar });
                         :key="index"
                         class="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"
                     >
-                        <select
-                            v-model="rule.field_key"
-                            class="h-9 rounded-md border bg-background px-3 text-sm"
-                            @change="changeRuleField(rule)"
-                        >
-                            <option
-                                v-for="item in shareFields"
-                                :key="item.key"
-                                :value="item.key"
-                            >
-                                {{ item.label }}
-                            </option>
-                        </select>
-                        <select
-                            v-model="rule.value"
-                            class="h-9 rounded-md border bg-background px-3 text-sm"
-                        >
-                            <option
-                                v-for="option in field(rule.field_key)
-                                    ?.options ?? []"
-                                :key="option.value"
-                                :value="option.value"
-                            >
-                                {{ option.label }}
-                            </option>
-                        </select>
+                        <SearchableDropdown
+                            :id="`calendar-rule-field-${index}`"
+                            :model-value="rule.field_key"
+                            :options="shareFieldOptions"
+                            trigger-class="h-9 w-full rounded-md border border-input bg-background px-3 shadow-xs"
+                            aria-label="Mitgliedseigenschaft auswählen"
+                            search-placeholder="Eigenschaft suchen"
+                            empty-text="Keine Eigenschaft gefunden"
+                            @update:model-value="selectRuleField(rule, $event)"
+                        />
+                        <SearchableDropdown
+                            :id="`calendar-rule-value-${index}`"
+                            :model-value="rule.value"
+                            :options="ruleValueOptions(rule)"
+                            trigger-class="h-9 w-full rounded-md border border-input bg-background px-3 shadow-xs"
+                            aria-label="Feldwert auswählen"
+                            search-placeholder="Feldwert suchen"
+                            empty-text="Kein Feldwert gefunden"
+                            @update:model-value="selectRuleValue(rule, $event)"
+                        />
                         <Button
                             type="button"
                             variant="ghost"
