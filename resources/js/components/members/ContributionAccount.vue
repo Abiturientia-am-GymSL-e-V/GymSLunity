@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { HandCoins } from '@lucide/vue';
+import { formatDate, formatMoney } from '@/lib/format';
 
 type Entry = {
     id: number;
@@ -11,13 +12,6 @@ type Entry = {
     actor_name: string;
 };
 defineProps<{ account: { balance_cents: number; transactions: Entry[] } }>();
-const money = (cents: number) =>
-    new Intl.NumberFormat('de-DE', {
-        style: 'currency',
-        currency: 'EUR',
-    }).format(cents / 100);
-const date = (value: string) =>
-    new Intl.DateTimeFormat('de-DE').format(new Date(`${value}T00:00:00`));
 </script>
 
 <template>
@@ -45,7 +39,7 @@ const date = (value: string) =>
                           : ''
                 "
             >
-                {{ money(account.balance_cents) }}
+                {{ formatMoney(account.balance_cents) }}
             </p>
             <p class="mt-1 text-xs text-muted-foreground">
                 Positive Beträge sind noch offen.
@@ -72,11 +66,11 @@ const date = (value: string) =>
                                 ? 'text-emerald-700 dark:text-emerald-300'
                                 : ''
                         "
-                        >{{ money(entry.amount_cents) }}</span
+                        >{{ formatMoney(entry.amount_cents) }}</span
                     >
                 </div>
                 <p class="mt-1 text-xs text-muted-foreground">
-                    {{ date(entry.booking_date) }} · {{ entry.actor_name
+                    {{ formatDate(entry.booking_date) }} · {{ entry.actor_name
                     }}<template v-if="entry.reference">
                         · {{ entry.reference }}</template
                     >

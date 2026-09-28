@@ -17,6 +17,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { formatDate, formatMoney } from '@/lib/format';
 
 type Status = 'active' | 'sold' | 'lost' | 'disposed';
 type DepreciationMethod = 'linear' | 'immediate' | 'none';
@@ -74,17 +75,6 @@ const tabs = [
     ['create', 'Inventarisieren', PackagePlus, '/inventar/inventarisieren'],
 ] as const;
 
-const money = (cents: number) =>
-    new Intl.NumberFormat('de-DE', {
-        style: 'currency',
-        currency: 'EUR',
-    }).format(cents / 100);
-const date = (value: string | null) =>
-    value
-        ? new Intl.DateTimeFormat('de-DE').format(
-              new Date(`${value.slice(0, 10)}T00:00:00`),
-          )
-        : '–';
 const today = new Intl.DateTimeFormat('sv-SE').format(new Date());
 const query = ref('');
 const statusFilter = ref<'all' | Status>('all');
@@ -239,7 +229,7 @@ function closeDisposal(value: boolean) {
                         Anschaffungswert (Bestand)
                     </p>
                     <p class="mt-2 text-2xl font-semibold">
-                        {{ money(summary.acquisition_value_cents) }}
+                        {{ formatMoney(summary.acquisition_value_cents) }}
                     </p>
                 </div>
                 <div class="rounded-xl border bg-card p-5">
@@ -247,7 +237,7 @@ function closeDisposal(value: boolean) {
                         Aktueller Restwert
                     </p>
                     <p class="mt-2 text-2xl font-semibold">
-                        {{ money(summary.book_value_cents) }}
+                        {{ formatMoney(summary.book_value_cents) }}
                     </p>
                     <p class="mt-1 text-xs text-muted-foreground">
                         Monatsgenau zum heutigen Datum
@@ -393,11 +383,17 @@ function closeDisposal(value: boolean) {
                                     </p>
                                 </td>
                                 <td class="px-4 py-4 whitespace-nowrap">
-                                    <p>{{ date(item.acquisition_date) }}</p>
+                                    <p>
+                                        {{ formatDate(item.acquisition_date) }}
+                                    </p>
                                     <p
                                         class="mt-1 text-xs text-muted-foreground"
                                     >
-                                        {{ money(item.acquisition_cost_cents) }}
+                                        {{
+                                            formatMoney(
+                                                item.acquisition_cost_cents,
+                                            )
+                                        }}
                                         ·
                                         {{
                                             options.acquisitionTypes[
@@ -423,7 +419,7 @@ function closeDisposal(value: boolean) {
                                     >
                                         {{ item.useful_life_years }} Jahre ·
                                         {{
-                                            money(
+                                            formatMoney(
                                                 item.annual_depreciation_cents,
                                             )
                                         }}/Jahr
@@ -432,7 +428,7 @@ function closeDisposal(value: boolean) {
                                 <td
                                     class="px-4 py-4 text-right font-medium whitespace-nowrap"
                                 >
-                                    {{ money(item.book_value_cents) }}
+                                    {{ formatMoney(item.book_value_cents) }}
                                     <p
                                         v-if="item.status !== 'active'"
                                         class="mt-1 text-xs font-normal text-muted-foreground"
@@ -454,7 +450,7 @@ function closeDisposal(value: boolean) {
                                         v-if="item.disposed_at"
                                         class="mt-1 text-xs text-muted-foreground"
                                     >
-                                        {{ date(item.disposed_at) }}
+                                        {{ formatDate(item.disposed_at) }}
                                     </p>
                                 </td>
                                 <td class="px-4 py-4">
@@ -818,8 +814,8 @@ function closeDisposal(value: boolean) {
                     <div>
                         <dt class="text-muted-foreground">Anschaffung</dt>
                         <dd class="font-medium">
-                            {{ date(selected.acquisition_date) }} ·
-                            {{ money(selected.acquisition_cost_cents) }}
+                            {{ formatDate(selected.acquisition_date) }} ·
+                            {{ formatMoney(selected.acquisition_cost_cents) }}
                         </dd>
                     </div>
                     <div>
@@ -851,7 +847,7 @@ function closeDisposal(value: boolean) {
                             }}
                         </dt>
                         <dd class="font-medium">
-                            {{ money(selected.book_value_cents) }}
+                            {{ formatMoney(selected.book_value_cents) }}
                         </dd>
                     </div>
                     <div v-if="selected.description" class="sm:col-span-2">
@@ -866,7 +862,7 @@ function closeDisposal(value: boolean) {
                         <div>
                             <dt class="text-muted-foreground">Abgang am</dt>
                             <dd class="font-medium">
-                                {{ date(selected.disposed_at) }}
+                                {{ formatDate(selected.disposed_at) }}
                             </dd>
                         </div>
                         <div>
@@ -875,7 +871,7 @@ function closeDisposal(value: boolean) {
                                 {{
                                     selected.disposal_proceeds_cents === null
                                         ? '–'
-                                        : money(
+                                        : formatMoney(
                                               selected.disposal_proceeds_cents,
                                           )
                                 }}

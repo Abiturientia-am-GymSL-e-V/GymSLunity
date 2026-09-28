@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { formatDate, formatMoney } from '@/lib/format';
 
 type Member = {
     member_number: number;
@@ -163,17 +164,6 @@ const tabs = [
     ],
     ['manual', 'Manuell buchen', Banknote, '/beitraege/manuell-buchen'],
 ] as const;
-const money = (cents: number) =>
-    new Intl.NumberFormat('de-DE', {
-        style: 'currency',
-        currency: 'EUR',
-    }).format(cents / 100);
-const date = (value: string | null) =>
-    value
-        ? new Intl.DateTimeFormat('de-DE').format(
-              new Date(value.slice(0, 10) + 'T00:00:00'),
-          )
-        : '–';
 const today = new Date().toISOString().slice(0, 10);
 const year = new Date().getFullYear();
 const filterForm = useForm({ from: props.filters.from, to: props.filters.to });
@@ -764,7 +754,7 @@ async function downloadDunningLetters() {
                     <span class="text-sm text-muted-foreground"
                         >Offene Beiträge</span
                     ><strong class="mt-2 block text-3xl">{{
-                        money(summary.open_cents)
+                        formatMoney(summary.open_cents)
                     }}</strong
                     ><small>{{ summary.open_count }} Posten</small>
                 </div>
@@ -772,7 +762,7 @@ async function downloadDunningLetters() {
                     <span class="text-sm text-muted-foreground"
                         >Beiträge im Zeitraum</span
                     ><strong class="mt-2 block text-3xl">{{
-                        money(summary.contribution_cents)
+                        formatMoney(summary.contribution_cents)
                     }}</strong
                     ><small>{{ summary.contribution_count }} Beiträge</small>
                 </div>
@@ -780,7 +770,7 @@ async function downloadDunningLetters() {
                     <span class="text-sm text-muted-foreground"
                         >Davon bezahlt</span
                     ><strong class="mt-2 block text-3xl text-emerald-700">{{
-                        money(summary.paid_cents)
+                        formatMoney(summary.paid_cents)
                     }}</strong>
                 </div>
             </div>
@@ -860,7 +850,7 @@ async function downloadDunningLetters() {
                                 :key="entry.id"
                             >
                                 <td class="p-3">
-                                    {{ date(entry.booking_date) }}
+                                    {{ formatDate(entry.booking_date) }}
                                 </td>
                                 <td class="p-3">
                                     <a
@@ -891,7 +881,7 @@ async function downloadDunningLetters() {
                                             entry.amount_cents < 0,
                                     }"
                                 >
-                                    {{ money(entry.amount_cents) }}
+                                    {{ formatMoney(entry.amount_cents) }}
                                 </td>
                             </tr>
                             <tr v-if="!filteredTransactions.length">
@@ -1106,14 +1096,14 @@ async function downloadDunningLetters() {
                                 >
                             </td>
                             <td class="p-3">
-                                {{ date(item.earliest_due_date) }}
+                                {{ formatDate(item.earliest_due_date) }}
                                 <small class="block">
                                     {{ item.overdue_count }} überfällig ·
-                                    {{ money(item.overdue_cents) }}
+                                    {{ formatMoney(item.overdue_cents) }}
                                 </small>
                             </td>
                             <td class="p-3 text-right font-medium">
-                                {{ money(item.open_cents) }}
+                                {{ formatMoney(item.open_cents) }}
                             </td>
                             <td class="p-3">
                                 <div class="flex gap-1">
@@ -1539,8 +1529,8 @@ async function downloadDunningLetters() {
                             <td class="p-3">
                                 {{ item.description
                                 }}<small class="block"
-                                    >{{ date(item.period_start) }}–{{
-                                        date(item.period_end)
+                                    >{{ formatDate(item.period_start) }}–{{
+                                        formatDate(item.period_end)
                                     }}</small
                                 ><small
                                     v-if="item.payment_reference"
@@ -1549,9 +1539,9 @@ async function downloadDunningLetters() {
                                     {{ item.payment_reference }}
                                 </small>
                             </td>
-                            <td class="p-3">{{ date(item.due_date) }}</td>
+                            <td class="p-3">{{ formatDate(item.due_date) }}</td>
                             <td class="p-3 text-right">
-                                {{ money(item.amount_cents) }}
+                                {{ formatMoney(item.amount_cents) }}
                             </td>
                             <td class="p-3">
                                 <template v-if="item.invoice_number"
@@ -1682,9 +1672,9 @@ async function downloadDunningLetters() {
                                 >
                             </td>
                             <td class="p-3">{{ item.description }}</td>
-                            <td class="p-3">{{ date(item.due_date) }}</td>
+                            <td class="p-3">{{ formatDate(item.due_date) }}</td>
                             <td class="p-3 text-right font-medium">
-                                {{ money(item.remaining_cents) }}
+                                {{ formatMoney(item.remaining_cents) }}
                             </td>
                         </tr>
                         <tr v-if="!sepaRows.length">
@@ -1755,7 +1745,7 @@ async function downloadDunningLetters() {
                                 item.row_count
                             }}
                             verbucht · {{ item.unmatched_count }} offen ·
-                            {{ date(item.created_at) }}</small
+                            {{ formatDate(item.created_at) }}</small
                         >
                     </li>
                     <li
@@ -1786,7 +1776,9 @@ async function downloadDunningLetters() {
                     >
                         <div class="min-w-0 text-sm">
                             <div class="flex flex-wrap items-center gap-2">
-                                <strong>{{ money(row.amount_cents) }}</strong>
+                                <strong>{{
+                                    formatMoney(row.amount_cents)
+                                }}</strong>
                                 <Badge
                                     :variant="
                                         row.type === 'return_debit'
@@ -1801,7 +1793,7 @@ async function downloadDunningLetters() {
                                     }}
                                 </Badge>
                                 <span class="text-muted-foreground">
-                                    {{ date(row.booking_date) }}
+                                    {{ formatDate(row.booking_date) }}
                                 </span>
                             </div>
                             <p class="mt-1 break-words">

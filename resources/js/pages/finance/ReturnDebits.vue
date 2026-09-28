@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { formatDate, formatMoney } from '@/lib/format';
 
 type Invoice = {
     id: number;
@@ -71,18 +72,10 @@ const forms = ref<Record<number, RowForm>>(
 const busyRow = ref<number | null>(null);
 const page = usePage();
 const errors = computed(() => Object.values(page.props.errors ?? {}));
-const money = (cents: number, currency = 'EUR') =>
-    new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(
-        cents / 100,
-    );
-const date = (value: string | null) =>
-    value
-        ? new Date(`${value.slice(0, 10)}T00:00:00`).toLocaleDateString('de-DE')
-        : '–';
 const invoiceOptions = computed(() =>
     props.invoices.map((invoice) => ({
         value: String(invoice.id),
-        label: `${invoice.invoice_number} · ${invoice.recipient_name} · ${money(invoice.amount_cents, invoice.currency)}`,
+        label: `${invoice.invoice_number} · ${invoice.recipient_name} · ${formatMoney(invoice.amount_cents, invoice.currency)}`,
         searchText: `${invoice.invoice_number} ${invoice.recipient_name}`,
     })),
 );
@@ -152,10 +145,10 @@ const submit = (row: ReturnRow) => {
                     >
                         <h2 class="font-semibold">
                             Rücklastschrift
-                            {{ money(Math.abs(row.amount_cents)) }}
+                            {{ formatMoney(Math.abs(row.amount_cents)) }}
                         </h2>
                         <span class="text-sm text-muted-foreground">
-                            {{ date(row.booking_date) }}
+                            {{ formatDate(row.booking_date) }}
                         </span>
                     </div>
                     <p class="mt-1 text-sm break-words">

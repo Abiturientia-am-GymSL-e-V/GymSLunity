@@ -25,6 +25,7 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import type { MemberSection, MemberValue } from '@/types/members';
+import { formatDate, formatMoney } from '@/lib/format';
 
 type GiroCode = {
     amount: string;
@@ -182,13 +183,6 @@ function copyCalendarLink(value: string) {
 function subscriptionLink(value: string) {
     return value.replace(/^https?:/, 'webcal:');
 }
-const money = (cents: number) =>
-    new Intl.NumberFormat('de-DE', {
-        style: 'currency',
-        currency: 'EUR',
-    }).format(cents / 100);
-const date = (value: string) =>
-    new Intl.DateTimeFormat('de-DE').format(new Date(`${value}T00:00:00`));
 </script>
 
 <template>
@@ -218,7 +212,11 @@ const date = (value: string) =>
                 <AlertTitle>Kündigung wird bearbeitet</AlertTitle>
                 <AlertDescription>
                     {{ $address('Deine', 'Ihre') }} Kündigung ist am
-                    {{ date(pendingCancellation.requested_at.slice(0, 10)) }}
+                    {{
+                        formatDate(
+                            pendingCancellation.requested_at.slice(0, 10),
+                        )
+                    }}
                     beim Vorstand eingegangen. Nach der Bearbeitung
                     {{ $address('erhältst du', 'erhalten Sie') }} eine
                     Bestätigung mit dem Austrittsdatum per E-Mail.
@@ -243,7 +241,7 @@ const date = (value: string) =>
                 <AlertTitle>Kündigung gespeichert</AlertTitle>
                 <AlertDescription>
                     Als Austrittsdatum ist der
-                    {{ date(String(member.left_at)) }} hinterlegt.
+                    {{ formatDate(String(member.left_at)) }} hinterlegt.
                     <span class="mt-3 block">
                         <Button
                             type="button"
@@ -343,7 +341,7 @@ const date = (value: string) =>
                             contributionAccount.balance_cents < 0,
                     }"
                 >
-                    {{ money(contributionAccount.balance_cents) }}
+                    {{ formatMoney(contributionAccount.balance_cents) }}
                 </p>
                 <p class="text-xs text-muted-foreground">
                     Positive Beträge sind noch offen.
@@ -406,11 +404,11 @@ const date = (value: string) =>
                     <div class="flex justify-between gap-3 text-sm">
                         <span>{{ entry.description }}</span>
                         <span class="shrink-0 font-medium tabular-nums">{{
-                            money(entry.amount_cents)
+                            formatMoney(entry.amount_cents)
                         }}</span>
                     </div>
                     <p class="mt-1 text-xs text-muted-foreground">
-                        {{ date(entry.booking_date)
+                        {{ formatDate(entry.booking_date)
                         }}<template v-if="entry.reference">
                             · {{ entry.reference }}</template
                         >

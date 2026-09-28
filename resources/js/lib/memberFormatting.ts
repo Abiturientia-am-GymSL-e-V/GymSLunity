@@ -1,5 +1,6 @@
 import type { MemberField, MemberValue } from '@/types/members';
 import countries from '../../data/countries.json';
+import { formatDateTime } from '@/lib/format';
 import { formatIban } from '@/lib/formatIban';
 
 export function memberValue(
@@ -28,8 +29,5 @@ export function memberValue(
 }
 
 export function memberTimestamp(value: string): string {
-    return new Intl.DateTimeFormat('de-DE', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(new Date(value));
+    return formatDateTime(value);
 }

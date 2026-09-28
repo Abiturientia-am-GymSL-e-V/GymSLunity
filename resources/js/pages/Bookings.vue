@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { formatDateTime, formatMoney } from '@/lib/format';
 
 type Resource = {
     id: number;
@@ -167,24 +168,12 @@ function resourceLabel(resource: Resource): string {
     }
     return labels.join(' › ');
 }
-function money(cents: number) {
-    return new Intl.NumberFormat('de-DE', {
-        style: 'currency',
-        currency: 'EUR',
-    }).format(cents / 100);
-}
-function dateTime(value: string) {
-    return new Intl.DateTimeFormat('de-DE', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(new Date(value));
-}
 function priceLabel(resource: Resource) {
     if (resource.price_mode === 'free') return 'Kostenlos';
     const suffix = { once: 'einmalig', hour: 'je Stunde', day: 'je Tag' }[
         resource.price_mode
     ];
-    return `${money(resource.price_cents)} ${suffix}`;
+    return `${formatMoney(resource.price_cents)} ${suffix}`;
 }
 function statusLabel(status: Booking['status']) {
     return {
@@ -678,15 +667,15 @@ function cancel(booking: Booking) {
                         {{ booking.resource_name }} · {{ booking.title }}
                     </h3>
                     <p class="text-sm">
-                        {{ dateTime(booking.starts_at) }} bis
-                        {{ dateTime(booking.ends_at) }}
+                        {{ formatDateTime(booking.starts_at) }} bis
+                        {{ formatDateTime(booking.ends_at) }}
                     </p>
                     <p class="text-sm text-muted-foreground">
                         {{ booking.requester_name
                         }}<template v-if="booking.member_number">
                             · Nr. {{ booking.member_number }}</template
                         ><template v-if="booking.price_cents">
-                            · {{ money(booking.price_cents) }}</template
+                            · {{ formatMoney(booking.price_cents) }}</template
                         ><template v-if="booking.series_id">
                             · Serientermin {{ booking.occurrence }}</template
                         >

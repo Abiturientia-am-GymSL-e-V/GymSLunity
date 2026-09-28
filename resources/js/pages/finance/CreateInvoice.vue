@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { formatMoney } from '@/lib/format';
 
 type Item = {
     description: string;
@@ -142,11 +143,6 @@ const totals = computed(() =>
         { net: 0, tax: 0, gross: 0 },
     ),
 );
-const money = (cents: number) =>
-    new Intl.NumberFormat('de-DE', {
-        style: 'currency',
-        currency: 'EUR',
-    }).format(cents / 100);
 const error = (index: number, field: keyof Item) =>
     form.errors[`items.${index}.${field}` as keyof typeof form.errors] as
         | string
@@ -495,8 +491,10 @@ function removeItem(index: number) {
                                     :id="`position-total-${index}`"
                                     class="flex h-9 items-center rounded-md bg-muted px-3 text-sm"
                                 >
-                                    Netto {{ money(itemValues[index].net) }} ·
-                                    Brutto {{ money(itemValues[index].gross) }}
+                                    Netto
+                                    {{ formatMoney(itemValues[index].net) }} ·
+                                    Brutto
+                                    {{ formatMoney(itemValues[index].gross) }}
                                 </output>
                             </div>
                         </div>
@@ -610,11 +608,11 @@ function removeItem(index: number) {
             >
                 <div>
                     <p class="text-sm text-muted-foreground">
-                        Netto {{ money(totals.net) }} · Umsatzsteuer
-                        {{ money(totals.tax) }}
+                        Netto {{ formatMoney(totals.net) }} · Umsatzsteuer
+                        {{ formatMoney(totals.tax) }}
                     </p>
                     <p class="text-2xl font-semibold">
-                        Gesamt {{ money(totals.gross) }}
+                        Gesamt {{ formatMoney(totals.gross) }}
                     </p>
                 </div>
                 <Button

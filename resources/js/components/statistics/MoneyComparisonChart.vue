@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { formatMoney } from '@/lib/format';
 
 type Point = {
     key: string;
@@ -18,11 +19,6 @@ const maximum = computed(() =>
         ]),
     ),
 );
-const money = (cents: number) =>
-    new Intl.NumberFormat('de-DE', {
-        style: 'currency',
-        currency: 'EUR',
-    }).format(cents / 100);
 </script>
 
 <template>
@@ -43,7 +39,7 @@ const money = (cents: number) =>
                 <div v-for="point in points" :key="point.key" class="space-y-2">
                     <div
                         class="flex h-44 items-end justify-center gap-1 border-b"
-                        :title="`${point.label}: ${money(point.contributions_cents)} Beiträge, ${money(point.donations_cents)} Spenden`"
+                        :title="`${point.label}: ${formatMoney(point.contributions_cents)} Beiträge, ${formatMoney(point.donations_cents)} Spenden`"
                     >
                         <div
                             class="w-3 rounded-t-sm bg-primary"

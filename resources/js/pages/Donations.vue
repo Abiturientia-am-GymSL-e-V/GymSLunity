@@ -31,6 +31,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import { formatDate, formatMoney } from '@/lib/format';
 
 type Certificate = {
     id: number;
@@ -90,17 +91,6 @@ const tabs = [
         '/spenden/offene-bestaetigungen',
     ],
 ] as const;
-const money = (cents: number) =>
-    new Intl.NumberFormat('de-DE', {
-        style: 'currency',
-        currency: 'EUR',
-    }).format(cents / 100);
-const date = (value: string | null) =>
-    value
-        ? new Intl.DateTimeFormat('de-DE').format(
-              new Date(value.slice(0, 10) + 'T00:00:00'),
-          )
-        : '–';
 const typeLabels: Record<Donation['donation_type'], string> = {
     money: 'Geldzuwendung',
     material: 'Sachzuwendung',
@@ -301,7 +291,7 @@ function send(certificate: Certificate) {
                 <p class="text-sm text-muted-foreground">Spenden gesamt</p>
                 <p class="mt-1 text-2xl font-semibold">{{ summary.count }}</p>
                 <p class="text-sm text-muted-foreground">
-                    {{ money(summary.amount_cents) }}
+                    {{ formatMoney(summary.amount_cents) }}
                 </p>
             </div>
             <div class="rounded-xl border bg-card p-4">
@@ -480,7 +470,7 @@ function send(certificate: Certificate) {
                                 {{ donation.receipt_number }}
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap">
-                                {{ date(donation.donated_at) }}
+                                {{ formatDate(donation.donated_at) }}
                             </td>
                             <td class="px-4 py-3">
                                 <p class="font-medium">
@@ -498,7 +488,7 @@ function send(certificate: Certificate) {
                             <td
                                 class="px-4 py-3 text-right font-medium whitespace-nowrap"
                             >
-                                {{ money(donation.amount_cents) }}
+                                {{ formatMoney(donation.amount_cents) }}
                             </td>
                             <td class="max-w-64 px-4 py-3 text-xs">
                                 {{ donation.purpose_label }}
@@ -530,7 +520,7 @@ function send(certificate: Certificate) {
                                         class="max-w-64 text-xs text-destructive"
                                     >
                                         {{
-                                            date(
+                                            formatDate(
                                                 donation.certificate.revoked_at,
                                             )
                                         }}
@@ -860,8 +850,8 @@ function send(certificate: Certificate) {
                         </div>
                         <p class="mt-1 text-sm text-muted-foreground">
                             {{ donation.receipt_number }} ·
-                            {{ date(donation.donated_at) }} ·
-                            {{ money(donation.amount_cents) }}
+                            {{ formatDate(donation.donated_at) }} ·
+                            {{ formatMoney(donation.amount_cents) }}
                         </p>
                         <p class="mt-1 max-w-2xl text-xs text-muted-foreground">
                             {{ donation.purpose_label }}

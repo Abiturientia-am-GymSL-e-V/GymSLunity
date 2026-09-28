@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import { formatDate, formatMoney } from '@/lib/format';
 
 type Invoice = {
     id: number;
@@ -98,12 +99,6 @@ watch(collectionDate, () => {
     selection.value = selection.value.filter((id) => eligibleIds.has(id));
 });
 
-const money = (cents: number, currency = 'EUR') =>
-    new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(
-        cents / 100,
-    );
-const date = (value: string) =>
-    new Date(`${value}T00:00:00`).toLocaleDateString('de-DE');
 const isEligible = (invoice: Invoice) =>
     invoice.collection_from <= collectionDate.value;
 const toggle = (id: number, checked: boolean) => {
@@ -301,7 +296,7 @@ const reverseExport = () => {
                             </td>
                             <td class="p-3">{{ invoice.recipient_name }}</td>
                             <td class="p-3">
-                                {{ date(invoice.collection_from) }}
+                                {{ formatDate(invoice.collection_from) }}
                                 <span
                                     v-if="!isEligible(invoice)"
                                     class="block text-xs"
@@ -312,7 +307,7 @@ const reverseExport = () => {
                             <td class="p-3">{{ invoice.mandate_reference }}</td>
                             <td class="p-3 text-right font-medium">
                                 {{
-                                    money(
+                                    formatMoney(
                                         invoice.amount_cents,
                                         invoice.currency,
                                     )
@@ -336,7 +331,9 @@ const reverseExport = () => {
                 <span class="text-sm text-muted-foreground">
                     {{ selectedInvoices.length }} Rechnung(en) ausgewählt
                 </span>
-                <span class="font-semibold">{{ money(selectedTotal) }}</span>
+                <span class="font-semibold">{{
+                    formatMoney(selectedTotal)
+                }}</span>
             </div>
         </section>
 
@@ -368,16 +365,19 @@ const reverseExport = () => {
                                     item.message_id
                                 }}</span>
                                 <span class="text-xs text-muted-foreground">
-                                    {{ date(item.created_at.slice(0, 10)) }} ·
+                                    {{
+                                        formatDate(item.created_at.slice(0, 10))
+                                    }}
+                                    ·
                                     {{ item.actor_name }}
                                 </span>
                             </td>
                             <td class="p-3">
-                                {{ date(item.collection_date) }}
+                                {{ formatDate(item.collection_date) }}
                             </td>
                             <td class="p-3">{{ item.transaction_count }}</td>
                             <td class="p-3 text-right font-medium">
-                                {{ money(Number(item.total_cents)) }}
+                                {{ formatMoney(Number(item.total_cents)) }}
                             </td>
                             <td class="p-3">
                                 <Badge

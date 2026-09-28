@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatDate, formatMoney } from '@/lib/format';
 
 type Tab = 'overview' | 'members' | 'finances' | 'quality';
 type Breakdown = { label: string; count: number };
@@ -151,15 +152,9 @@ const applyFilters = () =>
     });
 const today = new Intl.DateTimeFormat('sv-SE').format(new Date());
 const number = (value: number) => value.toLocaleString('de-DE');
-const money = (cents: number) =>
-    new Intl.NumberFormat('de-DE', {
-        style: 'currency',
-        currency: 'EUR',
-    }).format(cents / 100);
-const date = (value: string) =>
-    new Intl.DateTimeFormat('de-DE').format(new Date(`${value}T00:00:00`));
 const periodLabel = computed(
-    () => `${date(props.filters.from)} bis ${date(props.filters.to)}`,
+    () =>
+        `${formatDate(props.filters.from)} bis ${formatDate(props.filters.to)}`,
 );
 </script>
 
@@ -262,7 +257,7 @@ const periodLabel = computed(
                         }}</CardTitle></CardHeader
                     ><CardContent class="px-5 text-xs text-muted-foreground"
                         >Zusätzlich {{ number(summary.contacts) }} Kontakte ·
-                        Stichtag {{ date(filters.as_of) }}</CardContent
+                        Stichtag {{ formatDate(filters.as_of) }}</CardContent
                     ></Card
                 >
                 <Card class="gap-3 py-5"
@@ -507,7 +502,7 @@ const periodLabel = computed(
                     ><CardHeader class="px-5 pb-0"
                         ><CardDescription>Sollstellungen</CardDescription
                         ><CardTitle class="text-2xl tabular-nums">{{
-                            money(finances.contributions.assessed_cents)
+                            formatMoney(finances.contributions.assessed_cents)
                         }}</CardTitle></CardHeader
                     ><CardContent class="px-5 text-xs text-muted-foreground"
                         >{{
@@ -520,7 +515,7 @@ const periodLabel = computed(
                     ><CardHeader class="px-5 pb-0"
                         ><CardDescription>Bezahlt</CardDescription
                         ><CardTitle class="text-2xl tabular-nums">{{
-                            money(finances.contributions.paid_cents)
+                            formatMoney(finances.contributions.paid_cents)
                         }}</CardTitle></CardHeader
                     ><CardContent class="px-5 text-xs text-muted-foreground"
                         >Zahlungsquote
@@ -532,11 +527,11 @@ const periodLabel = computed(
                     ><CardHeader class="px-5 pb-0"
                         ><CardDescription>Offene Beiträge</CardDescription
                         ><CardTitle class="text-2xl tabular-nums">{{
-                            money(finances.contributions.open_cents)
+                            formatMoney(finances.contributions.open_cents)
                         }}</CardTitle></CardHeader
                     ><CardContent class="px-5 text-xs text-muted-foreground"
                         >Davon
-                        {{ money(finances.contributions.overdue_cents) }}
+                        {{ formatMoney(finances.contributions.overdue_cents) }}
                         überfällig</CardContent
                     ></Card
                 >
@@ -544,12 +539,12 @@ const periodLabel = computed(
                     ><CardHeader class="px-5 pb-0"
                         ><CardDescription>Spenden</CardDescription
                         ><CardTitle class="text-2xl tabular-nums">{{
-                            money(finances.donations.amount_cents)
+                            formatMoney(finances.donations.amount_cents)
                         }}</CardTitle></CardHeader
                     ><CardContent class="px-5 text-xs text-muted-foreground"
                         >{{ number(finances.donations.count) }} Spenden · Ø
                         {{
-                            money(finances.donations.average_cents)
+                            formatMoney(finances.donations.average_cents)
                         }}</CardContent
                     ></Card
                 >
@@ -612,7 +607,9 @@ const periodLabel = computed(
                             </div>
                             <div class="text-right">
                                 <strong class="tabular-nums">{{
-                                    money(finances.contributions.overdue_cents)
+                                    formatMoney(
+                                        finances.contributions.overdue_cents,
+                                    )
                                 }}</strong>
                                 <p class="text-xs text-muted-foreground">
                                     {{
@@ -651,7 +648,7 @@ const periodLabel = computed(
                                 </div>
                             </div>
                             <strong class="tabular-nums">{{
-                                money(item.amount_cents)
+                                formatMoney(item.amount_cents)
                             }}</strong>
                         </div>
                         <p

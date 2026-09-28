@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import { formatDate, formatMoney } from '@/lib/format';
 
 type Invoice = {
     id: number;
@@ -126,12 +127,6 @@ const resetFilters = () => {
 };
 const page = usePage();
 const errors = computed(() => Object.values(page.props.errors ?? {}));
-const money = (cents: number, currency = 'EUR') =>
-    new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(
-        cents / 100,
-    );
-const date = (value: string) =>
-    new Date(`${value}T00:00:00`).toLocaleDateString('de-DE');
 const paymentLabels: Record<string, string> = {
     bank_transfer: 'Überweisung',
     sepa_direct_debit: 'SEPA-Lastschrift',
@@ -250,13 +245,13 @@ const cancelInvoice = () => {
             <section class="rounded-xl border bg-card p-4">
                 <p class="text-sm text-muted-foreground">Offener Betrag</p>
                 <p class="mt-1 text-2xl font-semibold">
-                    {{ money(summary.open_cents) }}
+                    {{ formatMoney(summary.open_cents) }}
                 </p>
             </section>
             <section class="rounded-xl border bg-card p-4">
                 <p class="text-sm text-muted-foreground">Als bezahlt erfasst</p>
                 <p class="mt-1 text-2xl font-semibold">
-                    {{ money(summary.paid_cents) }}
+                    {{ formatMoney(summary.paid_cents) }}
                 </p>
             </section>
         </div>
@@ -388,12 +383,12 @@ const cancelInvoice = () => {
                                 }}</span>
                             </td>
                             <td class="px-4 py-3">
-                                {{ date(invoice.issue_date) }}<br /><span
+                                {{ formatDate(invoice.issue_date) }}<br /><span
                                     class="text-xs text-muted-foreground"
                                     >{{
                                         invoice.document_type === 'cancellation'
                                             ? 'Stornodatum'
-                                            : `fällig ${date(invoice.due_date)}`
+                                            : `fällig ${formatDate(invoice.due_date)}`
                                     }}</span
                                 >
                             </td>
@@ -406,7 +401,7 @@ const cancelInvoice = () => {
                             </td>
                             <td class="px-4 py-3 text-right font-medium">
                                 {{
-                                    money(
+                                    formatMoney(
                                         invoice.document_type === 'cancellation'
                                             ? -invoice.total_cents
                                             : invoice.total_cents,
@@ -553,7 +548,7 @@ const cancelInvoice = () => {
                                 Zu stornierende Positionen *
                             </p>
                             <span class="text-sm font-medium">
-                                {{ money(selectedCancellationTotal) }}
+                                {{ formatMoney(selectedCancellationTotal) }}
                             </span>
                         </div>
                         <div
@@ -593,7 +588,7 @@ const cancelInvoice = () => {
                                     </span>
                                 </span>
                                 <span class="text-sm font-medium">
-                                    {{ money(item.total_cents) }}
+                                    {{ formatMoney(item.total_cents) }}
                                 </span>
                             </label>
                         </div>

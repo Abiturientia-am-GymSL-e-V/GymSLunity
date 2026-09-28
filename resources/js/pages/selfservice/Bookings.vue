@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { formatDateTime, formatMoney } from '@/lib/format';
 
 type Resource = {
     id: number;
@@ -77,18 +78,6 @@ const labels = {
     cancelled: 'Storniert',
     rejected: 'Abgelehnt',
 };
-function money(cents: number) {
-    return new Intl.NumberFormat('de-DE', {
-        style: 'currency',
-        currency: 'EUR',
-    }).format(cents / 100);
-}
-function dateTime(value: string) {
-    return new Intl.DateTimeFormat('de-DE', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(new Date(value));
-}
 function price(resource: Resource) {
     if (resource.price_mode === 'free') return 'Kostenlos';
     const suffix = {
@@ -96,7 +85,7 @@ function price(resource: Resource) {
         hour: 'je angefangene Stunde',
         day: 'je angefangenen Tag',
     }[resource.price_mode];
-    return `${money(resource.price_cents)} ${suffix}`;
+    return `${formatMoney(resource.price_cents)} ${suffix}`;
 }
 function submit() {
     form.post('/selfservice/buchungen', {
@@ -300,15 +289,15 @@ function cancel(booking: Booking) {
                         >
                     </div>
                     <p class="text-sm">
-                        {{ dateTime(booking.starts_at) }} bis
-                        {{ dateTime(booking.ends_at) }}
+                        {{ formatDateTime(booking.starts_at) }} bis
+                        {{ formatDateTime(booking.ends_at) }}
                     </p>
                     <p
                         v-if="booking.price_cents"
                         class="text-sm text-muted-foreground"
                     >
                         Preis für diesen Termin:
-                        {{ money(booking.price_cents) }}
+                        {{ formatMoney(booking.price_cents) }}
                     </p>
                     <Button
                         v-if="booking.can_cancel"
@@ -337,7 +326,7 @@ function cancel(booking: Booking) {
                     >
                         <span
                             >{{ booking.resource_name }} · {{ booking.title }} ·
-                            {{ dateTime(booking.starts_at) }}</span
+                            {{ formatDateTime(booking.starts_at) }}</span
                         ><Badge variant="outline">{{
                             labels[booking.status]
                         }}</Badge>

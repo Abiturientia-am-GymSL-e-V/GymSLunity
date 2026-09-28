@@ -19,6 +19,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { dashboard, donations, payments } from '@/routes';
 import { index as members, show as member } from '@/routes/members';
+import { formatMoney } from '@/lib/format';
 
 type MembershipCount = { label: string; count: number };
 type MemberOverview = {
@@ -84,11 +85,6 @@ defineOptions({
     },
 });
 
-const money = (cents: number) =>
-    new Intl.NumberFormat('de-DE', {
-        style: 'currency',
-        currency: 'EUR',
-    }).format(cents / 100);
 const longDate = (value: string) =>
     new Intl.DateTimeFormat('de-DE', {
         weekday: 'long',
@@ -441,7 +437,11 @@ const eventDate = (event: UpcomingEvent) => {
                                 Festgesetzt
                             </p>
                             <p class="mt-1 text-xl font-semibold">
-                                {{ money(contributionOverview.assessed_cents) }}
+                                {{
+                                    formatMoney(
+                                        contributionOverview.assessed_cents,
+                                    )
+                                }}
                             </p>
                             <p class="mt-1 text-xs text-muted-foreground">
                                 {{ contributionOverview.assessed_count }}
@@ -453,7 +453,9 @@ const eventDate = (event: UpcomingEvent) => {
                             <p
                                 class="mt-1 text-xl font-semibold text-emerald-700 dark:text-emerald-400"
                             >
-                                {{ money(contributionOverview.paid_cents) }}
+                                {{
+                                    formatMoney(contributionOverview.paid_cents)
+                                }}
                             </p>
                             <p class="mt-1 text-xs text-muted-foreground">
                                 {{ contributionOverview.collection_rate }} %
@@ -472,7 +474,9 @@ const eventDate = (event: UpcomingEvent) => {
                                 Offen gesamt
                             </p>
                             <p class="mt-1 text-xl font-semibold">
-                                {{ money(contributionOverview.open_cents) }}
+                                {{
+                                    formatMoney(contributionOverview.open_cents)
+                                }}
                             </p>
                             <p class="mt-1 text-xs text-muted-foreground">
                                 {{ contributionOverview.open_count }} Beiträge
@@ -519,7 +523,10 @@ const eventDate = (event: UpcomingEvent) => {
                                 }}
                                 überfällig</strong
                             >
-                            · {{ money(contributionOverview.overdue_cents) }}
+                            ·
+                            {{
+                                formatMoney(contributionOverview.overdue_cents)
+                            }}
                         </AlertDescription>
                     </Alert>
                 </CardContent>
@@ -563,7 +570,7 @@ const eventDate = (event: UpcomingEvent) => {
                                 Spendenvolumen
                             </p>
                             <p class="mt-1 text-3xl font-semibold">
-                                {{ money(donationOverview.amount_cents) }}
+                                {{ formatMoney(donationOverview.amount_cents) }}
                             </p>
                             <p class="mt-1 text-xs text-muted-foreground">
                                 aus {{ donationOverview.count }} Spenden
@@ -574,7 +581,9 @@ const eventDate = (event: UpcomingEvent) => {
                                 Durchschnitt
                             </p>
                             <p class="mt-1 text-xl font-semibold">
-                                {{ money(donationOverview.average_cents) }}
+                                {{
+                                    formatMoney(donationOverview.average_cents)
+                                }}
                             </p>
                             <p class="mt-1 text-xs text-muted-foreground">
                                 je Spende
@@ -594,7 +603,7 @@ const eventDate = (event: UpcomingEvent) => {
                                     class="mt-1 text-sm text-muted-foreground"
                                 >
                                     {{
-                                        money(
+                                        formatMoney(
                                             donationOverview.latest
                                                 .amount_cents,
                                         )
