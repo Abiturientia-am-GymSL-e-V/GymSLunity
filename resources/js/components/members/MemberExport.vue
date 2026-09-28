@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { address } from '@/lib/formOfAddress';
 import type { MemberColumn } from './columns';
 import type { MemberField, MemberFilters } from '@/types/members';
+import { saveBlob, xsrfToken } from '@/lib/download';
 
 const props = defineProps<{
     filters: MemberFilters;
@@ -58,17 +59,13 @@ async function download(requestedFormat = format.value) {
         preview.document.body.textContent = 'Druckansicht wird geladen …';
     }
     try {
-        const token = document.cookie
-            .split('; ')
-            .find((value) => value.startsWith('XSRF-TOKEN='))
-            ?.slice('XSRF-TOKEN='.length);
         const response = await fetch('/mitglieder/export', {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
                 Accept: 'application/json',
-                'X-XSRF-TOKEN': decodeURIComponent(token || ''),
+                'X-XSRF-TOKEN': xsrfToken(),
             },
             body: JSON.stringify({
                 ...props.filters,
@@ -106,23 +103,20 @@ async function download(requestedFormat = format.value) {
             );
         }
         const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
         if (requestedFormat === 'print') {
             if (!preview)
                 throw new Error(
                     'Der Browser hat das Druckfenster blockiert. Bitte Pop-ups für diese Seite erlauben.',
                 );
+            const url = URL.createObjectURL(blob);
             preview.location.href = url;
             setTimeout(() => URL.revokeObjectURL(url), 60000);
             return;
         }
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `mitglieder-${new Date().toISOString().slice(0, 10)}.${requestedFormat}`;
-        document.body.append(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        saveBlob(
+            blob,
+            `mitglieder-${new Date().toISOString().slice(0, 10)}.${requestedFormat}`,
+        );
     } catch (cause) {
         if (preview && !preview.closed) preview.close();
         error.value =

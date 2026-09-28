@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import type { MemberField } from '@/types/members';
+import { saveBlob, xsrfToken } from '@/lib/download';
 
 type Member = {
     member_number: number;
@@ -264,13 +265,12 @@ async function generate() {
     }
     processing.value = true;
     try {
-        const token = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/)?.[1];
         const response = await fetch('/formulare/unterschriftslisten/pdf', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 Accept: 'application/pdf',
-                'X-XSRF-TOKEN': decodeURIComponent(token || ''),
+                'X-XSRF-TOKEN': xsrfToken(),
             },
             body: JSON.stringify({
                 title: title.value,
@@ -286,12 +286,10 @@ async function generate() {
                 'Die Unterschriftsliste konnte nicht erstellt werden.';
             return;
         }
-        const url = URL.createObjectURL(await response.blob());
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `Unterschriftsliste_${new Date().toISOString().slice(0, 10)}.pdf`;
-        link.click();
-        URL.revokeObjectURL(url);
+        saveBlob(
+            await response.blob(),
+            `Unterschriftsliste_${new Date().toISOString().slice(0, 10)}.pdf`,
+        );
     } finally {
         processing.value = false;
     }

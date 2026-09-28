@@ -71,12 +71,16 @@ class ContributionManagementTest extends TestCase
         ]);
 
         $this->get(route('payments'))->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->component('Payments')
+            ->component('payments/Overview')
             ->where('summary.missing_mandates', 1)
-            ->where('summary.open_count', 0)
+            ->where('summary.open_count', 0));
+        $this->get(route('payments.mandates.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('payments/Mandates')
             ->has('missingMandates', 1)
-            ->where('filterOptions.fields.0.key', 'custom_graduation_year')
             ->where('missingMandates.0.missing', ['IBAN', 'Mandatsreferenz', 'Mandatsdatum']));
+        $this->get(route('payments.create'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('payments/Create')
+            ->where('filterOptions.fields.0.key', 'custom_graduation_year'));
     }
 
     public function test_missing_mandates_print_uses_club_name_and_logo(): void
@@ -172,19 +176,18 @@ class ContributionManagementTest extends TestCase
         $this->signIn();
 
         foreach ([
-            'payments' => ['overview', 'Übersicht'],
-            'payments.mandates.index' => ['mandates', 'Mandatsverwaltung'],
-            'payments.create' => ['create', 'Beiträge anlegen'],
-            'payments.invoices.index' => ['invoices', 'Beitragsrechnungen'],
-            'payments.dunning.index' => ['dunning', 'Mahnwesen'],
-            'payments.sepa.index' => ['sepa', 'SEPA-Export'],
-            'payments.bank-import.index' => ['bank', 'Bankimport'],
-            'payments.return-debits.index' => ['returns', 'Rücklastschriften'],
-            'payments.manual.index' => ['manual', 'Manuell buchen'],
-        ] as $route => [$tab, $title]) {
+            'payments' => ['Overview', 'Übersicht'],
+            'payments.mandates.index' => ['Mandates', 'Mandatsverwaltung'],
+            'payments.create' => ['Create', 'Beiträge anlegen'],
+            'payments.invoices.index' => ['Invoices', 'Beitragsrechnungen'],
+            'payments.dunning.index' => ['Dunning', 'Mahnwesen'],
+            'payments.sepa.index' => ['SepaExport', 'SEPA-Export'],
+            'payments.bank-import.index' => ['BankImport', 'Bankimport'],
+            'payments.return-debits.index' => ['ReturnDebits', 'Rücklastschriften'],
+            'payments.manual.index' => ['ManualBooking', 'Manuell buchen'],
+        ] as $route => [$component, $title]) {
             $this->get(route($route))->assertInertia(fn (Assert $page) => $page
-                ->component('Payments')
-                ->where('activeTab', $tab)
+                ->component('payments/'.$component)
                 ->where('navigationBreadcrumb.title', $title));
         }
     }
@@ -214,8 +217,7 @@ class ContributionManagementTest extends TestCase
         ]))->assertSessionHasNoErrors();
 
         $this->get(route('payments.dunning.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->component('Payments')
-            ->where('activeTab', 'dunning')
+            ->component('payments/Dunning')
             ->has('openDebtors', 1)
             ->where('openDebtors.0.member_number', $member->member_number)
             ->where('openDebtors.0.open_count', 1)

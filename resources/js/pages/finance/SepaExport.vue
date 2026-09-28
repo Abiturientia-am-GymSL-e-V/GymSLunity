@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDate, formatMoney } from '@/lib/format';
+import { postDownload } from '@/lib/download';
 
 type Invoice = {
     id: number;
@@ -116,44 +117,16 @@ async function exportSepa() {
     busy.value = true;
     exportError.value = '';
     try {
-        const token = document.cookie
-            .split('; ')
-            .find((value) => value.startsWith('XSRF-TOKEN='))
-            ?.slice('XSRF-TOKEN='.length);
-        const response = await fetch('/buchhaltung/rechnungen/sepa-export', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/xml, application/json',
-                'X-XSRF-TOKEN': decodeURIComponent(token || ''),
+        await postDownload(
+            '/buchhaltung/rechnungen/sepa-export',
+            { ids: selection.value, collection_date: collectionDate.value },
+            'sepa-rechnungen.xml',
+            {
+                accept: 'application/xml, application/json',
+                errorKeys: ['collection_date', 'ids'],
+                fallback: 'Der SEPA-Export konnte nicht erstellt werden.',
             },
-            body: JSON.stringify({
-                ids: selection.value,
-                collection_date: collectionDate.value,
-            }),
-        });
-        if (!response.ok || response.redirected) {
-            const failure =
-                response.status === 422
-                    ? ((await response.json()) as {
-                          errors?: Record<string, string[]>;
-                      })
-                    : null;
-            throw new Error(
-                failure?.errors?.collection_date?.[0] ||
-                    failure?.errors?.ids?.[0] ||
-                    'Der SEPA-Export konnte nicht erstellt werden.',
-            );
-        }
-        const objectUrl = URL.createObjectURL(await response.blob());
-        const link = document.createElement('a');
-        link.href = objectUrl;
-        link.download = 'sepa-rechnungen.xml';
-        document.body.append(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+        );
         selection.value = [];
         router.reload();
     } catch (cause) {

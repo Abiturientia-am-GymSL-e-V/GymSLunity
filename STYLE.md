@@ -11,7 +11,7 @@ Bestehende gemeinsame Komponenten und Design-Tokens haben Vorrang vor neuem, lok
 - Farben ausschließlich über semantische Tokens wie `bg-card`, `text-foreground`, `text-muted-foreground`, `border-input`, `text-destructive` oder über vorhandene Komponentenvarianten einsetzen.
 - Heller und dunkler Modus müssen ohne separate Seitenlogik funktionieren. Keine fest verdrahteten weißen oder schwarzen Flächen für die Anwendungsoberfläche verwenden.
 - Inhalte und Bedienbarkeit dürfen nicht von einer bestimmten Maus-, Touch- oder Browserimplementierung abhängen.
-- Neue Oberflächen müssen visuell an benachbarte Unterseiten angeglichen werden. Als Referenzen dienen insbesondere `resources/js/pages/Payments.vue`, `resources/js/pages/configuration/Club.vue` und die Mitgliederseiten.
+- Neue Oberflächen müssen visuell an benachbarte Unterseiten angeglichen werden. Als Referenzen dienen insbesondere die Beitragsseiten unter `resources/js/pages/payments/`, `resources/js/pages/configuration/Club.vue` und die Mitgliederseiten.
 
 ## Seitenaufbau
 
