@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Configuration;
 
+use App\Configuration\ClubSettings;
 use App\Configuration\ConfigurationAudit;
 use App\Forms\FinanceMandateText;
 use App\Http\Controllers\Controller;
@@ -17,21 +18,23 @@ use Inertia\Response;
 
 class FinanceSettingsController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function edit(): Response
     {
-        $settings = ClubSetting::current();
+        $settings = $this->clubSettings;
 
         return Inertia::render('configuration/Finance', [
-            'version' => $settings->version,
-            'smallBusinessRegulationEnabled' => (bool) ($settings->data['small_business_regulation_enabled'] ?? false),
-            'financeMandateText' => (string) ($settings->data['finance_mandate_text'] ?? FinanceMandateText::DEFAULT),
+            'version' => $settings->version(),
+            'smallBusinessRegulationEnabled' => (bool) ($settings->data()['small_business_regulation_enabled'] ?? false),
+            'financeMandateText' => (string) ($settings->data()['finance_mandate_text'] ?? FinanceMandateText::DEFAULT),
         ]);
     }
 
     public function update(Request $request): RedirectResponse
     {
         $request->mergeIfMissing([
-            'finance_mandate_text' => (string) (ClubSetting::current()->data['finance_mandate_text'] ?? FinanceMandateText::DEFAULT),
+            'finance_mandate_text' => (string) ($this->clubSettings->data()['finance_mandate_text'] ?? FinanceMandateText::DEFAULT),
         ]);
         $data = $request->validate([
             'version' => ['required', 'integer', 'min:0'],

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Payments;
 
+use App\Configuration\ClubSettings;
 use App\Http\Controllers\Controller;
-use App\Models\ClubSetting;
 use App\Payments\TransactionReport;
 use App\Security\SafeCsv;
 use Illuminate\Http\Request;
@@ -14,6 +14,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TransactionExportController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function __invoke(Request $request, TransactionReport $report): StreamedResponse|Response
     {
         $filters = $request->validate([
@@ -27,8 +29,8 @@ class TransactionExportController extends Controller
         $entries = $report->entries($filters);
 
         if ($filters['format'] === 'print') {
-            $settings = ClubSetting::current();
-            $club = $settings->data;
+            $settings = $this->clubSettings;
+            $club = $settings->data();
             $logo = $settings->logoDataUri();
             $printedAt = now()->setTimezone(config('app.display_timezone'));
 

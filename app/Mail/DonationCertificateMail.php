@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mail;
 
-use App\Models\ClubSetting;
+use App\Configuration\ClubSettings;
 use App\Models\DonationCertificate;
 use App\Support\FormOfAddress;
 use Illuminate\Bus\Queueable;
@@ -27,11 +27,11 @@ class DonationCertificateMail extends Mailable
 
     public function content(): Content
     {
-        $settings = ClubSetting::current();
+        $settings = app(ClubSettings::class);
 
         return new Content(view: 'mail.donation-certificate', with: [
             'clubName' => (string) ($this->certificate->snapshot['club']['name'] ?? config('app.name')),
-            'logoUrl' => ! empty($settings->data['logo_path']) ? route('branding.logo', ['v' => $settings->version]) : null,
+            'logoUrl' => $settings->logoUrl(),
         ]);
     }
 

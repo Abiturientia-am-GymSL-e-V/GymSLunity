@@ -58,9 +58,10 @@ final class SoftwareModules
     ];
 
     /** @return array<string, bool> */
-    public static function values(?ClubSetting $settings = null): array
+    public static function values(ClubSetting|ClubSettings|null $settings = null): array
     {
-        $configured = ($settings ?? ClubSetting::current())->data['software_modules'] ?? [];
+        $data = $settings instanceof ClubSetting ? $settings->data : ($settings ?? app(ClubSettings::class))->data();
+        $configured = $data['software_modules'] ?? [];
         if (! is_array($configured)) {
             $configured = [];
         }
@@ -70,7 +71,7 @@ final class SoftwareModules
         )->all();
     }
 
-    public static function enabled(string $module, ?ClubSetting $settings = null): bool
+    public static function enabled(string $module, ClubSetting|ClubSettings|null $settings = null): bool
     {
         return self::values($settings)[$module] ?? false;
     }

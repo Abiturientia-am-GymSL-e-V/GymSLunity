@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Configuration\ClubSettings;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 
@@ -18,9 +19,17 @@ class ClubSetting extends Model
         return ['data' => 'array', 'version' => 'integer', 'fields_version' => 'integer'];
     }
 
+    protected static function booted(): void
+    {
+        // increment() fires "updated" but not "saved".
+        static::saved(fn () => app(ClubSettings::class)->refresh());
+        static::updated(fn () => app(ClubSettings::class)->refresh());
+    }
+
+    /** Prefer injecting App\Configuration\ClubSettings for reads. */
     public static function current(): self
     {
-        return static::query()->whereKey(1)->firstOrFail();
+        return app(ClubSettings::class)->model();
     }
 
     public function logoPath(): ?string

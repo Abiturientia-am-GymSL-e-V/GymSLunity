@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Payments;
 
+use App\Configuration\ClubSettings;
 use App\Http\Controllers\Controller;
 use App\Members\MemberFields;
-use App\Models\ClubSetting;
 use App\Models\Contribution;
 use App\Models\ContributionTransaction;
 use App\Models\Member;
@@ -20,6 +20,8 @@ use Inertia\Response;
 
 class PaymentController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function __invoke(Request $request, DunningNotices $dunningNotices): Response
     {
         $tab = (string) $request->route('tab', 'overview');
@@ -45,7 +47,7 @@ class PaymentController extends Controller
         $period = Contribution::query()->whereBetween('due_date', [$from, $to]);
         $open = (clone $period)->where('status', 'open');
         $missingMandates = $this->missingMandates();
-        $settings = ClubSetting::current()->data;
+        $settings = $this->clubSettings->data();
 
         return Inertia::render('Payments', [
             'activeTab' => $tab,
@@ -84,7 +86,7 @@ class PaymentController extends Controller
             ],
             'club' => [
                 'tax_deductible_enabled' => (bool) ($settings['contributions_tax_deductible'] ?? false),
-                'sepa_ready' => ! empty($settings['creditor_id']) && ! empty($settings['iban']) && ! empty($settings['name']),
+                'sepa_ready' => $this->clubSettings->sepaReady(),
             ],
             'recentImports' => fn () => DB::table('payment_imports')->latest('created_at')->limit(10)->get(['id', 'original_name', 'row_count', 'imported_count', 'unmatched_count', 'created_at']),
             'unmatchedBankRows' => fn () => DB::table('payment_import_rows')

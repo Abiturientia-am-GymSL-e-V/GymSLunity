@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Payments;
 
+use App\Configuration\ClubSettings;
 use App\Http\Controllers\Controller;
-use App\Models\ClubSetting;
 use App\Models\Member;
 use App\Security\SafeCsv;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,6 +15,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MandateExportController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function __invoke(Request $request): StreamedResponse|Response
     {
         $format = $request->validate(['format' => ['required', 'in:csv,print']])['format'];
@@ -24,8 +26,8 @@ class MandateExportController extends Controller
                 ->orWhereNull('mandate_signed_at'))
             ->orderBy('last_name')->orderBy('first_name')->get();
         if ($format === 'print') {
-            $settings = ClubSetting::current();
-            $club = $settings->data;
+            $settings = $this->clubSettings;
+            $club = $settings->data();
             $logo = $settings->logoDataUri();
             $printedAt = now()->setTimezone(config('app.display_timezone'));
             $title = ($club['name'] ?? config('app.name')).' · Fehlende SEPA-Mandate';

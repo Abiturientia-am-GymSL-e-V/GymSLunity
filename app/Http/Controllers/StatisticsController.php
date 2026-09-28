@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Configuration\ClubSettings;
 use App\Members\MemberReportWriter;
-use App\Models\ClubSetting;
 use App\Statistics\StatisticsReport;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -16,6 +16,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StatisticsController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function index(Request $request): Response
     {
         [$from, $to, $asOf] = $this->dates($request);
@@ -68,14 +70,14 @@ class StatisticsController extends Controller
     public function pdf(Request $request): HttpResponse
     {
         [$from, $to, $asOf] = $this->dates($request);
-        $settings = ClubSetting::current();
+        $settings = $this->clubSettings;
         $report = (new StatisticsReport($from, $to, $asOf))->build();
         $html = view('statistics.report', [
             ...$report,
             'from' => $from,
             'to' => $to,
             'asOf' => $asOf,
-            'club' => $settings->data,
+            'club' => $settings->data(),
             'logo' => $settings->logoDataUri(),
             'createdAt' => now()->setTimezone(config('app.display_timezone')),
         ])->render();

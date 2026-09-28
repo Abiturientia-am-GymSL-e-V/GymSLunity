@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\SelfService;
 
+use App\Configuration\ClubSettings;
 use App\Http\Controllers\Controller;
 use App\Mail\SelfServiceAccessMail;
-use App\Models\ClubSetting;
 use App\Models\Member;
 use App\SelfService\Access;
 use App\SelfService\ProfileChanges;
@@ -24,14 +24,16 @@ use Inertia\Response;
 
 class AccessController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function index(): Response
     {
-        return Inertia::render('selfservice/Access', ['publicJoin' => (bool) (ClubSetting::current()->data['public_join_enabled'] ?? false)]);
+        return Inertia::render('selfservice/Access', ['publicJoin' => $this->clubSettings->enabled('public_join_enabled')]);
     }
 
     public function join(): Response
     {
-        abort_unless(ClubSetting::current()->data['public_join_enabled'] ?? false, 404);
+        abort_unless($this->clubSettings->enabled('public_join_enabled'), 404);
 
         return Inertia::render('selfservice/Join');
     }
@@ -48,7 +50,7 @@ class AccessController extends Controller
             return $this->requestEmailChange($request, $email);
         }
         if ($purpose === 'join') {
-            abort_unless(ClubSetting::current()->data['public_join_enabled'] ?? false, 403);
+            abort_unless($this->clubSettings->enabled('public_join_enabled'), 403);
         }
         if ($purpose === 'join' && $email === '') {
             throw ValidationException::withMessages(['email' => FormOfAddress::choose('Bitte gib eine E-Mail-Adresse an.', 'Bitte geben Sie eine E-Mail-Adresse an.')]);
@@ -111,7 +113,7 @@ class AccessController extends Controller
             if ($token->member_id) {
                 abort_unless($member && strtolower((string) $member->email) === $token->email && $member->deceased_at === null, 403);
             } else {
-                abort_unless(ClubSetting::current()->data['public_join_enabled'] ?? false, 403);
+                abort_unless($this->clubSettings->enabled('public_join_enabled'), 403);
                 if (Member::query()->whereRaw('LOWER(email) = ?', [$token->email])->exists()) {
                     throw ValidationException::withMessages(['token' => FormOfAddress::choose('Bitte fordere für diese Adresse einen neuen Mitgliederzugang an.', 'Bitte fordern Sie für diese Adresse einen neuen Mitgliederzugang an.')]);
                 }

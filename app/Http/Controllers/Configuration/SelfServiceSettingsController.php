@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Configuration;
 
+use App\Configuration\ClubSettings;
 use App\Configuration\ConfigurationAudit;
 use App\Http\Controllers\Controller;
 use App\Models\ClubSetting;
@@ -19,13 +20,15 @@ use Inertia\Response;
 
 class SelfServiceSettingsController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function edit(): Response
     {
-        $settings = ClubSetting::current();
+        $settings = $this->clubSettings;
 
         return Inertia::render('configuration/SelfService', [
-            'settings' => array_replace(['selfservice_enabled' => false, 'public_join_enabled' => false, 'membership_activation' => 'immediate'], FormTemplates::defaults(), Arr::only($settings->data, ['selfservice_enabled', 'public_join_enabled', 'membership_activation', ...array_keys(FormTemplates::defaults())])),
-            'version' => $settings->version, 'defaults' => FormTemplates::defaults(), 'placeholders' => FormTemplates::placeholders(),
+            'settings' => array_replace(['selfservice_enabled' => false, 'public_join_enabled' => false, 'membership_activation' => 'immediate'], FormTemplates::defaults(), Arr::only($settings->data(), ['selfservice_enabled', 'public_join_enabled', 'membership_activation', ...array_keys(FormTemplates::defaults())])),
+            'version' => $settings->version(), 'defaults' => FormTemplates::defaults(), 'placeholders' => FormTemplates::placeholders(),
         ]);
     }
 

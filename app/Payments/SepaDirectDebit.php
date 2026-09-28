@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Payments;
 
-use App\Models\ClubSetting;
+use App\Configuration\ClubSettings;
 use App\Models\Contribution;
 use App\Models\ContributionAccount;
 use App\Models\User;
@@ -19,7 +19,7 @@ final class SepaDirectDebit
 {
     public const NS = 'urn:iso:std:iso:20022:tech:xsd:pain.008.001.08';
 
-    public function __construct(
+    public function __construct(private readonly ClubSettings $clubSettings,
         private readonly ContributionLedger $ledger,
         private readonly SepaXmlValidator $validator,
     ) {}
@@ -27,11 +27,9 @@ final class SepaDirectDebit
     /** @param list<int> $ids */
     public function export(array $ids, string $collectionDate, User $actor): string
     {
-        $club = ClubSetting::current()->data;
-        foreach (['name' => 'Vereinsname', 'iban' => 'Vereins-IBAN', 'creditor_id' => 'SEPA-Gläubiger-ID'] as $key => $label) {
-            if (empty($club[$key])) {
-                throw ValidationException::withMessages(['ids' => $label.' fehlt in der Vereinskonfiguration.']);
-            }
+        $club = $this->clubSettings->data();
+        foreach ($this->clubSettings->missingSepaFields() as $label) {
+            throw ValidationException::withMessages(['ids' => $label.' fehlt in der Vereinskonfiguration.']);
         }
 
         return DB::transaction(function () use ($ids, $collectionDate, $actor, $club): string {

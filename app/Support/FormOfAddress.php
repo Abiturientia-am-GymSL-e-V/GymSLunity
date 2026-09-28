@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support;
 
-use App\Models\ClubSetting;
+use App\Configuration\ClubSettings;
 
 final class FormOfAddress
 {
@@ -17,7 +17,7 @@ final class FormOfAddress
     {
         if ($club === null) {
             try {
-                $club = ClubSetting::current()->data;
+                $club = app(ClubSettings::class)->data();
             } catch (\Throwable) {
                 return self::INFORMAL;
             }

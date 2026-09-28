@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Forms;
 
+use App\Configuration\ClubSettings;
 use App\Http\Controllers\Controller;
 use App\Members\MemberFields;
 use App\Members\MemberReportValue;
 use App\Members\MemberReportWriter;
-use App\Models\ClubSetting;
 use App\Models\Member;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -18,6 +18,8 @@ use Inertia\Response;
 
 class SignatureListController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     private const EXCLUDED_COLUMNS = [
         'iban', 'mandate_reference', 'mandate_signed_at', 'mandate_type', 'account_holder_first_name',
         'account_holder_last_name', 'account_holder_street', 'account_holder_postal_code',
@@ -95,11 +97,10 @@ class SignatureListController extends Controller
 
             return array_map(fn (string $key): string => $key === 'signature' ? '' : MemberReportValue::format($snapshot[$key] ?? null, $available[$key] ?? []), $data['columns']);
         })->all();
-        $settings = ClubSetting::current();
         $printedAt = now()->setTimezone(config('app.display_timezone'));
         $html = view('forms.signature-list', [
-            ...$data, 'headers' => $headers, 'rows' => $rows, 'logo' => $settings->logoDataUri(),
-            'clubName' => $settings->data['name'] ?? config('app.name'), 'printedAt' => $printedAt,
+            ...$data, 'headers' => $headers, 'rows' => $rows, 'logo' => $this->clubSettings->logoDataUri(),
+            'clubName' => $this->clubSettings->text('name') ?: config('app.name'), 'printedAt' => $printedAt,
         ])->render();
         $pdf = MemberReportWriter::pdf($html, true);
 

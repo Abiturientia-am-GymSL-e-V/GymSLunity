@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Communication;
 
+use App\Configuration\ClubSettings;
 use App\Members\MemberReportWriter;
-use App\Models\ClubSetting;
 use App\Models\Member;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\File;
@@ -15,7 +15,7 @@ use ZipArchive;
 
 final class SerialLetterGenerator
 {
-    public function __construct(private readonly CommunicationTemplate $templates) {}
+    public function __construct(private readonly ClubSettings $clubSettings, private readonly CommunicationTemplate $templates) {}
 
     /** @param Collection<int, Member> $members */
     public function combined(Collection $members, string $subject, string $body): string
@@ -61,7 +61,7 @@ final class SerialLetterGenerator
     /** @param Collection<int, Member> $members */
     private function html(Collection $members, string $subject, string $body): string
     {
-        $settings = ClubSetting::current();
+        $settings = $this->clubSettings;
         $letters = $members->map(fn (Member $member): array => [
             'member_number' => $member->member_number,
             'address' => $this->templates->render('{{mitglied.adresse}}', $member),
@@ -71,7 +71,7 @@ final class SerialLetterGenerator
 
         return view('communication.letters', [
             'letters' => $letters,
-            'club' => $settings->data,
+            'club' => $settings->data(),
             'logo' => $settings->logoDataUri(),
         ])->render();
     }

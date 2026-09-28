@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Donations;
 
+use App\Configuration\ClubSettings;
 use App\Members\MemberReportWriter;
-use App\Models\ClubSetting;
 use App\Models\Donation;
 use App\Models\DonationCertificate;
 use App\Models\User;
@@ -16,6 +16,8 @@ use Illuminate\Validation\ValidationException;
 
 final class DonationCertificateGenerator
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     /**
      * @param  array<string, mixed>  $club
      * @return list<string>
@@ -82,8 +84,8 @@ final class DonationCertificateGenerator
                 return $existing;
             }
 
-            $settings = ClubSetting::current();
-            $club = $settings->data;
+            $settings = $this->clubSettings;
+            $club = $settings->data();
             $errors = self::configurationErrors($club);
             if ($errors !== []) {
                 throw ValidationException::withMessages(['certificate' => $errors]);
@@ -147,7 +149,7 @@ final class DonationCertificateGenerator
     {
         return $this->render(
             $certificate->snapshot,
-            ClubSetting::current()->logoDataUri(),
+            $this->clubSettings->logoDataUri(),
             $certificate->signatureImage(),
             ['reason' => $reason, 'revoked_at' => $revokedAt],
         );

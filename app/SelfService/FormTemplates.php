@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\SelfService;
 
 use App\Configuration\ClubData;
+use App\Configuration\ClubSettings;
 use App\Donations\DonationPurposes;
-use App\Models\ClubSetting;
 use App\Support\Iban;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
@@ -64,7 +64,7 @@ TEXT,
     /** @return array<string, string> */
     public static function rendered(): array
     {
-        $data = ClubSetting::current()->data;
+        $data = app(ClubSettings::class)->data();
         $result = [];
         foreach (self::defaults() as $key => $default) {
             $result[$key] = self::renderText((string) ($data[$key] ?? $default), $data);
@@ -76,7 +76,7 @@ TEXT,
     /** @param array<string, mixed>|null $data */
     public static function renderText(string $text, ?array $data = null): string
     {
-        $data ??= ClubSetting::current()->data;
+        $data ??= app(ClubSettings::class)->data();
         $replacements = [];
         foreach (ClubData::fields() as $field) {
             $value = (string) ($data[$field['key']] ?? '');

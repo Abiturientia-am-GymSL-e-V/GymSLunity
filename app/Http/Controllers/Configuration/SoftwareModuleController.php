@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Configuration;
 
+use App\Configuration\ClubSettings;
 use App\Configuration\ConfigurationAudit;
 use App\Configuration\SoftwareModules;
 use App\Http\Controllers\Controller;
@@ -17,14 +18,16 @@ use Inertia\Response;
 
 class SoftwareModuleController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function edit(): Response
     {
-        $settings = ClubSetting::current();
+        $settings = $this->clubSettings;
 
         return Inertia::render('configuration/SoftwareModules', [
             'modules' => SoftwareModules::values($settings),
             'definitions' => SoftwareModules::OPTIONAL,
-            'version' => $settings->version,
+            'version' => $settings->version(),
         ]);
     }
 

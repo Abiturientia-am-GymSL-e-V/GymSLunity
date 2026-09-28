@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Configuration;
 
 use App\Configuration\ClubData;
+use App\Configuration\ClubSettings;
 use App\Configuration\ConfigurationAudit;
 use App\Http\Controllers\Controller;
 use App\Models\ClubSetting;
@@ -21,11 +22,13 @@ use Inertia\Response;
 
 class ClubController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function edit(): Response
     {
-        $settings = ClubSetting::current();
+        $settings = $this->clubSettings;
 
-        return Inertia::render('configuration/Club', ['club' => $settings->data, 'version' => $settings->version, 'fields' => ClubData::fields()]);
+        return Inertia::render('configuration/Club', ['club' => $settings->data(), 'version' => $settings->version(), 'fields' => ClubData::fields()]);
     }
 
     public function update(Request $request): RedirectResponse

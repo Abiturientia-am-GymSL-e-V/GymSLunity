@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mail;
 
-use App\Models\ClubSetting;
+use App\Configuration\ClubSettings;
 use App\Models\FinanceMandate;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
@@ -22,11 +22,11 @@ class FinanceMandateMail extends Mailable
 
     public function content(): Content
     {
-        $settings = ClubSetting::current();
+        $settings = app(ClubSettings::class);
 
         return new Content(view: 'mail.finance-mandate', with: [
-            'clubName' => (string) ($settings->data['name'] ?? config('app.name')),
-            'logoUrl' => ! empty($settings->data['logo_path']) ? route('branding.logo', ['v' => $settings->version]) : null,
+            'clubName' => ($settings->text('name') ?: (string) config('app.name')),
+            'logoUrl' => $settings->logoUrl(),
             'signingUrl' => route('forms.mandates.sign', ['token' => $this->mandate->signingToken()]),
         ]);
     }

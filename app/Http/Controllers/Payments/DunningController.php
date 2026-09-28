@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Payments;
 
+use App\Configuration\ClubSettings;
 use App\Configuration\MailConfigurator;
 use App\Http\Controllers\Controller;
 use App\Mail\DunningNoticeMail;
-use App\Models\ClubSetting;
 use App\Models\Member;
 use App\Payments\DunningNotices;
 use App\Security\SafeCsv;
@@ -23,6 +23,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DunningController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function export(DunningNotices $notices): StreamedResponse
     {
         $members = $notices->members();
@@ -106,8 +108,8 @@ class DunningController extends Controller
             )))
             ->values()
             ->all();
-        $settings = ClubSetting::current();
-        $club = $settings->data;
+        $settings = $this->clubSettings;
+        $club = $settings->data();
         $logo = $settings->logoDataUri();
         $printedAt = now()->setTimezone(config('app.display_timezone'));
 

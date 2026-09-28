@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Forms;
 
+use App\Configuration\ClubSettings;
 use App\Configuration\MailConfigurator;
 use App\Documents\SignatureImage;
 use App\Http\Controllers\Controller;
 use App\Mail\ReceiptMail;
 use App\Members\MemberReportWriter;
-use App\Models\ClubSetting;
 use App\Models\Receipt;
 use App\Receipts\IssueReceipt;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,6 +28,8 @@ use Throwable;
 
 class ReceiptController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function index(Request $request): Response
     {
         $tab = (string) $request->route('tab', 'list');
@@ -58,7 +60,7 @@ class ReceiptController extends Controller
             'activeTab' => $tab,
             'navigationBreadcrumb' => ['title' => $tabs[$tab][0], 'href' => $tabs[$tab][1]],
             'receipts' => $receipts, 'filters' => $normalizedFilters, 'creationKey' => (string) Str::uuid(),
-            'club' => Arr::only(ClubSetting::current()->data, ['name', 'street', 'postal_code', 'city', 'email']),
+            'club' => Arr::only($this->clubSettings->data(), ['name', 'street', 'postal_code', 'city', 'email']),
             'hasProfileSignature' => $request->user()->hasProfileSignature(),
             'today' => now()->toDateString(),
         ]);
@@ -80,8 +82,8 @@ class ReceiptController extends Controller
             throw ValidationException::withMessages(['scope' => 'Der Bericht ist auf 5.000 Quittungen begrenzt. Bitte den Zeitraum oder die Filter einschränken.']);
         }
         $receipts = $query->get();
-        $settings = ClubSetting::current();
-        $club = $settings->data;
+        $settings = $this->clubSettings;
+        $club = $settings->data();
         $logo = $settings->logoDataUri();
         $printedAt = now()->setTimezone(config('app.display_timezone'));
         $html = view('receipts.ledger-report', compact('receipts', 'filters', 'club', 'logo', 'printedAt'))->render();

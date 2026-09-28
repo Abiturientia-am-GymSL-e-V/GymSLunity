@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Members;
 
+use App\Configuration\ClubSettings;
 use App\Http\Controllers\Controller;
 use App\Members\MemberFields;
 use App\Members\MemberReportValue;
 use App\Members\MemberReportWriter;
-use App\Models\ClubSetting;
 use App\Models\Member;
 use App\Models\MemberChange;
 use Carbon\CarbonImmutable;
@@ -20,6 +20,8 @@ use Illuminate\Validation\Rule;
 
 class MemberCardController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function __invoke(Request $request, Member $member): Response
     {
         Gate::authorize('view', $member);
@@ -61,9 +63,8 @@ class MemberCardController extends Controller
 
             return ['actor' => $change->actor_name, 'date' => $change->created_at->setTimezone($timezone)->format('d.m.Y H:i T'), 'version' => $change->version, 'rows' => $rows];
         });
-        $settings = ClubSetting::current();
-        $club = $settings->data;
-        $logo = $settings->logoDataUri();
+        $club = $this->clubSettings->data();
+        $logo = $this->clubSettings->logoDataUri();
         $printedAt = now()->setTimezone($timezone);
         $html = view('exports.card', compact('member', 'sections', 'documents', 'changes', 'club', 'logo', 'printedAt', 'timezone') + ['pdf' => $format === 'pdf'])->render();
         if ($format === 'pdf') {

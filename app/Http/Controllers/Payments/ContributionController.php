@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Payments;
 
+use App\Configuration\ClubSettings;
 use App\Http\Controllers\Controller;
-use App\Models\ClubSetting;
 use App\Models\MemberFieldDefinition;
 use App\Payments\CreateContributions;
 use Illuminate\Http\RedirectResponse;
@@ -15,6 +15,8 @@ use Inertia\Inertia;
 
 class ContributionController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function store(Request $request, CreateContributions $creator): RedirectResponse
     {
         $filterKeys = MemberFieldDefinition::query()->where('is_active', true)->where('filterable', true)->pluck('key')->all();
@@ -33,7 +35,7 @@ class ContributionController extends Controller
             'filters.*.key' => ['required', 'string', 'distinct', Rule::in($filterKeys)],
             'filters.*.value' => ['required', 'string', 'max:255'],
         ]);
-        if (! (bool) (ClubSetting::current()->data['contributions_tax_deductible'] ?? false)) {
+        if (! $this->clubSettings->enabled('contributions_tax_deductible')) {
             $data['tax_deductible'] = false;
         }
         $result = $creator->handle($request->user(), $data);

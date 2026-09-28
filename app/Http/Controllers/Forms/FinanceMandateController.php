@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Forms;
 
+use App\Configuration\ClubSettings;
 use App\Configuration\MailConfigurator;
 use App\Documents\SignatureImage;
 use App\Forms\FinanceMandates;
 use App\Http\Controllers\Controller;
 use App\Mail\FinanceMandateMail;
 use App\Members\MemberReportWriter;
-use App\Models\ClubSetting;
 use App\Models\FinanceMandate;
 use App\Rules\Iban;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,6 +27,8 @@ use Throwable;
 
 class FinanceMandateController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function index(Request $request): Response
     {
         $tab = (string) $request->route('tab', 'overview');
@@ -56,13 +58,13 @@ class FinanceMandateController extends Controller
                     ? route('forms.mandates.sign', ['token' => $mandate->signingToken()])
                     : null,
             ]);
-        $club = ClubSetting::current()->data;
+        $club = $this->clubSettings->data();
 
         return Inertia::render('forms/SepaMandates', [
             'activeTab' => $tab, 'mandates' => $mandates, 'search' => $search, 'filters' => $normalizedFilters,
             'creationKey' => (string) Str::uuid(), 'today' => now()->toDateString(),
             'defaultCountry' => $club['country'] ?? 'DE',
-            'clubReady' => collect(['name', 'street', 'postal_code', 'city', 'country', 'creditor_id'])->every(fn (string $key): bool => ! empty($club[$key])),
+            'clubReady' => $this->clubSettings->mandateReady(),
         ]);
     }
 
@@ -83,8 +85,8 @@ class FinanceMandateController extends Controller
             throw ValidationException::withMessages(['scope' => 'Der Bericht ist auf 5.000 Mandate begrenzt. Bitte den Zeitraum oder die Filter einschränken.']);
         }
         $mandates = $query->get();
-        $settings = ClubSetting::current();
-        $club = $settings->data;
+        $settings = $this->clubSettings;
+        $club = $settings->data();
         $logo = $settings->logoDataUri();
         $printedAt = now()->setTimezone(config('app.display_timezone'));
         $html = view('forms.mandate-report', compact('mandates', 'filters', 'club', 'logo', 'printedAt'))->render();
@@ -165,13 +167,12 @@ class FinanceMandateController extends Controller
     public function publicShow(string $token): Response
     {
         $mandate = $this->resolveToken($token);
-        $settings = ClubSetting::current();
 
         return Inertia::render('public/SepaMandateSign', [
             'token' => $token,
             'mandate' => $this->publicData($mandate),
-            'clubName' => $settings->data['name'] ?? config('app.name'),
-            'logoUrl' => ! empty($settings->data['logo_path']) ? route('branding.logo', ['v' => $settings->version]) : null,
+            'clubName' => $this->clubSettings->text('name') ?: config('app.name'),
+            'logoUrl' => $this->clubSettings->logoUrl(),
         ]);
     }
 

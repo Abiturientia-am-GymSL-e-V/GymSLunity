@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Configuration;
 
+use App\Configuration\ClubSettings;
 use App\Configuration\ConfigurationAudit;
 use App\Http\Controllers\Controller;
 use App\Members\MemberFields;
@@ -23,11 +24,13 @@ use Inertia\Response;
 
 class MemberFieldController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function index(): Response
     {
         return Inertia::render('configuration/MemberFields', [
             'fields' => MemberFieldDefinition::query()->orderBy('position')->orderBy('id')->get(),
-            'sections' => MemberFields::SECTIONS, 'version' => ClubSetting::current()->fields_version,
+            'sections' => MemberFields::SECTIONS, 'version' => $this->clubSettings->fieldsVersion(),
             'types' => ['text' => 'Text', 'number' => 'Ganze Zahl', 'decimal' => 'Dezimalzahl', 'date' => 'Datum', 'boolean' => 'Ja / Nein', 'select' => 'Auswahl'],
         ]);
     }

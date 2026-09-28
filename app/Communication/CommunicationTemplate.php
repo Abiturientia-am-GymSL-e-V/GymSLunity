@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Communication;
 
 use App\Configuration\ClubData;
+use App\Configuration\ClubSettings;
 use App\Members\MemberFields;
 use App\Members\MemberReportValue;
-use App\Models\ClubSetting;
 use App\Models\Member;
 use App\Models\MemberFieldDefinition;
 use App\Support\Iban;
@@ -30,7 +30,7 @@ final class CommunicationTemplate
     /** @var array<string, string> */
     private array $clubReplacements;
 
-    public function __construct()
+    public function __construct(private readonly ClubSettings $clubSettings)
     {
         $this->fields = MemberFieldDefinition::query()
             ->where('is_active', true)
@@ -38,7 +38,7 @@ final class CommunicationTemplate
                 $query->where('is_custom', true)->orWhereIn('key', self::SAFE_MEMBER_FIELDS);
             })
             ->orderBy('position')->get()->keyBy('key');
-        $club = ClubSetting::current()->data;
+        $club = $this->clubSettings->data();
         $this->clubReplacements = [];
         foreach (ClubData::fields() as $field) {
             $value = $club[$field['key']] ?? '';

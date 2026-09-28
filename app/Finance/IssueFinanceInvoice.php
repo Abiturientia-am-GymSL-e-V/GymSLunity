@@ -132,8 +132,9 @@ final class IssueFinanceInvoice
         if ($data['payment_method'] === 'bank_transfer' && ($seller['iban'] === '' || $seller['account_holder'] === '')) {
             throw ValidationException::withMessages(['payment_method' => 'Für Überweisungen müssen Kontoinhaber und IBAN in der Vereinskonfiguration hinterlegt sein.']);
         }
-        if ($data['payment_method'] === 'sepa_direct_debit' && ($seller['iban'] === '' || $seller['bic'] === '' || $seller['creditor_id'] === '')) {
-            throw ValidationException::withMessages(['payment_method' => 'SEPA-Lastschrift ist erst mit IBAN, BIC und Gläubiger-ID in der Vereinskonfiguration verfügbar.']);
+        // Same fields as ClubSettings::SEPA_FIELDS, checked on the locked row.
+        if ($data['payment_method'] === 'sepa_direct_debit' && ($seller['name'] === '' || $seller['iban'] === '' || $seller['creditor_id'] === '')) {
+            throw ValidationException::withMessages(['payment_method' => 'SEPA-Lastschrift ist erst mit Vereinsname, IBAN und Gläubiger-ID in der Vereinskonfiguration verfügbar.']);
         }
     }
 

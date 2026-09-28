@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Donations;
 
+use App\Configuration\ClubSettings;
 use App\Configuration\Countries;
 use App\Configuration\MailConfigurator;
 use App\Documents\SignatureImage;
@@ -14,7 +15,6 @@ use App\Donations\DonationSequence;
 use App\Http\Controllers\Controller;
 use App\Mail\DonationCertificateMail;
 use App\Members\MemberReportWriter;
-use App\Models\ClubSetting;
 use App\Models\Donation;
 use App\Models\DonationCertificate;
 use App\Models\DonationCertificateRevocation;
@@ -34,6 +34,8 @@ use InvalidArgumentException;
 
 class DonationController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function index(Request $request): Response
     {
         $tab = (string) $request->route('tab', 'ledger');
@@ -43,7 +45,7 @@ class DonationController extends Controller
             'open' => ['Offene Zuwendungsbestätigungen', route('donations.open')],
         ];
         abort_unless(isset($tabs[$tab]), 404);
-        $club = ClubSetting::current()->data;
+        $club = $this->clubSettings->data();
         $configuredCodes = is_array($club['donation_purpose_codes'] ?? null) ? $club['donation_purpose_codes'] : [];
         $purposeOptions = collect(DonationPurposes::forFrontend())->whereIn('value', $configuredCodes)->values()->all();
         $withCertificate = ['certificate.deliveries' => fn ($query) => $query->latest('created_at'), 'certificate.revocation'];
@@ -109,7 +111,7 @@ class DonationController extends Controller
             'description.required_if' => 'Bitte die Sachzuwendung genau mit Alter, Zustand und Kaufpreis beschreiben.',
             'asset_origin.required_if' => 'Bitte die Herkunft der Sachzuwendung angeben.',
         ]);
-        $club = ClubSetting::current()->data;
+        $club = $this->clubSettings->data();
         $configuredCodes = is_array($club['donation_purpose_codes'] ?? null) ? $club['donation_purpose_codes'] : [];
         if (! in_array($data['purpose_code'], $configuredCodes, true)) {
             throw ValidationException::withMessages(['purpose_code' => 'Der Zweck ist nicht in den Spenden-Stammdaten freigegeben.']);
@@ -224,7 +226,7 @@ class DonationController extends Controller
         if ($certificate->revocation) {
             throw ValidationException::withMessages(['email' => 'Eine widerrufene Zuwendungsbestätigung darf nicht versendet werden.']);
         }
-        if (! DonationCertificateGenerator::digitalDeliveryAllowed(ClubSetting::current()->data)) {
+        if (! DonationCertificateGenerator::digitalDeliveryAllowed($this->clubSettings->data())) {
             throw ValidationException::withMessages(['email' => 'Das maschinelle Verfahren wurde dem Finanzamt nicht angezeigt. Die Bestätigung darf daher nur ausgedruckt und eigenhändig unterschrieben werden.']);
         }
         $donation = $certificate->donation;
@@ -325,8 +327,8 @@ class DonationController extends Controller
             throw ValidationException::withMessages(['scope' => 'Der Bericht ist auf 5.000 Spenden begrenzt. Bitte den Zeitraum oder die Filter einschränken.']);
         }
         $donations = $query->get();
-        $settings = ClubSetting::current();
-        $club = $settings->data;
+        $settings = $this->clubSettings;
+        $club = $settings->data();
         $logo = $settings->logoDataUri();
         $printedAt = now()->setTimezone(config('app.display_timezone'));
         $html = view('donations.ledger-report', compact('donations', 'filters', 'club', 'logo', 'printedAt'))->render();

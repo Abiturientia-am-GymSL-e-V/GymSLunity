@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Configuration;
 
+use App\Configuration\ClubSettings;
 use App\Configuration\ConfigurationAudit;
 use App\Donations\DonationCertificateGenerator;
 use App\Donations\DonationPurposes;
@@ -20,6 +21,8 @@ use Inertia\Response;
 
 class DonationSettingsController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     private const KEYS = [
         'donation_purpose_codes', 'contributions_tax_deductible', 'tax_privilege_notice_type',
         'tax_privilege_notice_date', 'tax_privilege_assessment_period',
@@ -28,14 +31,14 @@ class DonationSettingsController extends Controller
 
     public function edit(): Response
     {
-        $settings = ClubSetting::current();
+        $settings = $this->clubSettings;
 
         return Inertia::render('configuration/Donations', [
-            'settings' => Arr::only($settings->data, self::KEYS),
-            'version' => $settings->version,
+            'settings' => Arr::only($settings->data(), self::KEYS),
+            'version' => $settings->version(),
             'purposes' => DonationPurposes::forFrontend(),
-            'club' => Arr::only($settings->data, ['name', 'street', 'postal_code', 'city', 'register_number', 'register_court', 'tax_number', 'tax_office']),
-            'readiness' => DonationCertificateGenerator::configurationErrors($settings->data),
+            'club' => Arr::only($settings->data(), ['name', 'street', 'postal_code', 'city', 'register_number', 'register_court', 'tax_number', 'tax_office']),
+            'readiness' => DonationCertificateGenerator::configurationErrors($settings->data()),
         ]);
     }
 

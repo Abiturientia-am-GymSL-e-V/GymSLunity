@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mail;
 
-use App\Models\ClubSetting;
+use App\Configuration\ClubSettings;
 use App\Models\Contribution;
 use App\Models\Member;
 use App\Payments\DunningNotices;
@@ -23,13 +23,13 @@ class DunningNoticeMail extends Mailable
     /** @var array<string, mixed> */
     private array $club;
 
-    private int $settingsVersion;
+    private ?string $logoUrl = null;
 
     public function __construct(public readonly Member $member)
     {
-        $settings = ClubSetting::current();
-        $this->club = $settings->data;
-        $this->settingsVersion = $settings->version;
+        $settings = app(ClubSettings::class);
+        $this->club = $settings->data();
+        $this->logoUrl = $settings->logoUrl();
     }
 
     public function envelope(): Envelope
@@ -45,7 +45,7 @@ class DunningNoticeMail extends Mailable
 
         return new Content(view: 'mail.dunning-notice', with: [
             'clubName' => (string) (($this->club['short_name'] ?? null) ?: ($this->club['name'] ?? config('app.name'))),
-            'logoUrl' => ! empty($this->club['logo_path']) ? route('branding.logo', ['v' => $this->settingsVersion]) : null,
+            'logoUrl' => $this->logoUrl,
             'openCents' => $openCents,
             'giroCode' => $giroCode,
             'formalAddress' => FormOfAddress::isFormal($this->club),

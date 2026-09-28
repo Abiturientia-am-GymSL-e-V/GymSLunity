@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mail;
 
-use App\Models\ClubSetting;
+use App\Configuration\ClubSettings;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -27,11 +27,11 @@ class ConfigurationTestMail extends Mailable
 
     public function content(): Content
     {
-        $settings = ClubSetting::current();
+        $settings = app(ClubSettings::class);
 
         return new Content(view: 'mail.configuration-test', with: [
-            'clubName' => (string) (($settings->data['short_name'] ?? null) ?: ($settings->data['name'] ?? config('app.name'))),
-            'logoUrl' => ! empty($settings->data['logo_path']) ? route('branding.logo', ['v' => $settings->version]) : null,
+            'clubName' => $settings->displayName() ?? (string) config('app.name'),
+            'logoUrl' => $settings->logoUrl(),
         ]);
     }
 }

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Configuration\ClubSettings;
 use App\Configuration\SoftwareModules;
 use App\Models\ClubCalendarEvent;
-use App\Models\ClubSetting;
 use App\Models\Contribution;
 use App\Models\Donation;
 use App\Models\Member;
@@ -18,10 +18,12 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function __invoke(Request $request): Response
     {
         $today = CarbonImmutable::today();
-        $modules = SoftwareModules::values(ClubSetting::current());
+        $modules = SoftwareModules::values($this->clubSettings);
         $canViewMembers = $request->user()?->can('viewAny', Member::class) ?? false;
         $canViewPayments = $modules['payments'] && ($request->user()?->can('view-payments') ?? false);
         $canViewDonations = $modules['donations'] && ($request->user()?->can('view-donations') ?? false);

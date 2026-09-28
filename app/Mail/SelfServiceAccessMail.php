@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mail;
 
-use App\Models\ClubSetting;
+use App\Configuration\ClubSettings;
 use App\PublicSite\PublicPageTemplates;
 use App\Support\FormOfAddress;
 use Illuminate\Mail\Mailable;
@@ -16,13 +16,17 @@ class SelfServiceAccessMail extends Mailable
     /** @var array<string, mixed> */
     private array $club;
 
+    private ?string $logoUrl = null;
+
     private string $subjectLine;
 
     private string $messageText;
 
     public function __construct(public string $token, public string $purpose)
     {
-        $this->club = ClubSetting::current()->data;
+        $settings = app(ClubSettings::class);
+        $this->club = $settings->data();
+        $this->logoUrl = $settings->logoUrl();
         $join = $purpose === 'join';
         $this->subjectLine = $purpose === 'email'
             ? 'Neue E-Mail-Adresse bestätigen'
@@ -53,7 +57,7 @@ class SelfServiceAccessMail extends Mailable
                 ? route('selfservice.email.confirm', ['token' => $this->token])
                 : rtrim(config('app.url'), '/').$confirmationPath.'#token='.$this->token,
             'clubName' => (string) (($this->club['short_name'] ?? null) ?: ($this->club['name'] ?? config('app.name'))),
-            'logoUrl' => ! empty($this->club['logo_path']) ? route('branding.logo', ['v' => ClubSetting::current()->version]) : null,
+            'logoUrl' => $this->logoUrl,
             'messageText' => $this->messageText,
             'directConfirmation' => $directConfirmation,
             'confirmationPageLabel' => $this->purpose === 'join'

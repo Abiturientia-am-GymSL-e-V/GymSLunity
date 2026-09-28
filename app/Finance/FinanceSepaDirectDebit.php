@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Finance;
 
-use App\Models\ClubSetting;
+use App\Configuration\ClubSettings;
 use App\Models\FinanceInvoice;
 use App\Models\User;
 use App\Payments\SepaDirectDebit;
@@ -19,16 +19,14 @@ use LogicException;
 
 final class FinanceSepaDirectDebit
 {
-    public function __construct(private readonly SepaXmlValidator $validator) {}
+    public function __construct(private readonly ClubSettings $clubSettings, private readonly SepaXmlValidator $validator) {}
 
     /** @param list<int> $ids */
     public function export(array $ids, string $collectionDate, User $actor): string
     {
-        $club = ClubSetting::current()->data;
-        foreach (['name' => 'Vereinsname', 'iban' => 'Vereins-IBAN', 'creditor_id' => 'SEPA-Gläubiger-ID'] as $key => $label) {
-            if (empty($club[$key])) {
-                throw ValidationException::withMessages(['ids' => $label.' fehlt in der Vereinskonfiguration.']);
-            }
+        $club = $this->clubSettings->data();
+        foreach ($this->clubSettings->missingSepaFields() as $label) {
+            throw ValidationException::withMessages(['ids' => $label.' fehlt in der Vereinskonfiguration.']);
         }
 
         return DB::transaction(function () use ($ids, $collectionDate, $actor, $club): string {

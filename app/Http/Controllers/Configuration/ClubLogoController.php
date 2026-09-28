@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Configuration;
 
+use App\Configuration\ClubSettings;
 use App\Configuration\ConfigurationAudit;
 use App\Http\Controllers\Controller;
 use App\Models\ClubSetting;
@@ -18,9 +19,11 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ClubLogoController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function show(): BinaryFileResponse
     {
-        $path = ClubSetting::current()->data['logo_path'] ?? null;
+        $path = $this->clubSettings->data()['logo_path'] ?? null;
         abort_unless(is_string($path) && preg_match('/^branding\/logo-[a-f0-9-]{36}\.png$/', $path) && Storage::disk('local')->exists($path), 404);
 
         return response()->file(Storage::disk('local')->path($path), ['Content-Type' => 'image/png', 'Cache-Control' => 'public, max-age=3600', 'X-Content-Type-Options' => 'nosniff']);

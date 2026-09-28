@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Payments;
 
+use App\Configuration\ClubSettings;
 use App\Members\MemberReportWriter;
-use App\Models\ClubSetting;
 use App\Models\Contribution;
 use App\Models\Member;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,6 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 final class DunningNotices
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     /**
      * @param  list<int>|null  $memberNumbers
      * @return Collection<int, Member>
@@ -39,8 +41,8 @@ final class DunningNotices
     /** @param Collection<int, Member> $members */
     public function html(Collection $members, bool $print = false): string
     {
-        $settings = ClubSetting::current();
-        $club = $settings->data;
+        $settings = $this->clubSettings;
+        $club = $settings->data();
         $giroCodes = $members->mapWithKeys(fn (Member $member): array => [
             $member->member_number => $this->giroCode($member, $club),
         ])->all();
@@ -109,7 +111,7 @@ final class DunningNotices
      */
     public function giroCode(Member $member, ?array $club = null): ?array
     {
-        $club ??= ClubSetting::current()->data;
+        $club ??= $this->clubSettings->data();
         if (empty($club['iban']) || empty($club['name'])) {
             return null;
         }

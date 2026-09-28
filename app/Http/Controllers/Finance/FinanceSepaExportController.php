@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Finance;
 
+use App\Configuration\ClubSettings;
 use App\Finance\FinanceSepaDirectDebit;
 use App\Http\Controllers\Controller;
-use App\Models\ClubSetting;
 use App\Models\FinanceInvoice;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,9 +17,11 @@ use Inertia\Response;
 
 class FinanceSepaExportController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function index(): Response
     {
-        $settings = ClubSetting::current()->data;
+        $settings = $this->clubSettings->data();
         $invoices = FinanceInvoice::query()
             ->where('document_type', 'invoice')
             ->where('payment_method', 'sepa_direct_debit')
@@ -66,7 +68,7 @@ class FinanceSepaExportController extends Controller
                 ->limit(20)
                 ->get(),
             'today' => now()->toDateString(),
-            'sepaReady' => ! empty($settings['name']) && ! empty($settings['iban']) && ! empty($settings['creditor_id']),
+            'sepaReady' => $this->clubSettings->sepaReady(),
         ]);
     }
 

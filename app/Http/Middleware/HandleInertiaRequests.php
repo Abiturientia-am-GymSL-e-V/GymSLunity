@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Configuration\ClubSettings;
 use App\Configuration\Countries;
 use App\Configuration\SoftwareModules;
-use App\Models\ClubSetting;
 use App\Models\Member;
 use App\Support\FormOfAddress;
 use Illuminate\Http\Request;
@@ -14,6 +14,8 @@ use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     /**
      * The root template that's loaded on the first page visit.
      *
@@ -50,10 +52,10 @@ class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
-            'name' => fn () => (ClubSetting::current()->data['short_name'] ?? null) ?: ((ClubSetting::current()->data['name'] ?? null) ?: config('app.name')),
-            'clubName' => fn () => (ClubSetting::current()->data['short_name'] ?? null) ?: (ClubSetting::current()->data['name'] ?? null),
-            'logoUrl' => fn () => ! empty(ClubSetting::current()->data['logo_path']) ? route('branding.logo', ['v' => ClubSetting::current()->version]) : null,
-            'defaultCountry' => fn () => Countries::code(ClubSetting::current()->data['country'] ?? null) ?? 'DE',
+            'name' => fn () => $this->clubSettings->displayName() ?? config('app.name'),
+            'clubName' => fn () => $this->clubSettings->displayName(),
+            'logoUrl' => fn () => $this->clubSettings->logoUrl(),
+            'defaultCountry' => fn () => Countries::code($this->clubSettings->text('country') ?: null) ?? 'DE',
             'formOfAddress' => fn () => FormOfAddress::value(),
             'auth' => [
                 'user' => $request->user(),

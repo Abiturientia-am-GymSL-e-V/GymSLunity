@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Configuration;
 
+use App\Configuration\ClubSettings;
 use App\Configuration\ConfigurationAudit;
 use App\Http\Controllers\Controller;
 use App\Models\ClubSetting;
@@ -18,16 +19,18 @@ use Inertia\Response;
 
 class PublicPageSettingsController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function edit(): Response
     {
-        $settings = ClubSetting::current();
+        $settings = $this->clubSettings;
         $defaults = PublicPageTemplates::defaults();
 
         return Inertia::render('configuration/PublicPages', [
-            'settings' => array_replace($defaults, Arr::only($settings->data, array_keys($defaults))),
+            'settings' => array_replace($defaults, Arr::only($settings->data(), array_keys($defaults))),
             'defaults' => $defaults,
             'placeholders' => PublicPageTemplates::placeholders(),
-            'version' => $settings->version,
+            'version' => $settings->version(),
         ]);
     }
 

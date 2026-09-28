@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Members;
 
+use App\Configuration\ClubSettings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Members\ExportMembersRequest;
 use App\Members\MemberDirectory;
 use App\Members\MemberFields;
 use App\Members\MemberReportValue;
 use App\Members\MemberReportWriter;
-use App\Models\ClubSetting;
 use App\Models\Member;
 use App\Security\SafeCsv;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,6 +20,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MemberExportController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function __invoke(ExportMembersRequest $request): StreamedResponse|Response
     {
         $data = $request->validated();
@@ -94,8 +96,8 @@ class MemberExportController extends Controller
             $snapshot['member_number'] = $member->member_number;
             $rows[] = array_map(fn (string $key): string => MemberReportValue::format($snapshot[$key] ?? null, $key === 'member_number' ? [] : $fields[$key]), $columns);
         }
-        $settings = ClubSetting::current();
-        $club = $settings->data;
+        $settings = $this->clubSettings;
+        $club = $settings->data();
         $logo = $settings->logoDataUri();
         $printedAt = now()->setTimezone(config('app.display_timezone'));
         $title = ($club['name'] ?? config('app.name')).' · Mitgliederliste';

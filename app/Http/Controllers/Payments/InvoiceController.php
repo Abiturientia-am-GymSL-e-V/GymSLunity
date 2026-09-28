@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Payments;
 
+use App\Configuration\ClubSettings;
 use App\Configuration\MailConfigurator;
 use App\Http\Controllers\Controller;
 use App\Mail\ContributionInvoiceMail;
-use App\Models\ClubSetting;
 use App\Models\Contribution;
 use App\Payments\ContributionInvoice;
 use Illuminate\Http\RedirectResponse;
@@ -20,6 +20,8 @@ use Inertia\Inertia;
 
 class InvoiceController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function generate(Request $request, ContributionInvoice $invoices): RedirectResponse
     {
         $data = $request->validate([
@@ -27,7 +29,7 @@ class InvoiceController extends Controller
             'ids.*' => ['integer', 'distinct', 'exists:contributions,id'],
             'tax_deductible' => ['nullable', 'boolean'],
         ]);
-        $canSetTaxDeductible = (bool) (ClubSetting::current()->data['contributions_tax_deductible'] ?? false);
+        $canSetTaxDeductible = $this->clubSettings->enabled('contributions_tax_deductible');
         $count = 0;
         DB::transaction(function () use ($data, $canSetTaxDeductible, $invoices, &$count): void {
             $contributions = Contribution::query()->whereKey($data['ids'])->where('kind', 'contribution')->orderBy('id')->get();

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mail;
 
-use App\Models\ClubSetting;
+use App\Configuration\ClubSettings;
 use App\Models\FinanceInvoice;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
@@ -28,11 +28,11 @@ class FinanceInvoiceMail extends Mailable
 
     public function content(): Content
     {
-        $settings = ClubSetting::current();
+        $settings = app(ClubSettings::class);
 
         return new Content(view: 'mail.finance-invoice', with: [
             'clubName' => (string) ($this->invoice->snapshot['seller']['name'] ?? config('app.name')),
-            'logoUrl' => ! empty($settings->data['logo_path']) ? route('branding.logo', ['v' => $settings->version]) : null,
+            'logoUrl' => $settings->logoUrl(),
             'documentLabel' => $this->invoice->document_type === 'cancellation' ? 'Stornorechnung' : 'Rechnung',
         ]);
     }

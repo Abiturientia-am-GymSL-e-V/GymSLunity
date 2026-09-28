@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Members;
 
+use App\Configuration\ClubSettings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Members\IndexMembersRequest;
 use App\Members\MemberDirectory;
 use App\Members\MemberFields;
-use App\Models\ClubSetting;
 use App\Models\Member;
 use App\Models\MemberFieldDefinition;
 use Illuminate\Support\Arr;
@@ -17,6 +17,8 @@ use Inertia\Response;
 
 class MemberIndexController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function __invoke(IndexMembersRequest $request): Response
     {
         $filters = $request->filters();
@@ -50,7 +52,7 @@ class MemberIndexController extends Controller
                 'clubRoles' => $this->options('club_role'),
             ],
             'fieldDefinitions' => fn () => MemberFields::directoryFields(),
-            'configurationVersion' => fn () => ClubSetting::current()->fields_version,
+            'configurationVersion' => fn () => $this->clubSettings->fieldsVersion(),
             'canBulkEdit' => $request->user()?->can('updateAny', Member::class) ?? false,
         ]);
     }

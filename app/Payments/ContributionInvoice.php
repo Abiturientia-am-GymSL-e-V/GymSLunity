@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace App\Payments;
 
+use App\Configuration\ClubSettings;
 use App\Members\MemberReportWriter;
-use App\Models\ClubSetting;
 use App\Models\Contribution;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 final class ContributionInvoice
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function number(Contribution $contribution): Contribution
     {
         if ($contribution->invoice_number) {
@@ -44,8 +46,8 @@ final class ContributionInvoice
     public function html(Contribution $contribution, bool $print = false): string
     {
         $contribution->loadMissing('account.member');
-        $settings = ClubSetting::current();
-        $club = $settings->data;
+        $settings = $this->clubSettings;
+        $club = $settings->data();
 
         return view('payments.invoice', [
             'contribution' => $contribution,
@@ -66,8 +68,8 @@ final class ContributionInvoice
     public function combinedPdf(Collection $contributions): string
     {
         $contributions->loadMissing('account.member');
-        $settings = ClubSetting::current();
-        $club = $settings->data;
+        $settings = $this->clubSettings;
+        $club = $settings->data();
         $giroCodes = $contributions->mapWithKeys(fn (Contribution $contribution): array => [
             $contribution->id => $this->giroCode($contribution, $club),
         ])->all();

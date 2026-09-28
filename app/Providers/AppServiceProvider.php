@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Configuration\ClubSettings;
 use App\Configuration\MailConfigurator;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
@@ -23,7 +26,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->scoped(ClubSettings::class);
     }
 
     /**
@@ -32,6 +35,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        // Scoped instances only reset per queue job; also start every HTTP
+        // request (including consecutive requests in one test) fresh.
+        Event::listen(RequestHandled::class, fn () => app(ClubSettings::class)->refresh());
         $mailManager = app('mail.manager');
         $mailManager->extend('native', fn (array $config) => Transport::fromDsn('native://default'));
         // Composer package discovery and the release build run before .env is

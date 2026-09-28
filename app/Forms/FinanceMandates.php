@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Forms;
 
+use App\Configuration\ClubSettings;
 use App\Documents\SignatureImage;
 use App\Members\MemberReportWriter;
 use App\Models\ClubSetting;
@@ -18,6 +19,8 @@ use InvalidArgumentException;
 
 final class FinanceMandates
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     /** @param array<string, mixed> $data */
     public function create(array $data, User $actor): FinanceMandate
     {
@@ -31,7 +34,7 @@ final class FinanceMandates
                 return $existing;
             }
             $club = $settings->data;
-            foreach (['name', 'street', 'postal_code', 'city', 'country', 'creditor_id'] as $key) {
+            foreach (ClubSettings::MANDATE_FIELDS as $key) {
                 if (empty($club[$key])) {
                     throw ValidationException::withMessages(['club' => 'Für SEPA-Mandate müssen Vereinsname, Anschrift, Land und Gläubiger-ID in der Vereinskonfiguration hinterlegt sein.']);
                 }
@@ -111,7 +114,7 @@ final class FinanceMandates
             if ($current->status === 'revoked') {
                 throw ValidationException::withMessages(['mandate' => 'Ein widerrufenes Mandat kann nicht mehr unterzeichnet werden.']);
             }
-            $club = ClubSetting::current()->data;
+            $club = $this->clubSettings->data();
             $values = [
                 'status' => 'signed',
                 'signed_at' => $signedAt.' '.now()->format('H:i:s'),
@@ -136,7 +139,7 @@ final class FinanceMandates
      */
     private function renderPdf(array $mandate, array $club, ?string $signature): string
     {
-        $settings = ClubSetting::current();
+        $settings = $this->clubSettings;
         $html = view('forms.sepa-mandate', [
             'mandate' => $mandate,
             'club' => $club,

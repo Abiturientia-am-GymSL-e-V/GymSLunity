@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Members;
 
-use App\Models\ClubSetting;
+use App\Configuration\ClubSettings;
 use App\Models\Member;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -18,6 +18,8 @@ use RuntimeException;
 
 final class MemberCsvImport
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     private const MAX_ROWS = 1000;
 
     private const MAX_COLUMNS = 200;
@@ -120,7 +122,7 @@ final class MemberCsvImport
 
         $token = Str::random(48);
         $payload = [
-            'user_id' => $user->getKey(), 'configuration_version' => ClubSetting::current()->fields_version,
+            'user_id' => $user->getKey(), 'configuration_version' => $this->clubSettings->fieldsVersion(),
             'stage' => 'mapping', 'source_headers' => $headers, 'source_rows' => $rawRows,
             'delimiter' => $delimiter, 'mapping' => $this->suggestMapping($headers),
         ];
@@ -146,7 +148,7 @@ final class MemberCsvImport
         if ($payload === null || ($payload['stage'] ?? null) !== 'mapping') {
             throw ValidationException::withMessages(['mapping' => 'Die Spaltenzuordnung ist abgelaufen. Bitte die CSV-Datei erneut hochladen.']);
         }
-        if ($payload['configuration_version'] !== ClubSetting::current()->fields_version) {
+        if ($payload['configuration_version'] !== $this->clubSettings->fieldsVersion()) {
             throw ValidationException::withMessages(['mapping' => 'Die Mitgliedsfelder wurden geändert. Bitte die CSV-Datei erneut hochladen.']);
         }
         $payload = $this->finalizeMapping($payload, $mapping, true);
@@ -172,7 +174,7 @@ final class MemberCsvImport
         if (($payload['stage'] ?? null) !== 'preview') {
             throw ValidationException::withMessages(['form' => 'Bitte zuerst die CSV-Spalten den Mitgliedsfeldern zuordnen.']);
         }
-        if ($payload['configuration_version'] !== ClubSetting::current()->fields_version) {
+        if ($payload['configuration_version'] !== $this->clubSettings->fieldsVersion()) {
             throw ValidationException::withMessages(['form' => 'Die Mitgliedsfelder wurden seit der Vorschau geändert. Bitte die CSV-Datei erneut prüfen.']);
         }
         $current = $this->validateRows($payload['raw_rows']);

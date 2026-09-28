@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Members;
 
+use App\Configuration\ClubSettings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Members\StoreMemberDocumentRequest;
 use App\Http\Requests\Members\StoreMemberRequest;
@@ -13,7 +14,6 @@ use App\Members\MemberFields;
 use App\Members\MemberMandates;
 use App\Members\MemberNavigation;
 use App\Members\UpdateMember;
-use App\Models\ClubSetting;
 use App\Models\ContributionAccount;
 use App\Models\Member;
 use App\Models\MemberChange;
@@ -29,6 +29,8 @@ use Inertia\Response;
 
 class MemberController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function create(Request $request): Response
     {
         Gate::authorize('create', Member::class);
@@ -36,7 +38,7 @@ class MemberController extends Controller
         return Inertia::render('members/Create', [
             'totalMembers' => fn () => Member::query()->count(),
             'sections' => MemberFields::sections(),
-            'configurationVersion' => ClubSetting::current()->fields_version,
+            'configurationVersion' => $this->clubSettings->fieldsVersion(),
             'suggestedMemberNumber' => ((int) Member::query()->max('member_number')) + 1,
         ]);
     }
@@ -64,7 +66,7 @@ class MemberController extends Controller
         return Inertia::render('members/Show', [
             'member' => [...Arr::only($member->attributesToArray(), ['id', 'member_number', 'lock_version', 'created_at', 'updated_at']), ...MemberFields::snapshot($member)],
             'sections' => MemberFields::sections($member),
-            'configurationVersion' => ClubSetting::current()->fields_version,
+            'configurationVersion' => $this->clubSettings->fieldsVersion(),
             'canEdit' => $request->user()?->can('update', $member) ?? false,
             'returnTo' => $returnTo,
             'documents' => fn () => DB::table('member_documents')->where('member_id', $member->getKey())

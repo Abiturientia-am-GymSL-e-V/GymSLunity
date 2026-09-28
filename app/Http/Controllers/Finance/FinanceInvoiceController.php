@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Finance;
 
+use App\Configuration\ClubSettings;
 use App\Configuration\MailConfigurator;
 use App\Finance\CancelFinanceInvoice;
 use App\Finance\IssueFinanceInvoice;
 use App\Http\Controllers\Controller;
 use App\Mail\FinanceInvoiceMail;
 use App\Members\MemberReportWriter;
-use App\Models\ClubSetting;
 use App\Models\FinanceInvoice;
 use App\Models\FinanceMandate;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,6 +28,8 @@ use Throwable;
 
 class FinanceInvoiceController extends Controller
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     public function index(Request $request, CancelFinanceInvoice $cancel): Response
     {
         $filters = $request->validate([
@@ -114,8 +116,8 @@ class FinanceInvoiceController extends Controller
             throw ValidationException::withMessages(['scope' => 'Der Bericht ist auf 5.000 Belege begrenzt. Bitte den Zeitraum oder die Filter einschränken.']);
         }
         $invoices = $query->get();
-        $settings = ClubSetting::current();
-        $club = $settings->data;
+        $settings = $this->clubSettings;
+        $club = $settings->data();
         $logo = $settings->logoDataUri();
         $printedAt = now()->setTimezone(config('app.display_timezone'));
         $html = view('finance.invoice-report', compact('invoices', 'filters', 'club', 'logo', 'printedAt'))->render();
@@ -131,7 +133,7 @@ class FinanceInvoiceController extends Controller
 
     public function create(): Response
     {
-        $club = ClubSetting::current()->data;
+        $club = $this->clubSettings->data();
         $requiredClubFields = [
             'name' => 'Vereinsname',
             'street' => 'Straße und Hausnummer',
@@ -156,7 +158,7 @@ class FinanceInvoiceController extends Controller
             'defaultCountry' => $club['country'] ?? 'DE',
             'paymentReadiness' => [
                 'bank_transfer' => ! empty($club['iban']) && ! empty($club['account_holder']),
-                'sepa_direct_debit' => ! empty($club['iban']) && ! empty($club['bic']) && ! empty($club['creditor_id']),
+                'sepa_direct_debit' => $this->clubSettings->sepaReady(),
             ],
             'smallBusinessRegulationEnabled' => (bool) ($club['small_business_regulation_enabled'] ?? false),
             'smallBusinessNotice' => IssueFinanceInvoice::SMALL_BUSINESS_NOTICE,
@@ -181,9 +183,8 @@ class FinanceInvoiceController extends Controller
     public function store(Request $request, IssueFinanceInvoice $issue): RedirectResponse
     {
         if ($request->input('payment_method') === 'sepa_direct_debit') {
-            $club = ClubSetting::current()->data;
-            if (empty($club['iban']) || empty($club['bic']) || empty($club['creditor_id'])) {
-                throw ValidationException::withMessages(['payment_method' => 'SEPA-Lastschrift ist erst mit IBAN, BIC und Gläubiger-ID in der Vereinskonfiguration verfügbar.']);
+            if (! $this->clubSettings->sepaReady()) {
+                throw ValidationException::withMessages(['payment_method' => 'SEPA-Lastschrift ist erst mit Vereinsname, IBAN und Gläubiger-ID in der Vereinskonfiguration verfügbar.']);
             }
         }
         $request->merge([
@@ -238,7 +239,7 @@ class FinanceInvoiceController extends Controller
             $data['mandate_signed_at'] = $mandate->signed_at->toDateString();
             $data['mandate_type'] = $mandate->mandate_type;
         }
-        $smallBusinessRegulation = (bool) (ClubSetting::current()->data['small_business_regulation_enabled'] ?? false);
+        $smallBusinessRegulation = $this->clubSettings->enabled('small_business_regulation_enabled');
         foreach ($data['items'] as $index => $item) {
             if (! $smallBusinessRegulation && (int) $item['vat_rate'] === 0 && trim((string) ($item['tax_exemption_reason'] ?? '')) === '') {
                 throw ValidationException::withMessages(["items.$index.tax_exemption_reason" => 'Für eine steuerbefreite Position ist der Befreiungsgrund erforderlich.']);

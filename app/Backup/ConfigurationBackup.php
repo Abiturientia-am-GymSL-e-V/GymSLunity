@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Backup;
 
-use App\Models\ClubSetting;
+use App\Configuration\ClubSettings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -13,6 +13,8 @@ use Throwable;
 
 class ConfigurationBackup
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     private const FORMAT = 'gymslunity-configuration-backup';
 
     private const VERSION = 2;
@@ -88,7 +90,7 @@ class ConfigurationBackup
         }
 
         $logo = $this->validatedLogo($payload['branding_logo'] ?? null, $club);
-        $oldLogo = ClubSetting::current()->logoPath();
+        $oldLogo = $this->clubSettings->logoPath();
         $oldLogoContents = $oldLogo === null ? null : File::get($oldLogo);
         $newLogo = null;
 
@@ -107,6 +109,8 @@ class ConfigurationBackup
                 DB::table('member_field_definitions')->delete();
                 DB::table('member_field_definitions')->insert($validatedFields);
             });
+            // The restore bypasses model events; drop the cached configuration.
+            app(ClubSettings::class)->refresh();
         } catch (Throwable $exception) {
             $this->rollBackLogo($newLogo, $oldLogo, $oldLogoContents);
             throw $exception;
