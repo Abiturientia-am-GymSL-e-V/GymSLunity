@@ -44,7 +44,9 @@ const root = ref<HTMLElement>();
 const trigger = ref<HTMLButtonElement>();
 const panel = ref<HTMLElement>();
 const searchInput = ref<HTMLInputElement>();
+const listbox = ref<HTMLElement>();
 const open = ref(false);
+const positioned = ref(false);
 const search = ref('');
 const active = ref(-1);
 const panelStyle = ref<Record<string, string>>({});
@@ -75,10 +77,12 @@ function normalize(value: string) {
 
 function close(focusTrigger = false) {
     open.value = false;
+    positioned.value = false;
     search.value = '';
     active.value = -1;
     panelStyle.value = {};
-    if (focusTrigger) void nextTick(() => trigger.value?.focus());
+    if (focusTrigger)
+        void nextTick(() => trigger.value?.focus({ preventScroll: true }));
 }
 
 function positionPanel() {
@@ -120,6 +124,23 @@ function positionPanel() {
     };
 }
 
+function scrollActiveOption() {
+    if (active.value < 0 || !listbox.value) return;
+
+    const option = document.getElementById(
+        `${props.id}-option-${active.value}`,
+    );
+    if (!option) return;
+
+    const listRect = listbox.value.getBoundingClientRect();
+    const optionRect = option.getBoundingClientRect();
+    if (optionRect.top < listRect.top) {
+        listbox.value.scrollTop -= listRect.top - optionRect.top;
+    } else if (optionRect.bottom > listRect.bottom) {
+        listbox.value.scrollTop += optionRect.bottom - listRect.bottom;
+    }
+}
+
 function toggle() {
     if (props.disabled) return;
     if (open.value) {
@@ -127,17 +148,21 @@ function toggle() {
         return;
     }
     search.value = '';
+    positioned.value = false;
     open.value = true;
     active.value = Math.max(
         0,
         props.options.findIndex((option) => option.value === props.modelValue),
     );
-    void nextTick(() => {
+    void nextTick(async () => {
         positionPanel();
-        searchInput.value?.focus();
-        document
-            .getElementById(`${props.id}-option-${active.value}`)
-            ?.scrollIntoView({ block: 'nearest' });
+        positioned.value = true;
+        // Apply the fixed coordinates before focusing the teleported input.
+        // Otherwise browsers scroll to its temporary position at the end of
+        // the document, which is especially visible on touch devices.
+        await nextTick();
+        searchInput.value?.focus({ preventScroll: true });
+        scrollActiveOption();
         window.requestAnimationFrame(positionPanel);
     });
 }
@@ -151,11 +176,7 @@ function move(step: number) {
     if (!filtered.value.length) return;
     active.value =
         (active.value + step + filtered.value.length) % filtered.value.length;
-    void nextTick(() =>
-        document
-            .getElementById(`${props.id}-option-${active.value}`)
-            ?.scrollIntoView({ block: 'nearest' }),
-    );
+    void nextTick(scrollActiveOption);
 }
 
 function keyboard(event: KeyboardEvent) {
@@ -200,7 +221,10 @@ watch(
 );
 watch(search, () => {
     active.value = filtered.value.length ? 0 : -1;
-    void nextTick(positionPanel);
+    void nextTick(() => {
+        positionPanel();
+        scrollActiveOption();
+    });
 });
 watch(
     () => props.options,
@@ -249,7 +273,7 @@ watch(
                 v-if="open"
                 ref="panel"
                 class="fixed z-[100] rounded-md border bg-popover p-2 text-popover-foreground shadow-md"
-                :class="dropdownClass"
+                :class="[dropdownClass, { invisible: !positioned }]"
                 :style="panelStyle"
             >
                 <input
@@ -271,6 +295,7 @@ watch(
                 />
                 <div
                     :id="`${id}-listbox`"
+                    ref="listbox"
                     role="listbox"
                     :aria-label="ariaLabel"
                     class="overflow-y-auto"
