@@ -58,6 +58,11 @@
                     </td>
                     <td>
                         {{ $options['depreciationMethods'][$item->depreciation_method] }}
+                        @if ($item->depreciation_method === 'linear')
+                            <br>
+                            {{ $item->useful_life_years }} Jahre ·
+                            {{ number_format($item->annualDepreciationCents() / 100, 2, ',', '.') }} €/Jahr
+                        @endif
                     </td>
                     <td class="number">
                         {{ number_format($item->bookValueCents() / 100, 2, ',', '.') }} €

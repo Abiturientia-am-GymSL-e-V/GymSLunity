@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Inventory;
 
+use App\Inventory\InventoryOptions;
 use App\Models\InventoryItem;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -147,6 +148,32 @@ class InventoryManagementTest extends TestCase
             (string) $response->headers->get('Content-Disposition'),
         );
         $this->assertSame(['INV-000002'], $renderedNumbers);
+    }
+
+    public function test_inventory_report_prints_linear_depreciation_duration_and_annual_amount(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-09-23 12:00:00'));
+        $this->signIn();
+        $this->post(route('inventory.store'), $this->itemData())->assertSessionHasNoErrors();
+
+        $html = view('inventory.report', [
+            'items' => InventoryItem::query()->get(),
+            'club' => ['name' => 'Testverein'],
+            'logo' => null,
+            'options' => [
+                'categories' => InventoryOptions::categories(),
+                'depreciationMethods' => InventoryOptions::depreciationMethods(),
+                'statuses' => InventoryOptions::statuses(),
+            ],
+            'printedAt' => now(),
+        ])->render();
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+
+        $this->assertIsString($text);
+        $this->assertStringContainsString(
+            'Lineare Abschreibung 10 Jahre · 120,00 €/Jahr',
+            $text,
+        );
     }
 
     public function test_inventory_report_filters_are_validated(): void
