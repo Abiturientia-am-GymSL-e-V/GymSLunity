@@ -19,13 +19,13 @@ php artisan test --filter=NameDesTests
 
 Der Code ist nach Fachbereichen geordnet, nicht nach technischen Schichten:
 
-| Ort | Inhalt |
-| --- | --- |
-| `app/<Bereich>/` | Fachlogik, z. B. `app/Finance/IssueFinanceInvoice.php` oder `app/Payments/SepaDirectDebit.php` |
-| `app/Http/Controllers/<Bereich>/` | schlanke Controller, die Fachlogik aufrufen und Inertia-Seiten rendern |
-| `app/Http/Requests/<Bereich>/` | Validierung (siehe unten) |
-| `app/Models/` | Eloquent-Modelle |
-| `resources/views/` | PDF- und E-Mail-Vorlagen |
+| Ort                               | Inhalt                                                                                         |
+| --------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `app/<Bereich>/`                  | Fachlogik, z. B. `app/Finance/IssueFinanceInvoice.php` oder `app/Payments/SepaDirectDebit.php` |
+| `app/Http/Controllers/<Bereich>/` | schlanke Controller, die Fachlogik aufrufen und Inertia-Seiten rendern                         |
+| `app/Http/Requests/<Bereich>/`    | Validierung (siehe unten)                                                                      |
+| `app/Models/`                     | Eloquent-Modelle                                                                               |
+| `resources/views/`                | PDF- und E-Mail-Vorlagen                                                                       |
 
 Bereiche sind unter anderem `Members`, `Payments` (Mitgliedsbeiträge), `Finance` (allgemeines Rechnungswesen), `Donations`, `Forms`, `Calendar`, `Bookings`, `Inventory`, `Communication`, `SelfService` und `Configuration`.
 
@@ -42,22 +42,22 @@ Bereiche sind unter anderem `Members`, `Payments` (Mitgliedsbeiträge), `Finance
 ### Validierung
 
 - Eine **Form-Request-Klasse** unter `app/Http/Requests/<Bereich>/` bekommt jeder Regelsatz, der
-  - mehr als drei Eingabefelder hat (verschachtelte Regeln wie `items.*` zählen zu ihrem Feld),
-  - an mehreren Stellen verwendet wird, zum Beispiel dieselben Filter in Übersicht und PDF-Bericht, oder
-  - Eingaben vorher normalisiert, zum Beispiel IBAN-Leerzeichen oder Dezimalkomma.
+    - mehr als drei Eingabefelder hat (verschachtelte Regeln wie `items.*` zählen zu ihrem Feld),
+    - an mehreren Stellen verwendet wird, zum Beispiel dieselben Filter in Übersicht und PDF-Bericht, oder
+    - Eingaben vorher normalisiert, zum Beispiel IBAN-Leerzeichen oder Dezimalkomma.
 - **Direkt im Controller** mit `$request->validate([...])` bleiben nur kleine Regelsätze mit höchstens drei Feldern.
 - Prüfungen, die mehrere Felder zusammen betreffen, gehören in `after()` des Requests, Normalisierung in `prepareForValidation()`, Zugangsprüfungen in `authorize()`.
 - Filter für Dokumentenbücher erben von `App\Http\Requests\DocumentFilterRequest`.
 
 ## Aufbau des Frontends
 
-| Ort | Inhalt |
-| --- | --- |
-| `resources/js/pages/` | Inertia-Seiten |
-| `resources/js/components/<bereich>/` | Komponenten eines Bereichs |
-| `resources/js/components/ui/` | shadcn-vue-Basiskomponenten (nicht von Hand umformatieren) |
-| `resources/js/lib/` | gemeinsame Hilfsfunktionen |
-| `resources/js/types/` | gemeinsame TypeScript-Typen |
+| Ort                                  | Inhalt                                                     |
+| ------------------------------------ | ---------------------------------------------------------- |
+| `resources/js/pages/`                | Inertia-Seiten                                             |
+| `resources/js/components/<bereich>/` | Komponenten eines Bereichs                                 |
+| `resources/js/components/ui/`        | shadcn-vue-Basiskomponenten (nicht von Hand umformatieren) |
+| `resources/js/lib/`                  | gemeinsame Hilfsfunktionen                                 |
+| `resources/js/types/`                | gemeinsame TypeScript-Typen                                |
 
 ### Regeln im Frontend
 

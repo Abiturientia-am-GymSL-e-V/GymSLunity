@@ -62,7 +62,6 @@ const resourceForm = useForm({
 const resourceLabel = (resource: BookingResource) =>
     resourcePath(resource, props.resources);
 const decisionForm = useForm({ decision: 'approve' });
-const cancelForm = useForm({});
 
 function priceLabel(resource: BookingResource) {
     if (resource.price_mode === 'free') return 'Kostenlos';
@@ -118,13 +117,6 @@ function resetResourceForm() {
 function decide(booking: ResourceBooking, decision: 'approve' | 'reject') {
     decisionForm.decision = decision;
     decisionForm.patch(`/buchungen/${booking.id}/entscheidung`, {
-        preserveScroll: true,
-    });
-}
-function cancel(booking: ResourceBooking) {
-    if (!window.confirm('Diesen einzelnen Buchungstermin wirklich stornieren?'))
-        return;
-    cancelForm.patch(`/buchungen/${booking.id}/stornieren`, {
         preserveScroll: true,
     });
 }
