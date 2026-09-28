@@ -1,4 +1,4 @@
-# GymSLunity
+# GymSLunity - Vereinsverwaltung
 
 [![Current Release](https://img.shields.io/github/v/release/Abiturientia-am-GymSL-e-V/GymSLunity)](https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases)
 [![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL--1.2-yellow.svg)](LICENSE)
@@ -98,8 +98,6 @@ Nach Änderungen an `.env` den Konfigurationscache neu erzeugen:
 php artisan optimize:clear
 php artisan optimize
 ```
-
-Der Produktname **GymSLunity** ist absichtlich nicht konfigurierbar. Vereinsname, Kurzname und Logo werden getrennt unter **Konfiguration → Vereinsdaten** gepflegt.
 
 Passkeys verwenden WebAuthn und benötigen im Produktivbetrieb HTTPS sowie eine exakt passende APP_URL. PASSKEYS_USER_HANDLE_SECRET wird bei der Browser-Installation separat erzeugt und darf bei Updates oder einer Rotation von APP_KEY nicht geändert werden.
 

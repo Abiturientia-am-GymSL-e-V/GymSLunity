@@ -1,5 +1,9 @@
 # Lösch-, Anonymisierungs- und Aufbewahrungskonzept
 
+```Hinweis
+Die Konfiguration von Aufbewahrungsfristen, Anonymisierung und Löschung personenbezogener Daten ist in Arbeit.
+```
+
 Dieses Dokument beschreibt die technische Voreinstellung. Der betreibende Verein muss die Fristen anhand seiner Satzung, Einwilligungen sowie steuer-, handels- und vereinsrechtlichen Pflichten prüfen und dokumentieren. GymSLunity ersetzt keine Rechtsberatung.
 
 ## Datenklassen und voreingestellte Behandlung
