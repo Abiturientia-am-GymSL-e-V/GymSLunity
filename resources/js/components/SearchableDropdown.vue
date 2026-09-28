@@ -51,6 +51,7 @@ const search = ref('');
 const active = ref(-1);
 const panelStyle = ref<Record<string, string>>({});
 const listMaxHeight = ref('14rem');
+const portalTarget = ref<string | HTMLElement>('body');
 
 const selected = computed(() =>
     props.options.find((option) => option.value === props.modelValue),
@@ -89,20 +90,33 @@ function positionPanel() {
     if (!open.value || !trigger.value || typeof window === 'undefined') return;
 
     const rect = trigger.value.getBoundingClientRect();
+    const container =
+        portalTarget.value instanceof HTMLElement ? portalTarget.value : null;
+    const containerRect = container?.getBoundingClientRect();
     const margin = 8;
     const gap = 4;
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
+    const boundaryLeft = Math.max(margin, (containerRect?.left ?? 0) + margin);
+    const boundaryRight = Math.min(
+        viewportWidth - margin,
+        (containerRect?.right ?? viewportWidth) - margin,
+    );
+    const boundaryTop = Math.max(margin, (containerRect?.top ?? 0) + margin);
+    const boundaryBottom = Math.min(
+        viewportHeight - margin,
+        (containerRect?.bottom ?? viewportHeight) - margin,
+    );
     const width = Math.min(
         Math.max(rect.width, 256),
-        Math.max(0, viewportWidth - margin * 2),
+        Math.max(0, boundaryRight - boundaryLeft),
     );
     const left = Math.min(
-        Math.max(rect.left, margin),
-        Math.max(margin, viewportWidth - width - margin),
+        Math.max(rect.left, boundaryLeft),
+        Math.max(boundaryLeft, boundaryRight - width),
     );
-    const availableBelow = viewportHeight - rect.bottom - gap - margin;
-    const availableAbove = rect.top - gap - margin;
+    const availableBelow = boundaryBottom - rect.bottom - gap;
+    const availableAbove = rect.top - gap - boundaryTop;
     const preferredHeight = Math.min(panel.value?.scrollHeight || 284, 284);
     const openAbove =
         availableBelow < preferredHeight && availableAbove > availableBelow;
@@ -116,11 +130,12 @@ function positionPanel() {
         Math.min(224, availableHeight - 60),
     )}px`;
     panelStyle.value = {
-        left: `${Math.round(left)}px`,
+        left: `${Math.round(left - (containerRect?.left ?? 0))}px`,
         width: `${Math.round(width)}px`,
-        ...(openAbove
-            ? { bottom: `${Math.round(viewportHeight - rect.top + gap)}px` }
-            : { top: `${Math.round(rect.bottom + gap)}px` }),
+        top: `${Math.round(
+            (openAbove ? rect.top - gap - preferredHeight : rect.bottom + gap) -
+                (containerRect?.top ?? 0),
+        )}px`,
     };
 }
 
@@ -149,6 +164,9 @@ function toggle() {
     }
     search.value = '';
     positioned.value = false;
+    portalTarget.value =
+        trigger.value?.closest<HTMLElement>('[data-slot="dialog-content"]') ??
+        'body';
     open.value = true;
     active.value = Math.max(
         0,
@@ -268,11 +286,11 @@ watch(
             />
         </button>
 
-        <Teleport to="body">
+        <Teleport :to="portalTarget">
             <div
                 v-if="open"
                 ref="panel"
-                class="fixed z-[100] rounded-md border bg-popover p-2 text-popover-foreground shadow-md"
+                class="pointer-events-auto fixed z-[100] rounded-md border bg-popover p-2 text-popover-foreground shadow-md"
                 :class="[dropdownClass, { invisible: !positioned }]"
                 :style="panelStyle"
             >

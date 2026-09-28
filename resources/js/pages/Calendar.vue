@@ -37,6 +37,9 @@ import type {
 
 const props = defineProps<{
     month: string;
+    view: 'month' | 'list';
+    listFrom: string;
+    listUntil: string;
     calendars: ClubCalendar[];
     events: CalendarEvent[];
     shareFields: CalendarShareField[];
@@ -73,7 +76,9 @@ const days = computed(() => {
 const visible = ref<Record<number, boolean>>(
     Object.fromEntries(props.calendars.map((calendar) => [calendar.id, true])),
 );
-const viewMode = ref<'month' | 'list'>('month');
+const viewMode = ref<'month' | 'list'>(props.view);
+const listFrom = ref(props.listFrom);
+const listUntil = ref(props.listUntil);
 const eventsOn = (date: string) =>
     props.events.filter((event) => {
         if (!visible.value[event.calendar_id]) return false;
@@ -115,9 +120,9 @@ const writableCalendarOptions = computed(() =>
     })),
 );
 const listedEvents = computed(() => {
-    const from = monthDate.value;
-    const until = new Date(from);
-    until.setMonth(until.getMonth() + 1);
+    const from = parseDate(listFrom.value);
+    const until = parseDate(listUntil.value);
+    until.setDate(until.getDate() + 1);
 
     return props.events.filter(
         (event) =>
@@ -132,13 +137,32 @@ const visibleCalendarIds = computed(() =>
         .map((calendar) => calendar.id),
 );
 const reportUrl = computed(() => {
-    const params = new URLSearchParams({ month: props.month });
+    const params = new URLSearchParams({
+        layout: viewMode.value,
+        month: props.month,
+    });
+    if (viewMode.value === 'list') {
+        params.set('from', listFrom.value);
+        params.set('until', listUntil.value);
+    }
     for (const id of visibleCalendarIds.value) {
         params.append('calendars[]', String(id));
     }
 
     return `/kalender/terminliste.pdf?${params.toString()}`;
 });
+function applyListRange() {
+    router.get(
+        '/kalender',
+        {
+            month: props.month,
+            view: 'list',
+            from: listFrom.value,
+            until: listUntil.value,
+        },
+        { preserveState: true, preserveScroll: true },
+    );
+}
 const dateFormatter = new Intl.DateTimeFormat('de-DE', {
     day: '2-digit',
     month: '2-digit',
@@ -327,7 +351,10 @@ const addCalendar = () => manageDialog.value?.add();
                 <div
                     class="flex flex-wrap items-center justify-between gap-3 border-b p-4"
                 >
-                    <div class="flex items-center gap-2">
+                    <div
+                        v-if="viewMode === 'month'"
+                        class="flex items-center gap-2"
+                    >
                         <Button variant="outline" size="sm" @click="goToday"
                             >Heute</Button
                         >
@@ -346,7 +373,10 @@ const addCalendar = () => manageDialog.value?.add();
                             ><ChevronRight class="size-5"
                         /></Button>
                     </div>
-                    <h2 class="text-lg font-semibold capitalize">
+                    <h2
+                        v-if="viewMode === 'month'"
+                        class="text-lg font-semibold capitalize"
+                    >
                         {{ monthTitle }}
                     </h2>
                     <div class="flex flex-wrap gap-2">
@@ -385,6 +415,33 @@ const addCalendar = () => manageDialog.value?.add();
                         </Button>
                     </div>
                 </div>
+                <form
+                    v-if="viewMode === 'list'"
+                    class="grid gap-4 border-b p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end"
+                    @submit.prevent="applyListRange"
+                >
+                    <div class="min-w-0 space-y-2">
+                        <Label for="calendar-list-from">Von</Label>
+                        <Input
+                            id="calendar-list-from"
+                            v-model="listFrom"
+                            type="date"
+                            class="date-safe"
+                            required
+                        />
+                    </div>
+                    <div class="min-w-0 space-y-2">
+                        <Label for="calendar-list-until">Bis</Label>
+                        <Input
+                            id="calendar-list-until"
+                            v-model="listUntil"
+                            type="date"
+                            class="date-safe"
+                            required
+                        />
+                    </div>
+                    <Button type="submit">Zeitraum anwenden</Button>
+                </form>
                 <div v-if="viewMode === 'month'" class="overflow-x-auto">
                     <div class="min-w-[700px]">
                         <div

@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Calendar;
 
 use App\Calendar\CalendarEntries;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Calendar\CalendarIndexRequest;
 use App\Models\ClubCalendar;
 use App\Models\ClubCalendarRule;
 use App\Models\MemberFieldDefinition;
@@ -19,20 +20,22 @@ use Inertia\Response;
 
 class CalendarController extends Controller
 {
-    public function index(Request $request, CalendarEntries $entries): Response
+    public function index(CalendarIndexRequest $request, CalendarEntries $entries): Response
     {
-        $month = $request->string('month')->toString();
-        try {
-            $focus = $month !== '' ? CarbonImmutable::createFromFormat('!Y-m', $month, config('app.timezone')) : CarbonImmutable::today()->startOfMonth();
-        } catch (\Throwable) {
-            $focus = CarbonImmutable::today()->startOfMonth();
-        }
-        $from = $focus->startOfMonth()->startOfWeek(CarbonImmutable::MONDAY);
-        $until = $focus->endOfMonth()->endOfWeek(CarbonImmutable::SUNDAY)->addDay();
+        $focus = $request->month();
+        $listFrom = $request->listFrom();
+        $listUntil = $request->listUntil();
+        $gridFrom = $focus->startOfMonth()->startOfWeek(CarbonImmutable::MONDAY);
+        $gridUntil = $focus->endOfMonth()->endOfWeek(CarbonImmutable::SUNDAY)->addDay();
+        $from = $gridFrom->min($listFrom);
+        $until = $gridUntil->max($listUntil->addDay());
         $calendars = ClubCalendar::query()->with('rules')->orderBy('id')->get();
 
         return Inertia::render('Calendar', [
             'month' => $focus->format('Y-m'),
+            'view' => $request->viewMode(),
+            'listFrom' => $listFrom->format('Y-m-d'),
+            'listUntil' => $listUntil->format('Y-m-d'),
             'calendars' => $calendars->map(fn (ClubCalendar $calendar): array => $this->calendarRow($calendar))->values(),
             'events' => $entries->between($calendars, $from, $until),
             'shareFields' => $this->shareFields(),
