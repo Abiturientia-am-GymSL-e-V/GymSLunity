@@ -9,18 +9,16 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-class CalendarReportRequest extends FormRequest
+class CalendarIndexRequest extends FormRequest
 {
     /** @return array<string, mixed> */
     public function rules(): array
     {
         return [
-            'layout' => ['nullable', Rule::in(['month', 'list'])],
             'month' => ['nullable', 'date_format:Y-m'],
-            'from' => ['nullable', 'required_if:layout,list', 'date_format:Y-m-d'],
-            'until' => ['nullable', 'required_if:layout,list', 'date_format:Y-m-d', 'after_or_equal:from'],
-            'calendars' => ['nullable', 'array', 'max:50'],
-            'calendars.*' => ['integer', 'distinct', 'exists:club_calendars,id'],
+            'view' => ['nullable', Rule::in(['month', 'list'])],
+            'from' => ['nullable', 'required_with:until', 'date_format:Y-m-d'],
+            'until' => ['nullable', 'required_with:from', 'date_format:Y-m-d', 'after_or_equal:from'],
         ];
     }
 
@@ -42,27 +40,21 @@ class CalendarReportRequest extends FormRequest
         ];
     }
 
-    public function layout(): string
-    {
-        return (string) ($this->validated('layout') ?: 'month');
-    }
-
     public function month(): CarbonImmutable
     {
-        $month = (string) ($this->validated('month') ?: now()->format('Y-m'));
-
-        return CarbonImmutable::createFromFormat('!Y-m', $month, config('app.timezone'));
+        return CarbonImmutable::createFromFormat(
+            '!Y-m',
+            (string) ($this->validated('month') ?: now()->format('Y-m')),
+            config('app.timezone'),
+        );
     }
 
-    /** @return list<int>|null */
-    public function calendarIds(): ?array
+    public function viewMode(): string
     {
-        $calendars = $this->validated('calendars');
-
-        return is_array($calendars) ? array_map('intval', array_values($calendars)) : null;
+        return (string) ($this->validated('view') ?: 'month');
     }
 
-    public function from(): CarbonImmutable
+    public function listFrom(): CarbonImmutable
     {
         return CarbonImmutable::createFromFormat(
             '!Y-m-d',
@@ -71,7 +63,7 @@ class CalendarReportRequest extends FormRequest
         );
     }
 
-    public function until(): CarbonImmutable
+    public function listUntil(): CarbonImmutable
     {
         return CarbonImmutable::createFromFormat(
             '!Y-m-d',

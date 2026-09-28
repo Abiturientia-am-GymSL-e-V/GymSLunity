@@ -30,7 +30,8 @@ class CalendarManagementTest extends TestCase
         $this->signIn();
 
         $this->get(route('calendar.index', ['month' => '2026-09']))->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->component('Calendar')->where('month', '2026-09')->has('calendars', 2)
+            ->component('Calendar')->where('month', '2026-09')->where('view', 'month')
+            ->where('listFrom', '2026-09-01')->where('listUntil', '2026-09-30')->has('calendars', 2)
             ->where('calendars.0.name', 'Geburtstage')->where('calendars.1.name', 'Allgemeiner Vereinskalender'));
 
         $this->assertDatabaseHas('club_calendars', ['type' => 'birthdays']);
@@ -61,7 +62,7 @@ class CalendarManagementTest extends TestCase
         $this->assertDatabaseCount('club_calendar_events', 0);
     }
 
-    public function test_filtered_month_can_be_exported_as_pdf(): void
+    public function test_month_view_can_be_exported_as_calendar_pdf(): void
     {
         $this->signIn();
         $general = ClubCalendar::query()->where('type', 'general')->sole();
@@ -77,21 +78,72 @@ class CalendarManagementTest extends TestCase
         Member::factory()->create(['birth_date' => '1990-09-10']);
 
         $renderedTitles = [];
-        View::composer('calendar.report', function (BladeView $view) use (&$renderedTitles): void {
+        $renderedLayout = null;
+        $renderedDays = 0;
+        View::composer('calendar.report', function (BladeView $view) use (&$renderedTitles, &$renderedLayout, &$renderedDays): void {
             $renderedTitles = $view->getData()['events']->pluck('title')->all();
+            $renderedLayout = $view->getData()['layout'];
+            $renderedDays = $view->getData()['days']->count();
         });
 
-        $this->get(route('calendar.report', [
+        $response = $this->get(route('calendar.report', [
+            'layout' => 'month',
             'month' => '2026-09',
             'calendars' => [$general->id],
-        ]))->assertOk()
+        ]));
+        $response->assertOk()
             ->assertHeader('Content-Type', 'application/pdf')
-            ->assertHeader('Content-Disposition', 'attachment; filename="terminliste-2026-09.pdf"')
+            ->assertHeader('Content-Disposition', 'attachment; filename="monatskalender-2026-09.pdf"')
             ->assertHeader('X-Content-Type-Options', 'nosniff')
             ->assertSee('%PDF-', false);
 
+        $this->assertStringContainsString('/MediaBox [0.000 0.000 595.280 841.890]', $response->getContent());
         $this->assertSame(['Mitgliederversammlung'], $renderedTitles);
+        $this->assertSame('month', $renderedLayout);
+        $this->assertSame(42, $renderedDays);
         $this->assertNotSame($general->id, $birthdays->id);
+    }
+
+    public function test_list_view_and_pdf_use_the_selected_date_range(): void
+    {
+        $this->signIn();
+        $calendar = ClubCalendar::query()->where('type', 'general')->sole();
+        foreach ([['Frühling', '2026-03-15'], ['Herbst', '2026-10-15']] as [$title, $date]) {
+            ClubCalendarEvent::query()->create([
+                'club_calendar_id' => $calendar->id,
+                'title' => $title,
+                'starts_at' => $date.' 18:00:00',
+                'ends_at' => $date.' 20:00:00',
+                'all_day' => false,
+            ]);
+        }
+
+        $this->get(route('calendar.index', [
+            'month' => '2026-03',
+            'view' => 'list',
+            'from' => '2026-01-01',
+            'until' => '2026-12-31',
+        ]))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('view', 'list')->where('listFrom', '2026-01-01')->where('listUntil', '2026-12-31')
+            ->has('events', 2));
+
+        $renderedTitles = [];
+        $renderedLayout = null;
+        View::composer('calendar.report', function (BladeView $view) use (&$renderedTitles, &$renderedLayout): void {
+            $renderedTitles = $view->getData()['events']->pluck('title')->all();
+            $renderedLayout = $view->getData()['layout'];
+        });
+
+        $this->get(route('calendar.report', [
+            'layout' => 'list',
+            'from' => '2026-09-01',
+            'until' => '2026-12-31',
+            'calendars' => [$calendar->id],
+        ]))->assertOk()
+            ->assertHeader('Content-Disposition', 'attachment; filename="terminliste-2026-09-01-bis-2026-12-31.pdf"');
+
+        $this->assertSame(['Herbst'], $renderedTitles);
+        $this->assertSame('list', $renderedLayout);
     }
 
     public function test_calendar_report_filters_are_validated(): void
@@ -99,9 +151,16 @@ class CalendarManagementTest extends TestCase
         $this->signIn();
 
         $this->get(route('calendar.report', [
+            'layout' => 'invalid',
             'month' => '2026-13',
             'calendars' => [999999, 999999],
-        ]))->assertSessionHasErrors(['month', 'calendars.0', 'calendars.1']);
+        ]))->assertSessionHasErrors(['layout', 'month', 'calendars.0', 'calendars.1']);
+
+        $this->get(route('calendar.report', [
+            'layout' => 'list',
+            'from' => '2025-01-01',
+            'until' => '2026-12-31',
+        ]))->assertSessionHasErrors(['until']);
     }
 
     public function test_public_and_member_specific_combined_feeds_are_ical(): void
