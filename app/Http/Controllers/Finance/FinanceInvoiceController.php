@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Finance;
 
+use App\Bookings\BookingManager;
 use App\Configuration\ClubSettings;
 use App\Configuration\MailConfigurator;
 use App\Finance\CancelFinanceInvoice;
@@ -15,6 +16,7 @@ use App\Mail\FinanceInvoiceMail;
 use App\Members\MemberReportWriter;
 use App\Models\FinanceInvoice;
 use App\Models\FinanceMandate;
+use App\Models\ResourceBooking;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -108,7 +110,7 @@ class FinanceInvoiceController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request, BookingManager $bookingManager): Response
     {
         $club = $this->clubSettings->data();
         $requiredClubFields = [
@@ -128,6 +130,21 @@ class FinanceInvoiceController extends Controller
             $missingClubFields[] = 'Steuernummer oder USt-IdNr.';
         }
 
+        $booking = $request->filled('booking') ? ResourceBooking::query()->with('resource:id,name')->find($request->integer('booking')) : null;
+        $bookingPrefill = null;
+        if ($booking !== null) {
+            abort_unless($booking->member_id === null && $booking->status === 'confirmed' && $booking->price_cents > 0
+                && $booking->finance_invoice_id === null && $bookingManager->isChargeDue($booking), 422);
+            $bookingPrefill = [
+                'id' => $booking->id,
+                'recipient_name' => $booking->requester_name,
+                'buyer_reference' => 'BUCHUNG-'.$booking->id,
+                'service_date' => $booking->starts_at->setTimezone(config('app.display_timezone'))->toDateString(),
+                'description' => 'Buchung '.$booking->resource->name.': '.$booking->title,
+                'unit_price' => number_format($booking->price_cents / 100, 2, '.', ''),
+            ];
+        }
+
         return Inertia::render('finance/CreateInvoice', [
             'creationKey' => (string) Str::uuid(),
             'today' => now()->toDateString(),
@@ -139,6 +156,7 @@ class FinanceInvoiceController extends Controller
             ],
             'smallBusinessRegulationEnabled' => (bool) ($club['small_business_regulation_enabled'] ?? false),
             'smallBusinessNotice' => IssueFinanceInvoice::SMALL_BUSINESS_NOTICE,
+            'bookingPrefill' => $bookingPrefill,
             'financeMandates' => FinanceMandate::query()->where('status', 'signed')
                 ->where(fn ($query) => $query->where('mandate_type', 'recurring')->orWhereNotExists(fn ($subquery) => $subquery
                     ->selectRaw('1')->from('finance_invoices')->whereColumn('finance_invoices.finance_mandate_id', 'finance_mandates.id')))
@@ -169,6 +187,10 @@ class FinanceInvoiceController extends Controller
         }
         $data['notes'] ??= '';
         $invoice = $issue->handle($data, $request->user());
+        if (isset($data['booking_id'])) {
+            ResourceBooking::query()->whereKey((int) $data['booking_id'])->whereNull('finance_invoice_id')
+                ->update(['finance_invoice_id' => $invoice->id]);
+        }
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Rechnung '.$invoice->invoice_number.' wurde erstellt und archiviert.']);
 
         return redirect()->route('finance.invoices.index');

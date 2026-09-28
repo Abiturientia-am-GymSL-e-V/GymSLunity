@@ -12,14 +12,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDateTime, formatMoney } from '@/lib/format';
+import { bookingPriceLabel } from '@/lib/bookings';
+import type { BookingResource } from '@/types/bookings';
 
-type Resource = {
+type Resource = Pick<
+    BookingResource,
+    | 'id'
+    | 'name'
+    | 'description'
+    | 'location'
+    | 'price_mode'
+    | 'price_cents'
+    | 'pricing_rules'
+> & {
     id: number;
     name: string;
     description: string | null;
     location: string | null;
-    price_mode: 'free' | 'once' | 'hour' | 'day';
-    price_cents: number;
     automatic: boolean;
 };
 type Booking = {
@@ -45,7 +54,8 @@ const form = useForm({
     notes: '',
     starts_at: '',
     ends_at: '',
-    recurrence: 'none' as 'none' | 'weekly' | 'monthly',
+    recurrence: 'none' as 'none' | 'daily' | 'weekly',
+    recurrence_interval: 1,
     occurrences: 1,
 });
 const cancelForm = useForm({});
@@ -57,6 +67,11 @@ const options = computed(() =>
         search: `${resource.name} ${resource.location ?? ''}`,
     })),
 );
+const recurrenceOptions = [
+    { value: 'none', label: 'Keine Wiederholung' },
+    { value: 'daily', label: 'Alle X Tage' },
+    { value: 'weekly', label: 'Alle X Wochen' },
+];
 const selected = computed(() =>
     props.resources.find(
         (resource) => String(resource.id) === form.resource_id,
@@ -79,13 +94,16 @@ const labels = {
     rejected: 'Abgelehnt',
 };
 function price(resource: Resource) {
-    if (resource.price_mode === 'free') return 'Kostenlos';
-    const suffix = {
-        once: 'einmalig',
-        hour: 'je angefangene Stunde',
-        day: 'je angefangenen Tag',
-    }[resource.price_mode];
-    return `${formatMoney(resource.price_cents)} ${suffix}`;
+    return bookingPriceLabel({
+        ...resource,
+        parent_id: null,
+        inventory_item_id: null,
+        allowed_membership_types: [],
+        auto_approve_membership_types: [],
+        access_rules: [],
+        auto_approve_rules: [],
+        is_active: true,
+    });
 }
 function submit() {
     form.post('/selfservice/buchungen', {
@@ -183,23 +201,25 @@ function cancel(booking: Booking) {
                     />
                     <InputError :message="form.errors.title" />
                 </div>
-                <div class="min-w-0 space-y-2">
+                <div class="min-w-0 space-y-2 sm:col-span-2">
                     <Label for="portal-booking-start">Beginn *</Label>
                     <Input
                         id="portal-booking-start"
                         v-model="form.starts_at"
                         type="datetime-local"
+                        class="date-safe"
                         :min="minimumDateTime"
                         required
                     />
                     <InputError :message="form.errors.starts_at" />
                 </div>
-                <div class="min-w-0 space-y-2">
+                <div class="min-w-0 space-y-2 sm:col-span-2">
                     <Label for="portal-booking-end">Ende *</Label>
                     <Input
                         id="portal-booking-end"
                         v-model="form.ends_at"
                         type="datetime-local"
+                        class="date-safe"
                         :min="form.starts_at || minimumDateTime"
                         required
                     />
@@ -207,15 +227,35 @@ function cancel(booking: Booking) {
                 </div>
                 <div class="min-w-0 space-y-2">
                     <Label for="portal-booking-recurrence">Wiederholung</Label>
-                    <select
+                    <SearchableDropdown
                         id="portal-booking-recurrence"
-                        v-model="form.recurrence"
-                        class="field"
+                        :model-value="form.recurrence"
+                        :options="recurrenceOptions"
+                        trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                        aria-label="Wiederholung auswählen"
+                        search-placeholder="Wiederholung suchen"
+                        empty-text="Keine Wiederholung gefunden"
+                        @update:model-value="
+                            form.recurrence = $event as typeof form.recurrence
+                        "
+                    />
+                </div>
+                <div
+                    v-if="form.recurrence !== 'none'"
+                    class="min-w-0 space-y-2"
+                >
+                    <Label for="portal-booking-recurrence-interval"
+                        >Intervall</Label
                     >
-                        <option value="none">Keine</option>
-                        <option value="weekly">Wöchentlich</option>
-                        <option value="monthly">Monatlich</option>
-                    </select>
+                    <Input
+                        id="portal-booking-recurrence-interval"
+                        v-model="form.recurrence_interval"
+                        type="number"
+                        min="1"
+                        max="365"
+                        required
+                    />
+                    <InputError :message="form.errors.recurrence_interval" />
                 </div>
                 <div
                     v-if="form.recurrence !== 'none'"

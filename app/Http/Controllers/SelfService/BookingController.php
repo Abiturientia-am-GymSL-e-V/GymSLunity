@@ -35,7 +35,8 @@ class BookingController extends Controller
                 'id' => $resource->id, 'name' => $resource->name, 'description' => $resource->description,
                 'location' => $resource->location, 'price_mode' => $resource->price_mode,
                 'price_cents' => $resource->price_cents,
-                'automatic' => in_array($member->membership_type, $resource->auto_approve_membership_types ?? [], true),
+                'pricing_rules' => $resource->pricing_rules ?? [],
+                'automatic' => $manager->willAutoApprove($resource, $member),
             ])->values(),
             'bookings' => $bookings->map(fn (ResourceBooking $booking): array => [
                 'id' => $booking->id, 'resource_name' => $booking->resource->name,
@@ -43,7 +44,7 @@ class BookingController extends Controller
                 'starts_at' => $booking->starts_at->setTimezone($timezone)->format('Y-m-d\TH:i'),
                 'ends_at' => $booking->ends_at->setTimezone($timezone)->format('Y-m-d\TH:i'),
                 'price_cents' => $booking->price_cents, 'series_id' => $booking->series_id,
-                'can_cancel' => in_array($booking->status, ['requested', 'confirmed'], true) && $booking->ends_at->isFuture(),
+                'can_cancel' => $manager->canMemberCancel($booking),
             ]),
         ]);
     }
@@ -64,7 +65,7 @@ class BookingController extends Controller
     {
         $member = Access::member($request);
         abort_unless($booking->member_id === $member->id, 403);
-        $manager->cancel($booking);
+        $manager->cancelScope($booking, 'occurrence');
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Der einzelne Termin wurde storniert.']);
 
         return back();

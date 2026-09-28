@@ -17,8 +17,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $location
  * @property list<string>|null $allowed_membership_types
  * @property list<string>|null $auto_approve_membership_types
+ * @property list<array{field_key: string, value: string}>|null $access_rules
+ * @property list<array{field_key: string, value: string}>|null $auto_approve_rules
  * @property string $price_mode
  * @property int $price_cents
+ * @property list<array{from_value: int, from_unit: string, unit_value: int, unit: string, price_cents: int}>|null $pricing_rules
  * @property bool $is_active
  */
 class BookingResource extends Model
@@ -30,6 +33,9 @@ class BookingResource extends Model
         return [
             'allowed_membership_types' => 'array',
             'auto_approve_membership_types' => 'array',
+            'access_rules' => 'array',
+            'auto_approve_rules' => 'array',
+            'pricing_rules' => 'array',
             'price_cents' => 'integer',
             'is_active' => 'boolean',
         ];

@@ -7,9 +7,28 @@ export type BookingResource = {
     location: string | null;
     allowed_membership_types: string[];
     auto_approve_membership_types: string[];
-    price_mode: 'free' | 'once' | 'hour' | 'day';
+    access_rules: BookingRule[];
+    auto_approve_rules: BookingRule[];
+    price_mode: 'free' | 'once' | 'duration' | 'hour' | 'day';
     price_cents: number;
+    pricing_rules: PricingRule[];
     is_active: boolean;
+};
+
+export type BookingRule = { field_key: string; value: string };
+
+export type BookingMemberField = {
+    key: string;
+    label: string;
+    options: { value: string; label: string }[];
+};
+
+export type PricingRule = {
+    from_value: number;
+    from_unit: 'minutes' | 'hours' | 'days';
+    unit_value: number;
+    unit: 'minutes' | 'hours' | 'days';
+    price_cents: number;
 };
 
 export type ResourceBooking = {
@@ -27,6 +46,7 @@ export type ResourceBooking = {
     occurrence: number;
     status: 'requested' | 'confirmed' | 'cancelled' | 'rejected';
     price_cents: number;
+    finance_invoice_id: number | null;
     created_by_name: string | null;
     decided_by_name: string | null;
 };

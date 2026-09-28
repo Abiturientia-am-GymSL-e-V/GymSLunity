@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Bookings;
 
+use App\Configuration\ClubSettings;
 use App\Models\BookingResource;
 use App\Models\ContributionAccount;
 use App\Models\ContributionTransaction;
@@ -19,6 +20,8 @@ use Illuminate\Validation\ValidationException;
 
 final class BookingManager
 {
+    public function __construct(private readonly ClubSettings $clubSettings) {}
+
     /** @param array<string, mixed> $data
      * @return list<ResourceBooking>
      */
@@ -37,6 +40,7 @@ final class BookingManager
         }
 
         $recurrence = (string) ($data['recurrence'] ?? 'none');
+        $recurrenceInterval = max(1, (int) ($data['recurrence_interval'] ?? 1));
         $occurrences = $recurrence === 'none' ? 1 : (int) ($data['occurrences'] ?? 1);
         $seriesId = $occurrences > 1 ? (string) Str::uuid() : null;
         $automaticallyApproved = $member !== null && $this->autoApproved($resource, $member);
@@ -44,7 +48,8 @@ final class BookingManager
         $ranges = [];
         for ($index = 0; $index < $occurrences; $index++) {
             $occurrenceStart = match ($recurrence) {
-                'weekly' => $start->addWeeks($index),
+                'daily' => $start->addDays($index * $recurrenceInterval),
+                'weekly' => $start->addWeeks($index * $recurrenceInterval),
                 'monthly' => $start->addMonthsNoOverflow($index),
                 default => $start,
             };
@@ -83,7 +88,9 @@ final class BookingManager
                     if ($member) {
                         $booking->setRelation('member', $member);
                     }
-                    $this->charge($booking, $member, $actor, $manual ? 'Manuelle Buchung' : 'Automatische Freigabe');
+                    if ($this->isChargeDue($booking)) {
+                        $this->charge($booking, $member, $actor, $manual ? 'Manuelle Buchung' : 'Automatische Freigabe');
+                    }
                 }
                 $created[] = $booking->fresh();
             }
@@ -104,7 +111,9 @@ final class BookingManager
                 'status' => 'confirmed', 'decided_by' => $actor->id,
                 'decided_by_name' => $actor->name, 'decided_at' => now(),
             ]);
-            $this->charge($current, $current->member, $actor, 'Buchung bestätigt');
+            if ($this->isChargeDue($current)) {
+                $this->charge($current, $current->member, $actor, 'Buchung bestätigt');
+            }
         }, attempts: 3);
     }
 
@@ -123,11 +132,65 @@ final class BookingManager
             if (! $current->ends_at->isFuture()) {
                 throw ValidationException::withMessages(['booking' => 'Vergangene Buchungstermine können nicht storniert werden.']);
             }
+            if ($actor === null && ! $this->canMemberCancel($current)) {
+                throw ValidationException::withMessages(['booking' => 'Die Stornierungsfrist für diesen Termin ist bereits abgelaufen.']);
+            }
             $current->update([
                 'status' => 'cancelled', 'decided_by' => $actor?->id,
                 'decided_by_name' => $actor === null ? 'Mitgliederportal' : $actor->name, 'decided_at' => now(),
             ]);
             $this->refund($current, $actor);
+        }, attempts: 3);
+    }
+
+    public function cancelScope(ResourceBooking $booking, string $scope, ?User $actor = null): int
+    {
+        $bookings = $scope === 'series' && $booking->series_id !== null
+            ? ResourceBooking::query()->where('series_id', $booking->series_id)->whereIn('status', ['requested', 'confirmed'])->where('ends_at', '>', now())->orderBy('occurrence')->get()
+            : collect([$booking]);
+        foreach ($bookings as $item) {
+            $this->cancel($item, $actor);
+        }
+
+        return $bookings->count();
+    }
+
+    /** @param array<string, mixed> $data */
+    public function update(ResourceBooking $booking, array $data): int
+    {
+        $start = $this->localDateTime($data['starts_at']);
+        $end = $this->localDateTime($data['ends_at']);
+        if ($end->lessThanOrEqualTo($start)) {
+            throw ValidationException::withMessages(['ends_at' => 'Das Ende muss nach dem Beginn liegen.']);
+        }
+        $resource = BookingResource::query()->whereKey((int) $data['resource_id'])->firstOrFail();
+        $targets = $data['scope'] === 'series' && $booking->series_id !== null
+            ? ResourceBooking::query()->where('series_id', $booking->series_id)->whereIn('status', ['requested', 'confirmed'])->orderBy('occurrence')->get()
+            : collect([$booking]);
+        $exceptIds = array_values($targets->pluck('id')->map(fn ($id): int => (int) $id)->all());
+        $delta = $booking->starts_at->diffInSeconds($start, false);
+        $duration = $start->diffInSeconds($end);
+
+        return DB::transaction(function () use ($targets, $resource, $data, $start, $end, $exceptIds, $delta, $duration): int {
+            BookingResource::query()->whereIn('id', $resource->relatedIds())->orderBy('id')->lockForUpdate()->get();
+            foreach ($targets as $target) {
+                $targetStart = count($targets) > 1 ? $target->starts_at->addSeconds($delta) : $start;
+                $targetEnd = count($targets) > 1 ? $targetStart->addSeconds($duration) : $end;
+                $this->assertAvailable($resource, $targetStart, $targetEnd, $exceptIds);
+                $attributes = [
+                    'resource_id' => $resource->id,
+                    'title' => $data['title'],
+                    'notes' => ($data['notes'] ?? null) ?: null,
+                    'starts_at' => $targetStart,
+                    'ends_at' => $targetEnd,
+                ];
+                if ($target->charge_transaction_id === null) {
+                    $attributes['price_cents'] = $this->price($resource, $targetStart, $targetEnd);
+                }
+                $target->update($attributes);
+            }
+
+            return $targets->count();
         }, attempts: 3);
     }
 
@@ -142,8 +205,30 @@ final class BookingManager
         return collect($field->options)->where('active', true)->pluck('label', 'value')->all();
     }
 
+    /** @return list<array{key: string, label: string, options: list<array{value: string, label: string}>}> */
+    public function memberFields(): array
+    {
+        $result = [];
+        foreach (MemberFieldDefinition::query()->where('is_active', true)->whereIn('type', ['select', 'boolean'])->orderBy('position')->get() as $field) {
+            $options = $field->type === 'boolean'
+                ? [['value' => '1', 'label' => 'Ja'], ['value' => '0', 'label' => 'Nein']]
+                : array_values(collect($field->options)->filter(fn (array $option): bool => $option['active'])->map(
+                    fn (array $option): array => ['value' => $option['value'], 'label' => $option['label']],
+                )->all());
+            if ($options !== []) {
+                $result[] = ['key' => $field->key, 'label' => $field->label, 'options' => $options];
+            }
+        }
+
+        return $result;
+    }
+
     public function canRequest(BookingResource $resource, Member $member): bool
     {
+        $rules = $resource->access_rules ?? [];
+        if ($rules !== []) {
+            return $resource->is_active && collect($rules)->contains(fn (array $rule): bool => $this->matches($member, $rule));
+        }
         $allowed = $resource->allowed_membership_types ?? [];
 
         return $resource->is_active && ($allowed === [] || in_array($member->membership_type, $allowed, true));
@@ -151,7 +236,64 @@ final class BookingManager
 
     private function autoApproved(BookingResource $resource, Member $member): bool
     {
+        $rules = $resource->auto_approve_rules ?? [];
+        if ($rules !== []) {
+            return collect($rules)->contains(fn (array $rule): bool => $this->matches($member, $rule));
+        }
+
         return in_array($member->membership_type, $resource->auto_approve_membership_types ?? [], true);
+    }
+
+    public function willAutoApprove(BookingResource $resource, Member $member): bool
+    {
+        return $this->autoApproved($resource, $member);
+    }
+
+    /** Post every confirmed member charge whose cancellation deadline has passed. */
+    public function chargeDue(): int
+    {
+        $count = 0;
+        ResourceBooking::query()->with(['resource', 'member'])
+            ->where('status', 'confirmed')->whereNotNull('member_id')
+            ->whereNull('charge_transaction_id')->where('price_cents', '>', 0)
+            ->where('starts_at', '<=', now()->addMinutes($this->cancellationNoticeMinutes()))
+            ->orderBy('id')->chunkById(100, function ($bookings) use (&$count): void {
+                foreach ($bookings as $booking) {
+                    DB::transaction(function () use ($booking, &$count): void {
+                        $current = ResourceBooking::query()->with(['resource', 'member'])->lockForUpdate()->findOrFail($booking->id);
+                        if ($current->status === 'confirmed' && $current->charge_transaction_id === null && $this->isChargeDue($current)) {
+                            $this->charge($current, $current->member, null, 'Stornierungsfrist abgelaufen');
+                            $count++;
+                        }
+                    });
+                }
+            });
+
+        return $count;
+    }
+
+    public function canMemberCancel(ResourceBooking $booking): bool
+    {
+        return in_array($booking->status, ['requested', 'confirmed'], true)
+            && $booking->ends_at->isFuture()
+            && now()->lt($booking->starts_at->subMinutes($this->cancellationNoticeMinutes()));
+    }
+
+    public function isChargeDue(ResourceBooking $booking): bool
+    {
+        return $booking->series_id === null
+            || now()->greaterThanOrEqualTo($booking->starts_at->subMinutes($this->cancellationNoticeMinutes()));
+    }
+
+    public function cancellationNoticeMinutes(): int
+    {
+        $value = max(0, (int) $this->clubSettings->get('booking_cancellation_notice_value', 24));
+
+        return $value * match ($this->clubSettings->get('booking_cancellation_notice_unit', 'hours')) {
+            'days' => 1440,
+            'minutes' => 1,
+            default => 60,
+        };
     }
 
     private function finish(ResourceBooking $booking, User $actor, string $status): void
@@ -165,13 +307,15 @@ final class BookingManager
         }
     }
 
-    private function assertAvailable(BookingResource $resource, CarbonImmutable $start, CarbonImmutable $end, ?int $except = null): void
+    /** @param int|list<int>|null $except */
+    private function assertAvailable(BookingResource $resource, CarbonImmutable $start, CarbonImmutable $end, int|array|null $except = null): void
     {
         $ids = $resource->relatedIds();
         $conflict = ResourceBooking::query()
             ->whereIn('resource_id', $ids)
             ->whereIn('status', ['requested', 'confirmed'])
-            ->when($except, fn ($query) => $query->where('id', '!=', $except))
+            ->when(is_int($except), fn ($query) => $query->where('id', '!=', $except))
+            ->when(is_array($except) && $except !== [], fn ($query) => $query->whereNotIn('id', $except))
             ->where('starts_at', '<', $end)
             ->where('ends_at', '>', $start)
             ->exists();
@@ -184,11 +328,44 @@ final class BookingManager
     {
         $seconds = max(1, $start->diffInSeconds($end));
 
+        if ($resource->price_mode === 'duration' && ($resource->pricing_rules ?? []) !== []) {
+            $durationMinutes = (int) ceil($seconds / 60);
+            $rule = collect($resource->pricing_rules)->sortBy(fn (array $rule): int => $this->ruleMinutes($rule, 'from'))->last(
+                fn (array $rule): bool => $this->ruleMinutes($rule, 'from') <= $durationMinutes,
+            ) ?? collect($resource->pricing_rules)->sortBy(fn (array $rule): int => $this->ruleMinutes($rule, 'from'))->first();
+            $unitMinutes = max(1, $this->ruleMinutes($rule, 'unit'));
+
+            return (int) ceil($durationMinutes / $unitMinutes) * (int) $rule['price_cents'];
+        }
+
         return match ($resource->price_mode) {
             'once' => $resource->price_cents,
             'hour' => (int) ceil($seconds / 3600) * $resource->price_cents,
             'day' => (int) ceil($seconds / 86400) * $resource->price_cents,
             default => 0,
+        };
+    }
+
+    /** @param array{field_key: string, value: string} $rule */
+    private function matches(Member $member, array $rule): bool
+    {
+        $field = $rule['field_key'];
+        $value = str_starts_with($field, 'custom_')
+            ? ($member->custom_values[$field] ?? null)
+            : $member->getAttribute($field);
+
+        return (string) (is_bool($value) ? (int) $value : $value) === $rule['value'];
+    }
+
+    /** @param array<string, mixed> $rule */
+    private function ruleMinutes(array $rule, string $prefix): int
+    {
+        $value = (int) $rule[$prefix.'_value'];
+
+        return $value * match ($rule[$prefix] ?? $rule[$prefix.'_unit'] ?? 'minutes') {
+            'days' => 1440,
+            'hours' => 60,
+            default => 1,
         };
     }
 

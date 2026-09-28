@@ -21,7 +21,7 @@ type Field = {
     section: string;
     required: boolean;
     options: Record<string, string>;
-    default: string | boolean | null;
+    default: string | number | boolean | null;
 };
 const props = defineProps<{
     club: Record<string, MemberValue>;
@@ -291,12 +291,20 @@ function save() {
                             v-else
                             :id="fieldId(field.key)"
                             :model-value="String(form[field.key] ?? '')"
-                            :type="field.type"
+                            :type="
+                                field.type === 'integer' ? 'number' : field.type
+                            "
                             :name="fieldId(field.key)"
                             :autocomplete="fieldAutocomplete(field.key)"
                             data-lpignore="true"
                             data-1p-ignore
                             maxlength="255"
+                            :min="
+                                field.key ===
+                                'booking_cancellation_notice_value'
+                                    ? 0
+                                    : undefined
+                            "
                             :required="field.required"
                             :disabled="form.processing"
                             :aria-invalid="!!form.errors[field.key]"
@@ -311,6 +319,16 @@ function save() {
                         >
                             Gilt für fest eingebaute Systemtexte. Individuell
                             konfigurierbare Vorlagen bleiben unverändert.
+                        </p>
+                        <p
+                            v-if="
+                                field.key === 'booking_cancellation_notice_unit'
+                            "
+                            class="text-sm text-muted-foreground"
+                        >
+                            Nach Ablauf dieser Frist werden bestätigte
+                            Serientermine dem Beitragskonto belastet und können
+                            im Mitgliederportal nicht mehr storniert werden.
                         </p>
                     </div>
                 </div>

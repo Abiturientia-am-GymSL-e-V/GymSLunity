@@ -10,6 +10,13 @@ use Illuminate\Validation\Rule;
 /** A booking entered by the administration, optionally without a member. */
 class StoreManualBookingRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if ($this->input('recurrence') !== 'none' && ! $this->has('recurrence_interval')) {
+            $this->merge(['recurrence_interval' => 1]);
+        }
+    }
+
     /** @return array<string, mixed> */
     public function rules(): array
     {
@@ -21,8 +28,9 @@ class StoreManualBookingRequest extends FormRequest
             'notes' => ['nullable', 'string', 'max:5000'],
             'starts_at' => ['required', 'date_format:Y-m-d\TH:i'],
             'ends_at' => ['required', 'date_format:Y-m-d\TH:i'],
-            'recurrence' => ['required', Rule::in(['none', 'weekly', 'monthly'])],
-            'occurrences' => ['required_if:recurrence,weekly,monthly', 'integer', 'min:1', 'max:52'],
+            'recurrence' => ['required', Rule::in(['none', 'daily', 'weekly'])],
+            'recurrence_interval' => ['required_if:recurrence,daily,weekly', 'integer', 'min:1', 'max:365'],
+            'occurrences' => ['required_if:recurrence,daily,weekly', 'integer', 'min:1', 'max:52'],
         ];
     }
 }

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Finance;
 
+use App\Bookings\BookingManager;
 use App\Configuration\ClubSettings;
 use App\Models\FinanceInvoice;
 use App\Models\FinanceMandate;
+use App\Models\ResourceBooking;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -29,6 +31,7 @@ class StoreFinanceInvoiceRequest extends FormRequest
 
         return [
             'creation_key' => ['required', 'uuid'],
+            'booking_id' => ['nullable', 'integer', Rule::exists('resource_bookings', 'id')],
             'recipient_name' => ['required', 'string', 'max:255'],
             'recipient_street' => ['required', 'string', 'max:255'],
             'recipient_postal_code' => ['required', 'string', 'max:20'],
@@ -79,6 +82,17 @@ class StoreFinanceInvoiceRequest extends FormRequest
                     $validator->errors()->add('finance_mandate_id', 'Das ausgewählte Mandat ist noch nicht unterschrieben und daher nicht verwendbar.');
                 } elseif ($mandate->mandate_type === 'one_off' && FinanceInvoice::query()->where('finance_mandate_id', $mandate->id)->exists()) {
                     $validator->errors()->add('finance_mandate_id', 'Dieses einmalige Mandat wurde bereits für eine Rechnung verwendet.');
+                }
+            },
+            function (Validator $validator): void {
+                if ($validator->errors()->isNotEmpty() || ! $this->filled('booking_id')) {
+                    return;
+                }
+                $booking = ResourceBooking::query()->find($this->integer('booking_id'));
+                if ($booking === null || $booking->member_id !== null || $booking->status !== 'confirmed'
+                    || $booking->price_cents <= 0 || $booking->finance_invoice_id !== null
+                    || ! app(BookingManager::class)->isChargeDue($booking)) {
+                    $validator->errors()->add('booking_id', 'Diese Buchung kann nicht mehr in eine Rechnung übernommen werden.');
                 }
             },
             function (Validator $validator): void {

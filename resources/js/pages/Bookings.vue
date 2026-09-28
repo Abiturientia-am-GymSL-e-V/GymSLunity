@@ -1,31 +1,38 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { CalendarDays, Check, Pencil, Plus, X } from '@lucide/vue';
-import { ref } from 'vue';
-import InputError from '@/components/InputError.vue';
+import BookingCalendar from '@/components/bookings/BookingCalendar.vue';
+import ManualBookingForm from '@/components/bookings/ManualBookingForm.vue';
+import BookingResourceForm from '@/components/bookings/BookingResourceForm.vue';
 import StatusAlert from '@/components/StatusAlert.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { formatDateTime, formatMoney } from '@/lib/format';
-import BookingCalendar from '@/components/bookings/BookingCalendar.vue';
-import ManualBookingForm from '@/components/bookings/ManualBookingForm.vue';
-import { resourceLabel as resourcePath } from '@/lib/bookings';
+import {
+    bookingPriceLabel,
+    resourceLabel as resourcePath,
+} from '@/lib/bookings';
 import type {
     BookableInventoryItem,
+    BookingMemberField,
     BookingMemberOption,
     BookingResource,
     ResourceBooking,
 } from '@/types/bookings';
 
 const props = defineProps<{
-    activeTab: 'calendar' | 'resources' | 'requests' | 'create';
+    activeTab:
+        | 'calendar'
+        | 'resources'
+        | 'resource-create'
+        | 'requests'
+        | 'create';
     month: string;
     resources: BookingResource[];
     inventoryItems: BookableInventoryItem[];
     membershipTypes: Record<string, string>;
+    memberFields: BookingMemberField[];
+    editingResourceId: number | null;
     members: BookingMemberOption[];
     bookings: ResourceBooking[];
     requests: ResourceBooking[];
@@ -43,80 +50,20 @@ defineOptions({
 const tabs = [
     { key: 'calendar', label: 'Belegung', href: '/buchungen' },
     { key: 'resources', label: 'Ressourcen', href: '/buchungen/ressourcen' },
+    {
+        key: 'resource-create',
+        label: 'Ressource anlegen',
+        href: '/buchungen/ressourcen/anlegen',
+    },
     { key: 'requests', label: 'Buchungsanfragen', href: '/buchungen/anfragen' },
     { key: 'create', label: 'Buchung anlegen', href: '/buchungen/anlegen' },
 ];
-const editingResource = ref<number | null>(null);
-const resourceForm = useForm({
-    name: '',
-    description: '',
-    location: '',
-    parent_id: '' as string | number,
-    inventory_item_id: '' as string | number,
-    allowed_membership_types: [] as string[],
-    auto_approve_membership_types: [] as string[],
-    price_mode: 'free' as BookingResource['price_mode'],
-    price: '',
-    is_active: true,
-});
+const decisionForm = useForm({ decision: 'approve' });
 const resourceLabel = (resource: BookingResource) =>
     resourcePath(resource, props.resources);
-const decisionForm = useForm({ decision: 'approve' });
-
-function priceLabel(resource: BookingResource) {
-    if (resource.price_mode === 'free') return 'Kostenlos';
-    const suffix = { once: 'einmalig', hour: 'je Stunde', day: 'je Tag' }[
-        resource.price_mode
-    ];
-    return `${formatMoney(resource.price_cents)} ${suffix}`;
-}
-function saveResource() {
-    const options = { preserveScroll: true, onSuccess: resetResourceForm };
-    if (editingResource.value) {
-        resourceForm.patch(
-            `/buchungen/ressourcen/${editingResource.value}`,
-            options,
-        );
-    } else {
-        resourceForm.post('/buchungen/ressourcen', options);
-    }
-}
-function editResource(resource: BookingResource) {
-    editingResource.value = resource.id;
-    resourceForm.name = resource.name;
-    resourceForm.description = resource.description ?? '';
-    resourceForm.location = resource.location ?? '';
-    resourceForm.parent_id = resource.parent_id ?? '';
-    resourceForm.inventory_item_id = resource.inventory_item_id ?? '';
-    resourceForm.allowed_membership_types = [
-        ...resource.allowed_membership_types,
-    ];
-    resourceForm.auto_approve_membership_types = [
-        ...resource.auto_approve_membership_types,
-    ];
-    resourceForm.price_mode = resource.price_mode;
-    resourceForm.price = (resource.price_cents / 100).toFixed(2);
-    resourceForm.is_active = resource.is_active;
-    resourceForm.clearErrors();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-function useInventoryItem() {
-    const item = props.inventoryItems.find(
-        (entry) => entry.id === Number(resourceForm.inventory_item_id),
-    );
-    if (!item) return;
-    resourceForm.name = item.name;
-    resourceForm.description = item.description ?? '';
-    resourceForm.location = item.location;
-}
-function resetResourceForm() {
-    editingResource.value = null;
-    resourceForm.reset();
-    resourceForm.clearErrors();
-}
 function decide(booking: ResourceBooking, decision: 'approve' | 'reject') {
     decisionForm.decision = decision;
-    decisionForm.patch(`/buchungen/${booking.id}/entscheidung`, {
+    decisionForm.patch('/buchungen/' + booking.id + '/entscheidung', {
         preserveScroll: true,
     });
 }
@@ -124,7 +71,7 @@ function decide(booking: ResourceBooking, decision: 'approve' | 'reject') {
 
 <template>
     <Head title="Buchungen" />
-    <div class="mx-auto w-full max-w-[1200px] space-y-6 p-4 sm:p-6">
+    <div class="mx-auto w-full max-w-[1500px] space-y-6 p-4 sm:p-6">
         <header>
             <h1 class="text-2xl font-semibold tracking-tight">Buchungen</h1>
             <p class="mt-1 text-sm text-muted-foreground">
@@ -155,283 +102,139 @@ function decide(booking: ResourceBooking, decision: 'approve' | 'reject') {
             :resources="resources"
         />
 
-        <section v-else-if="activeTab === 'resources'" class="space-y-6">
-            <form
-                class="space-y-5 rounded-xl border bg-card p-5"
-                @submit.prevent="saveResource"
+        <section v-else-if="activeTab === 'resources'" class="space-y-4">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-lg font-semibold">Ressourcen</h2>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                        Alle Räume, Geräte und hierarchisch verbundenen
+                        Teilressourcen.
+                    </p>
+                </div>
+                <Button as-child>
+                    <Link href="/buchungen/ressourcen/anlegen"
+                        ><Plus class="size-4" />Ressource anlegen</Link
+                    >
+                </Button>
+            </div>
+            <StatusAlert
+                v-if="!resources.length"
+                type="info"
+                title="Noch keine Ressourcen"
             >
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                        <h2 class="text-lg font-semibold">
-                            {{
-                                editingResource
-                                    ? 'Ressource bearbeiten'
-                                    : 'Ressource anlegen'
-                            }}
-                        </h2>
-                        <p class="mt-1 text-sm text-muted-foreground">
-                            Teilressourcen übernehmen die Belegungssperre ihrer
-                            übergeordneten Ressource.
-                        </p>
-                    </div>
-                    <Button
-                        v-if="editingResource"
-                        type="button"
-                        variant="ghost"
-                        @click="resetResourceForm"
-                        ><X class="size-4" />Abbrechen</Button
-                    >
-                </div>
-                <div class="grid gap-5 sm:grid-cols-2">
-                    <div
-                        v-if="inventoryItems.length"
-                        class="min-w-0 space-y-2 sm:col-span-2"
-                    >
-                        <Label for="resource-inventory"
-                            >Daten aus dem Inventar übernehmen</Label
-                        >
-                        <div class="flex flex-col gap-2 sm:flex-row">
-                            <select
-                                id="resource-inventory"
-                                v-model="resourceForm.inventory_item_id"
-                                class="field min-w-0 flex-1"
-                            >
-                                <option value="">
-                                    Kein Inventargegenstand
-                                </option>
-                                <option
-                                    v-for="item in inventoryItems"
-                                    :key="item.id"
-                                    :value="item.id"
-                                >
-                                    {{ item.number }} · {{ item.name }}
-                                </option>
-                            </select>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                :disabled="!resourceForm.inventory_item_id"
-                                @click="useInventoryItem"
-                            >
-                                Angaben übernehmen
-                            </Button>
-                        </div>
-                        <p class="text-sm text-muted-foreground">
-                            Name, Beschreibung und Ort werden übernommen und
-                            können anschließend angepasst werden.
-                        </p>
-                        <InputError
-                            :message="resourceForm.errors.inventory_item_id"
-                        />
-                    </div>
-                    <div class="min-w-0 space-y-2">
-                        <Label for="resource-name">Name *</Label
-                        ><Input
-                            id="resource-name"
-                            v-model="resourceForm.name"
-                            required
-                        /><InputError :message="resourceForm.errors.name" />
-                    </div>
-                    <div class="min-w-0 space-y-2">
-                        <Label for="resource-location">Ort</Label
-                        ><Input
-                            id="resource-location"
-                            v-model="resourceForm.location"
-                        /><InputError :message="resourceForm.errors.location" />
-                    </div>
-                    <div class="min-w-0 space-y-2 sm:col-span-2">
-                        <Label for="resource-description">Beschreibung</Label
-                        ><Textarea
-                            id="resource-description"
-                            v-model="resourceForm.description"
-                        /><InputError
-                            :message="resourceForm.errors.description"
-                        />
-                    </div>
-                    <div class="min-w-0 space-y-2">
-                        <Label for="resource-parent"
-                            >Übergeordnete Ressource</Label
-                        >
-                        <select
-                            id="resource-parent"
-                            v-model="resourceForm.parent_id"
-                            class="field"
-                        >
-                            <option value="">Keine</option>
-                            <option
-                                v-for="resource in resources.filter(
-                                    (item) => item.id !== editingResource,
-                                )"
+                Lege die erste buchbare Ressource an.
+            </StatusAlert>
+            <div v-else class="overflow-hidden rounded-xl border bg-card">
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[850px] text-sm">
+                        <thead class="bg-muted/60 text-left">
+                            <tr>
+                                <th class="px-4 py-3 font-semibold">
+                                    Ressource
+                                </th>
+                                <th class="px-4 py-3 font-semibold">Ort</th>
+                                <th class="px-4 py-3 font-semibold">Preis</th>
+                                <th class="px-4 py-3 font-semibold">
+                                    Berechtigungen
+                                </th>
+                                <th class="px-4 py-3 font-semibold">Status</th>
+                                <th class="px-4 py-3 font-semibold">
+                                    Aktionen
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y">
+                            <tr
+                                v-for="resource in resources"
                                 :key="resource.id"
-                                :value="resource.id"
                             >
-                                {{ resourceLabel(resource) }}
-                            </option>
-                        </select>
-                        <InputError :message="resourceForm.errors.parent_id" />
-                    </div>
-                    <div class="min-w-0 space-y-2">
-                        <Label for="resource-price-mode">Preisberechnung</Label>
-                        <select
-                            id="resource-price-mode"
-                            v-model="resourceForm.price_mode"
-                            class="field"
-                        >
-                            <option value="free">Kostenlos</option>
-                            <option value="once">Einmalig</option>
-                            <option value="hour">Je angefangene Stunde</option>
-                            <option value="day">Je angefangenen Tag</option>
-                        </select>
-                    </div>
-                    <div
-                        v-if="resourceForm.price_mode !== 'free'"
-                        class="min-w-0 space-y-2"
-                    >
-                        <Label for="resource-price">Preis in Euro</Label
-                        ><Input
-                            id="resource-price"
-                            v-model="resourceForm.price"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            required
-                        /><InputError :message="resourceForm.errors.price" />
-                    </div>
-                    <label
-                        class="flex items-center gap-3 self-end rounded-lg border p-3 text-sm"
-                        ><input
-                            v-model="resourceForm.is_active"
-                            type="checkbox"
-                            class="size-4 accent-primary"
-                        />
-                        Ressource ist buchbar</label
-                    >
+                                <td class="px-4 py-3">
+                                    <p class="font-medium">
+                                        {{ resourceLabel(resource) }}
+                                    </p>
+                                    <p
+                                        v-if="resource.description"
+                                        class="mt-1 max-w-md text-xs text-muted-foreground"
+                                    >
+                                        {{ resource.description }}
+                                    </p>
+                                </td>
+                                <td class="px-4 py-3">
+                                    {{ resource.location || '–' }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    {{ bookingPriceLabel(resource) }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    {{
+                                        resource.access_rules.length
+                                            ? resource.access_rules.length +
+                                              ' Regel(n)'
+                                            : 'Alle Mitglieder'
+                                    }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    <Badge
+                                        :variant="
+                                            resource.is_active
+                                                ? 'secondary'
+                                                : 'outline'
+                                        "
+                                        >{{
+                                            resource.is_active
+                                                ? 'Aktiv'
+                                                : 'Inaktiv'
+                                        }}</Badge
+                                    >
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="flex flex-wrap gap-2">
+                                        <Button
+                                            as-child
+                                            size="sm"
+                                            variant="outline"
+                                        >
+                                            <Link
+                                                :href="
+                                                    '/buchungen/ressourcen/' +
+                                                    resource.id
+                                                "
+                                                ><CalendarDays
+                                                    class="size-4"
+                                                />Belegung</Link
+                                            >
+                                        </Button>
+                                        <Button
+                                            as-child
+                                            size="sm"
+                                            variant="ghost"
+                                        >
+                                            <Link
+                                                :href="
+                                                    '/buchungen/ressourcen/anlegen?edit=' +
+                                                    resource.id
+                                                "
+                                                ><Pencil
+                                                    class="size-4"
+                                                />Bearbeiten</Link
+                                            >
+                                        </Button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
-                <div class="grid gap-5 lg:grid-cols-2">
-                    <fieldset class="space-y-3 rounded-lg border p-4">
-                        <legend class="px-1 text-sm font-medium">
-                            Buchungsberechtigung
-                        </legend>
-                        <p class="text-sm text-muted-foreground">
-                            Keine Auswahl bedeutet: alle Mitgliedsarten.
-                        </p>
-                        <label
-                            v-for="(label, value) in membershipTypes"
-                            :key="value"
-                            class="flex items-center gap-2 text-sm"
-                            ><input
-                                v-model="resourceForm.allowed_membership_types"
-                                type="checkbox"
-                                :value="value"
-                                class="size-4 accent-primary"
-                            />{{ label }}</label
-                        >
-                        <InputError
-                            :message="
-                                resourceForm.errors.allowed_membership_types
-                            "
-                        />
-                    </fieldset>
-                    <fieldset class="space-y-3 rounded-lg border p-4">
-                        <legend class="px-1 text-sm font-medium">
-                            Automatische Bestätigung
-                        </legend>
-                        <p class="text-sm text-muted-foreground">
-                            Andere zulässige Mitgliedsarten erzeugen eine
-                            Buchungsanfrage.
-                        </p>
-                        <label
-                            v-for="(label, value) in membershipTypes"
-                            :key="value"
-                            class="flex items-center gap-2 text-sm"
-                            ><input
-                                v-model="
-                                    resourceForm.auto_approve_membership_types
-                                "
-                                type="checkbox"
-                                :value="value"
-                                class="size-4 accent-primary"
-                            />{{ label }}</label
-                        >
-                        <InputError
-                            :message="
-                                resourceForm.errors
-                                    .auto_approve_membership_types
-                            "
-                        />
-                    </fieldset>
-                </div>
-                <Button :disabled="resourceForm.processing"
-                    ><Plus v-if="!editingResource" class="size-4" /><Check
-                        v-else
-                        class="size-4"
-                    />{{
-                        editingResource
-                            ? 'Änderungen speichern'
-                            : 'Ressource anlegen'
-                    }}</Button
-                >
-            </form>
-
-            <div class="grid gap-4 md:grid-cols-2">
-                <article
-                    v-for="resource in resources"
-                    :key="resource.id"
-                    class="space-y-3 rounded-xl border bg-card p-5"
-                >
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0">
-                            <h3 class="font-semibold">
-                                {{ resourceLabel(resource) }}
-                            </h3>
-                            <p
-                                v-if="resource.location"
-                                class="text-sm text-muted-foreground"
-                            >
-                                {{ resource.location }}
-                            </p>
-                        </div>
-                        <Badge
-                            :variant="
-                                resource.is_active ? 'secondary' : 'outline'
-                            "
-                            >{{
-                                resource.is_active ? 'Aktiv' : 'Inaktiv'
-                            }}</Badge
-                        >
-                    </div>
-                    <p v-if="resource.description" class="text-sm">
-                        {{ resource.description }}
-                    </p>
-                    <p class="text-sm">
-                        <span class="font-medium">Preis:</span>
-                        {{ priceLabel(resource) }}
-                    </p>
-                    <p class="text-sm text-muted-foreground">
-                        Berechtigt:
-                        {{
-                            resource.allowed_membership_types.length
-                                ? resource.allowed_membership_types.join(', ')
-                                : 'Alle Mitgliedsarten'
-                        }}
-                    </p>
-                    <div class="flex flex-wrap gap-2">
-                        <Button as-child size="sm" variant="outline"
-                            ><Link
-                                :href="`/buchungen/ressourcen/${resource.id}`"
-                                ><CalendarDays class="size-4" />Kalender</Link
-                            ></Button
-                        ><Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            @click="editResource(resource)"
-                            ><Pencil class="size-4" />Bearbeiten</Button
-                        >
-                    </div>
-                </article>
             </div>
         </section>
+
+        <BookingResourceForm
+            v-else-if="activeTab === 'resource-create'"
+            :resources="resources"
+            :inventory-items="inventoryItems"
+            :member-fields="memberFields"
+            :editing-resource-id="editingResourceId"
+        />
 
         <section v-else-if="activeTab === 'requests'" class="space-y-4">
             <div>
@@ -439,8 +242,8 @@ function decide(booking: ResourceBooking, decision: 'approve' | 'reject') {
                     Offene Buchungsanfragen ({{ requests.length }})
                 </h2>
                 <p class="mt-1 text-sm text-muted-foreground">
-                    Bestätigte kostenpflichtige Termine werden dem Beitragskonto
-                    belastet.
+                    Bestätigte kostenpflichtige Termine werden nach Ablauf der
+                    Stornierungsfrist dem Beitragskonto belastet.
                 </p>
             </div>
             <StatusAlert
@@ -463,7 +266,12 @@ function decide(booking: ResourceBooking, decision: 'approve' | 'reject') {
             >
                 <div class="min-w-0 space-y-1">
                     <h3 class="font-semibold">
-                        {{ booking.resource_name }} · {{ booking.title }}
+                        <Link
+                            :href="'/buchungen/' + booking.id"
+                            class="underline-offset-4 hover:underline"
+                        >
+                            {{ booking.resource_name }} · {{ booking.title }}
+                        </Link>
                     </h3>
                     <p class="text-sm">
                         {{ formatDateTime(booking.starts_at) }} bis
@@ -478,9 +286,6 @@ function decide(booking: ResourceBooking, decision: 'approve' | 'reject') {
                         ><template v-if="booking.series_id">
                             · Serientermin {{ booking.occurrence }}</template
                         >
-                    </p>
-                    <p v-if="booking.notes" class="text-sm">
-                        {{ booking.notes }}
                     </p>
                 </div>
                 <div class="flex flex-wrap gap-2">
