@@ -131,6 +131,8 @@ php artisan up
 
 ## Entwicklung und Tests
 
+Aufbau des Codes, Konventionen und Regeln für Mitwirkende stehen in [docs/entwicklung.md](docs/entwicklung.md).
+
 ```bash
 npm run check
 npm run types:check
