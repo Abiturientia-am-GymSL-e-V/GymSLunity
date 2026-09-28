@@ -1,4 +1,5 @@
 const currencyFormats = new Map<string, Intl.NumberFormat>();
+const numberFormat = new Intl.NumberFormat('de-DE');
 const dateFormat = new Intl.DateTimeFormat('de-DE');
 const dateTimeFormat = new Intl.DateTimeFormat('de-DE', {
     dateStyle: 'medium',
@@ -29,7 +30,15 @@ export function formatDate(value: string | null | undefined): string {
         : '–';
 }
 
-/** Timestamp as German date and time, e.g. "28.09.2026, 14:30". */
+/**
+ * Timestamp (ISO or database "YYYY-MM-DD HH:MM:SS") as German date and
+ * time, e.g. "28.09.2026, 14:30".
+ */
 export function formatDateTime(value: string): string {
-    return dateTimeFormat.format(new Date(value));
+    return dateTimeFormat.format(new Date(value.replace(' ', 'T')));
+}
+
+/** Integer or decimal with German grouping, e.g. 1234 → "1.234". */
+export function formatNumber(value: number): string {
+    return numberFormat.format(value);
 }

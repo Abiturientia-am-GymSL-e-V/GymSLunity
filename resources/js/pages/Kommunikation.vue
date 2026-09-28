@@ -2,25 +2,18 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
     AlertTriangle,
-    Archive,
-    AtSign,
     Download,
     FileText,
     History,
     Mail,
-    MapPin,
     Paperclip,
-    RotateCcw,
-    Search,
     Send,
-    UsersRound,
     X,
 } from '@lucide/vue';
 import { computed, reactive, ref, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
 import RichTextEditor from '@/components/communication/RichTextEditor.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -31,76 +24,28 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatNumber } from '@/lib/format';
+import CommunicationHistory from '@/components/communication/CommunicationHistory.vue';
+import RecipientFilter from '@/components/communication/RecipientFilter.vue';
+import RecipientPreview from '@/components/communication/RecipientPreview.vue';
+import type {
+    Campaign,
+    CommunicationTab,
+    Delivery,
+    RecipientFilterOptions,
+    RecipientFilters,
+    RecipientPreviewRow,
+    RecipientSummary,
+} from '@/types/communication';
 import type { MemberField } from '@/types/members';
 
-type Tab = 'mail' | 'letters' | 'history';
-type Filters = {
-    q: string;
-    status: string;
-    membership: string;
-    department_role: string;
-    club_role: string;
-    gender: string;
-    payment_method: string;
-    city: string;
-    honorary: string;
-    email_status: string;
-    address_status: string;
-    joined_from: string;
-    joined_to: string;
-    custom: Record<string, string>;
-};
-type OptionSet = {
-    memberships: string[];
-    departmentRoles: string[];
-    clubRoles: string[];
-    paymentMethods: string[];
-    cities: string[];
-};
-type Preview = {
-    member_number: number;
-    name: string;
-    email: string | null;
-    city: string | null;
-    membership_type: string;
-    email_ready: boolean;
-    address_ready: boolean;
-};
-type Campaign = {
-    id: number;
-    kind: 'mail' | 'letter';
-    format: string | null;
-    subject: string;
-    recipient_count: number;
-    skipped_count: number;
-    success_count: number;
-    failure_count: number;
-    created_by_name: string;
-    created_at: string;
-    attachments: { name: string; mime: string; size: number }[];
-};
-type Delivery = {
-    id: number;
-    member_number: number;
-    recipient_name: string;
-    recipient_email: string | null;
-    status: 'pending' | 'sent' | 'failed' | 'generated';
-    error: string | null;
-};
-
 const props = defineProps<{
-    activeTab: Tab;
-    filters: Filters;
-    filterOptions: OptionSet;
+    activeTab: CommunicationTab;
+    filters: RecipientFilters;
+    filterOptions: RecipientFilterOptions;
     customFilters: MemberField[];
-    summary: {
-        total: number;
-        with_email: number;
-        without_email: number;
-        complete_address: number;
-        incomplete_address: number;
-    };
-    preview: Preview[];
+    summary: RecipientSummary;
+    preview: RecipientPreviewRow[];
     placeholders: { token: string; label: string; group: string }[];
     mailConfiguration: {
         driver: string;
@@ -125,23 +70,24 @@ const tabs = [
     ['letters', 'Serienbriefe', FileText, '/kommunikation/serienbriefe'],
     ['history', 'Verlauf', History, '/kommunikation/verlauf'],
 ] as const;
-const pageCopy: Record<Tab, { title: string; subtitle: string }> = {
-    mail: {
-        title: 'Serien-E-Mails',
-        subtitle:
-            'Personalisierte Nachrichten einzeln an gefilterte Mitglieder versenden.',
-    },
-    letters: {
-        title: 'Serienbriefe',
-        subtitle:
-            'Personalisierte Briefe als Gesamt-PDF oder ZIP mit Einzeldateien erstellen.',
-    },
-    history: {
-        title: 'Kommunikationsverlauf',
-        subtitle: 'Versand- und Exportvorgänge nachvollziehen.',
-    },
-};
-const filterDraft = reactive<Filters>({
+const pageCopy: Record<CommunicationTab, { title: string; subtitle: string }> =
+    {
+        mail: {
+            title: 'Serien-E-Mails',
+            subtitle:
+                'Personalisierte Nachrichten einzeln an gefilterte Mitglieder versenden.',
+        },
+        letters: {
+            title: 'Serienbriefe',
+            subtitle:
+                'Personalisierte Briefe als Gesamt-PDF oder ZIP mit Einzeldateien erstellen.',
+        },
+        history: {
+            title: 'Kommunikationsverlauf',
+            subtitle: 'Versand- und Exportvorgänge nachvollziehen.',
+        },
+    };
+const filterDraft = reactive<RecipientFilters>({
     ...props.filters,
     custom: { ...props.filters.custom },
 });
@@ -293,11 +239,6 @@ const attachmentError = computed(() => {
 const formatBytes = (bytes: number) =>
     `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 }).format(bytes / 1024 / 1024)} MB`;
 const number = new Intl.NumberFormat('de-DE');
-const dateTime = (value: string) =>
-    new Intl.DateTimeFormat('de-DE', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(new Date(value.replace(' ', 'T')));
 const hasFilters = computed(
     () =>
         props.filters.status !== 'active' ||
@@ -307,8 +248,6 @@ const hasFilters = computed(
         ) ||
         Object.keys(props.filters.custom).length > 0,
 );
-const selectClass =
-    'h-9 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus:border-ring focus:ring-2 focus:ring-ring/30';
 </script>
 
 <template>
@@ -343,386 +282,16 @@ const selectClass =
         </nav>
 
         <template v-if="activeTab !== 'history'">
-            <section
-                class="rounded-xl border bg-card p-4 sm:p-5"
-                aria-label="Empfänger filtern"
-            >
-                <div class="flex flex-wrap items-center gap-3">
-                    <div class="relative min-w-0 flex-1 basis-72 sm:max-w-md">
-                        <Label for="communication-search" class="sr-only"
-                            >Empfänger suchen</Label
-                        ><Search
-                            class="pointer-events-none absolute top-2.5 left-3 size-4 text-muted-foreground"
-                        /><Input
-                            id="communication-search"
-                            v-model="filterDraft.q"
-                            type="search"
-                            maxlength="120"
-                            placeholder="Name, Mitgliedsnummer, E-Mail oder Ort …"
-                            class="pl-9"
-                            @keydown.enter.prevent="applyFilters"
-                        />
-                    </div>
-                    <Button variant="outline" @click="applyFilters"
-                        >Filter anwenden</Button
-                    ><Button
-                        v-if="hasFilters"
-                        variant="ghost"
-                        @click="resetFilters"
-                        ><RotateCcw /> Zurücksetzen</Button
-                    >
-                </div>
-                <div
-                    class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-                >
-                    <div class="grid gap-2">
-                        <Label for="filter-status">Mitgliedsstatus</Label
-                        ><select
-                            id="filter-status"
-                            v-model="filterDraft.status"
-                            :class="selectClass"
-                        >
-                            <option value="active">Aktive Mitglieder</option>
-                            <option value="contacts">Kontakte</option>
-                            <option value="former">
-                                Ausgetreten / verstorben
-                            </option>
-                            <option value="future">Künftige Eintritte</option>
-                            <option value="all">Alle Datensätze</option>
-                        </select>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="filter-membership">Mitgliedsart</Label
-                        ><select
-                            id="filter-membership"
-                            v-model="filterDraft.membership"
-                            :class="selectClass"
-                        >
-                            <option value="">Alle</option>
-                            <option
-                                v-for="item in filterOptions.memberships"
-                                :key="item"
-                                :value="item"
-                            >
-                                {{ item }}
-                            </option>
-                        </select>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="filter-department">Funktion Abteilung</Label
-                        ><select
-                            id="filter-department"
-                            v-model="filterDraft.department_role"
-                            :class="selectClass"
-                        >
-                            <option value="">Alle</option>
-                            <option value="__any__">Mit Funktion</option>
-                            <option value="__none__">Ohne Funktion</option>
-                            <option
-                                v-for="item in filterOptions.departmentRoles"
-                                :key="item"
-                                :value="item"
-                            >
-                                {{ item }}
-                            </option>
-                        </select>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="filter-club-role"
-                            >Funktion Hauptverein</Label
-                        ><select
-                            id="filter-club-role"
-                            v-model="filterDraft.club_role"
-                            :class="selectClass"
-                        >
-                            <option value="">Alle</option>
-                            <option value="__any__">Mit Funktion</option>
-                            <option value="__none__">Ohne Funktion</option>
-                            <option
-                                v-for="item in filterOptions.clubRoles"
-                                :key="item"
-                                :value="item"
-                            >
-                                {{ item }}
-                            </option>
-                        </select>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="filter-gender">Geschlecht</Label
-                        ><select
-                            id="filter-gender"
-                            v-model="filterDraft.gender"
-                            :class="selectClass"
-                        >
-                            <option value="">Alle</option>
-                            <option value="w">Weiblich</option>
-                            <option value="m">Männlich</option>
-                            <option value="d">Divers</option>
-                            <option value="o">Ohne Angabe</option>
-                            <option value="__none__">Nicht hinterlegt</option>
-                        </select>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="filter-payment">Zahlungsart</Label
-                        ><select
-                            id="filter-payment"
-                            v-model="filterDraft.payment_method"
-                            :class="selectClass"
-                        >
-                            <option value="">Alle</option>
-                            <option
-                                v-for="item in filterOptions.paymentMethods"
-                                :key="item"
-                                :value="item"
-                            >
-                                {{ item }}
-                            </option>
-                        </select>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="filter-city">Wohnort</Label
-                        ><select
-                            id="filter-city"
-                            v-model="filterDraft.city"
-                            :class="selectClass"
-                        >
-                            <option value="">Alle</option>
-                            <option
-                                v-for="item in filterOptions.cities"
-                                :key="item"
-                                :value="item"
-                            >
-                                {{ item }}
-                            </option>
-                        </select>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="filter-honorary">Ehrenmitglied</Label
-                        ><select
-                            id="filter-honorary"
-                            v-model="filterDraft.honorary"
-                            :class="selectClass"
-                        >
-                            <option value="">Alle</option>
-                            <option value="yes">Ja</option>
-                            <option value="no">Nein</option>
-                        </select>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="filter-email">E-Mail-Adresse</Label
-                        ><select
-                            id="filter-email"
-                            v-model="filterDraft.email_status"
-                            :class="selectClass"
-                        >
-                            <option value="">Alle</option>
-                            <option value="with">Vorhanden</option>
-                            <option value="without">Fehlt</option>
-                        </select>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="filter-address">Postanschrift</Label
-                        ><select
-                            id="filter-address"
-                            v-model="filterDraft.address_status"
-                            :class="selectClass"
-                        >
-                            <option value="">Alle</option>
-                            <option value="complete">Vollständig</option>
-                            <option value="incomplete">Unvollständig</option>
-                        </select>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="filter-joined-from">Eintritt von</Label
-                        ><Input
-                            id="filter-joined-from"
-                            v-model="filterDraft.joined_from"
-                            type="date"
-                        />
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="filter-joined-to">Eintritt bis</Label
-                        ><Input
-                            id="filter-joined-to"
-                            v-model="filterDraft.joined_to"
-                            type="date"
-                            :min="filterDraft.joined_from"
-                        />
-                    </div>
-                    <div
-                        v-for="field in customFilters"
-                        :key="field.key"
-                        class="grid gap-2"
-                    >
-                        <Label :for="`filter-${field.key}`">{{
-                            field.label
-                        }}</Label
-                        ><select
-                            v-if="
-                                field.type === 'select' ||
-                                field.type === 'boolean'
-                            "
-                            :id="`filter-${field.key}`"
-                            v-model="filterDraft.custom[field.key]"
-                            :class="selectClass"
-                        >
-                            <option value="">Alle</option>
-                            <template v-if="field.type === 'boolean'"
-                                ><option value="1">Ja</option>
-                                <option value="0">Nein</option></template
-                            >
-                            <option
-                                v-for="(label, value) in field.options"
-                                v-else
-                                :key="value"
-                                :value="value"
-                            >
-                                {{ label }}
-                            </option></select
-                        ><Input
-                            v-else
-                            :id="`filter-${field.key}`"
-                            v-model="filterDraft.custom[field.key]"
-                            :type="
-                                field.type === 'date'
-                                    ? 'date'
-                                    : ['number', 'decimal'].includes(field.type)
-                                      ? 'number'
-                                      : 'text'
-                            "
-                            :step="
-                                field.type === 'decimal' ? '0.01' : undefined
-                            "
-                            placeholder="Alle"
-                        />
-                    </div>
-                </div>
-            </section>
+            <RecipientFilter
+                :draft="filterDraft"
+                :filter-options="filterOptions"
+                :custom-filters="customFilters"
+                :has-filters="hasFilters"
+                @apply="applyFilters"
+                @reset="resetFilters"
+            />
 
-            <div class="grid gap-4 sm:grid-cols-3">
-                <Card class="gap-2 py-5"
-                    ><CardHeader class="px-5 pb-0"
-                        ><div class="flex items-center justify-between">
-                            <CardDescription
-                                >Gefilterte Empfänger</CardDescription
-                            ><UsersRound class="size-5 text-muted-foreground" />
-                        </div>
-                        <CardTitle class="text-3xl tabular-nums">{{
-                            number.format(summary.total)
-                        }}</CardTitle></CardHeader
-                    ><CardContent class="px-5 text-xs text-muted-foreground"
-                        >Die ersten 50 werden unten angezeigt.</CardContent
-                    ></Card
-                >
-                <Card class="gap-2 py-5"
-                    ><CardHeader class="px-5 pb-0"
-                        ><div class="flex items-center justify-between">
-                            <CardDescription>Mit E-Mail-Adresse</CardDescription
-                            ><AtSign class="size-5 text-muted-foreground" />
-                        </div>
-                        <CardTitle class="text-3xl tabular-nums">{{
-                            number.format(summary.with_email)
-                        }}</CardTitle></CardHeader
-                    ><CardContent class="px-5 text-xs text-muted-foreground"
-                        >{{ number.format(summary.without_email) }} ohne
-                        E-Mail-Adresse</CardContent
-                    ></Card
-                >
-                <Card class="gap-2 py-5"
-                    ><CardHeader class="px-5 pb-0"
-                        ><div class="flex items-center justify-between">
-                            <CardDescription
-                                >Vollständige Anschrift</CardDescription
-                            ><MapPin class="size-5 text-muted-foreground" />
-                        </div>
-                        <CardTitle class="text-3xl tabular-nums">{{
-                            number.format(summary.complete_address)
-                        }}</CardTitle></CardHeader
-                    ><CardContent class="px-5 text-xs text-muted-foreground"
-                        >{{
-                            number.format(summary.incomplete_address)
-                        }}
-                        unvollständig</CardContent
-                    ></Card
-                >
-            </div>
-
-            <Card class="gap-0 overflow-hidden py-0">
-                <CardHeader class="border-b py-5"
-                    ><CardTitle class="text-base">Empfängervorschau</CardTitle
-                    ><CardDescription>{{
-                        $address(
-                            'Kontrolliere die Auswahl, bevor du versendest oder PDFs erzeugst.',
-                            'Kontrollieren Sie die Auswahl, bevor Sie versenden oder PDFs erzeugen.',
-                        )
-                    }}</CardDescription></CardHeader
-                >
-                <CardContent class="overflow-x-auto p-0"
-                    ><table class="w-full min-w-[720px] text-sm">
-                        <thead
-                            class="bg-muted/50 text-left text-xs text-muted-foreground"
-                        >
-                            <tr>
-                                <th class="px-5 py-3 font-medium">Nr.</th>
-                                <th class="px-3 py-3 font-medium">Name</th>
-                                <th class="px-3 py-3 font-medium">
-                                    Mitgliedsart
-                                </th>
-                                <th class="px-3 py-3 font-medium">E-Mail</th>
-                                <th class="px-5 py-3 font-medium">Anschrift</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y">
-                            <tr
-                                v-for="member in preview"
-                                :key="member.member_number"
-                            >
-                                <td class="px-5 py-3 tabular-nums">
-                                    {{ member.member_number }}
-                                </td>
-                                <td class="px-3 py-3 font-medium">
-                                    {{ member.name }}
-                                </td>
-                                <td class="px-3 py-3">
-                                    {{ member.membership_type }}
-                                </td>
-                                <td class="px-3 py-3">
-                                    <span
-                                        :class="
-                                            member.email_ready
-                                                ? ''
-                                                : 'text-amber-700'
-                                        "
-                                        >{{ member.email || 'Fehlt' }}</span
-                                    >
-                                </td>
-                                <td class="px-5 py-3">
-                                    <Badge
-                                        :variant="
-                                            member.address_ready
-                                                ? 'outline'
-                                                : 'secondary'
-                                        "
-                                        >{{
-                                            member.address_ready
-                                                ? member.city
-                                                : 'Unvollständig'
-                                        }}</Badge
-                                    >
-                                </td>
-                            </tr>
-                            <tr v-if="preview.length === 0">
-                                <td
-                                    colspan="5"
-                                    class="px-5 py-8 text-center text-muted-foreground"
-                                >
-                                    Keine Empfänger für diese Filter.
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table></CardContent
-                >
-            </Card>
+            <RecipientPreview :summary="summary" :preview="preview" />
 
             <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
                 <Card v-if="activeTab === 'mail'" class="gap-0 py-0">
@@ -847,7 +416,7 @@ const selectClass =
                                     Nachricht geprüft und bestätige den Versand
                                     an
                                     <strong>{{
-                                        number.format(summary.with_email)
+                                        formatNumber(summary.with_email)
                                     }}</strong>
                                     Empfänger mit E-Mail-Adresse.</span
                                 ></label
@@ -991,7 +560,7 @@ const selectClass =
                                     >Ich habe Auswahl und Brieftext geprüft. Es
                                     werden
                                     <strong>{{
-                                        number.format(summary.total)
+                                        formatNumber(summary.total)
                                     }}</strong>
                                     personalisierte Briefe erzeugt.</span
                                 ></label
@@ -1045,185 +614,11 @@ const selectClass =
         </template>
 
         <template v-else>
-            <Card class="gap-0 overflow-hidden py-0"
-                ><CardHeader class="border-b py-5"
-                    ><CardTitle class="text-base">Letzte Vorgänge</CardTitle
-                    ><CardDescription
-                        >Protokollierte Serienmail-Versände und
-                        Briefexporte.</CardDescription
-                    ></CardHeader
-                ><CardContent class="overflow-x-auto p-0"
-                    ><table class="w-full min-w-[860px] text-sm">
-                        <thead
-                            class="bg-muted/50 text-left text-xs text-muted-foreground"
-                        >
-                            <tr>
-                                <th class="px-5 py-3 font-medium">Zeitpunkt</th>
-                                <th class="px-3 py-3 font-medium">Art</th>
-                                <th class="px-3 py-3 font-medium">Betreff</th>
-                                <th class="px-3 py-3 text-right font-medium">
-                                    Erfolgreich
-                                </th>
-                                <th class="px-3 py-3 text-right font-medium">
-                                    Übersprungen
-                                </th>
-                                <th class="px-3 py-3 text-right font-medium">
-                                    Fehler
-                                </th>
-                                <th class="px-3 py-3 font-medium">
-                                    Erstellt von
-                                </th>
-                                <th class="px-5 py-3 text-right font-medium">
-                                    Details
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y">
-                            <tr
-                                v-for="campaign in campaigns"
-                                :key="campaign.id"
-                            >
-                                <td class="px-5 py-3 whitespace-nowrap">
-                                    {{ dateTime(campaign.created_at) }}
-                                </td>
-                                <td class="px-3 py-3">
-                                    <Badge variant="outline"
-                                        ><Mail
-                                            v-if="campaign.kind === 'mail'"
-                                            class="mr-1 size-3"
-                                        /><Archive
-                                            v-else
-                                            class="mr-1 size-3"
-                                        />{{
-                                            campaign.kind === 'mail'
-                                                ? 'E-Mail'
-                                                : campaign.format?.toUpperCase()
-                                        }}</Badge
-                                    >
-                                </td>
-                                <td
-                                    class="max-w-sm truncate px-3 py-3 font-medium"
-                                >
-                                    {{ campaign.subject }}
-                                </td>
-                                <td class="px-3 py-3 text-right tabular-nums">
-                                    {{ number.format(campaign.success_count) }}
-                                </td>
-                                <td class="px-3 py-3 text-right tabular-nums">
-                                    {{ number.format(campaign.skipped_count) }}
-                                </td>
-                                <td
-                                    class="px-3 py-3 text-right tabular-nums"
-                                    :class="
-                                        campaign.failure_count
-                                            ? 'text-destructive'
-                                            : ''
-                                    "
-                                >
-                                    {{ number.format(campaign.failure_count) }}
-                                </td>
-                                <td class="px-3 py-3">
-                                    {{ campaign.created_by_name }}
-                                </td>
-                                <td class="px-5 py-3 text-right">
-                                    <Link
-                                        :href="`/kommunikation/verlauf?campaign=${campaign.id}`"
-                                        class="font-medium text-primary underline-offset-4 hover:underline"
-                                        >Anzeigen</Link
-                                    >
-                                </td>
-                            </tr>
-                            <tr v-if="campaigns.length === 0">
-                                <td
-                                    colspan="8"
-                                    class="px-5 py-10 text-center text-muted-foreground"
-                                >
-                                    Noch keine Kommunikationsvorgänge vorhanden.
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table></CardContent
-                ></Card
-            >
-
-            <Card v-if="selectedCampaign" class="gap-0 overflow-hidden py-0"
-                ><CardHeader class="border-b py-5"
-                    ><CardTitle class="text-base"
-                        >Vorgang #{{ selectedCampaign.id }}:
-                        {{ selectedCampaign.subject }}</CardTitle
-                    ><CardDescription
-                        >{{ number.format(selectedCampaign.recipient_count) }}
-                        Empfänger · erstellt von
-                        {{ selectedCampaign.created_by_name }} am
-                        {{ dateTime(selectedCampaign.created_at)
-                        }}<template v-if="selectedCampaign.attachments.length">
-                            · {{ selectedCampaign.attachments.length }}
-                            {{
-                                selectedCampaign.attachments.length === 1
-                                    ? 'Anhang'
-                                    : 'Anhänge'
-                            }}:
-                            {{
-                                selectedCampaign.attachments
-                                    .map((file) => file.name)
-                                    .join(', ')
-                            }}
-                        </template></CardDescription
-                    ></CardHeader
-                ><CardContent class="overflow-x-auto p-0"
-                    ><table class="w-full min-w-[720px] text-sm">
-                        <thead
-                            class="bg-muted/50 text-left text-xs text-muted-foreground"
-                        >
-                            <tr>
-                                <th class="px-5 py-3 font-medium">Nr.</th>
-                                <th class="px-3 py-3 font-medium">Empfänger</th>
-                                <th class="px-3 py-3 font-medium">E-Mail</th>
-                                <th class="px-3 py-3 font-medium">Status</th>
-                                <th class="px-5 py-3 font-medium">Hinweis</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y">
-                            <tr
-                                v-for="delivery in deliveries"
-                                :key="delivery.id"
-                            >
-                                <td class="px-5 py-3 tabular-nums">
-                                    {{ delivery.member_number }}
-                                </td>
-                                <td class="px-3 py-3 font-medium">
-                                    {{ delivery.recipient_name }}
-                                </td>
-                                <td class="px-3 py-3">
-                                    {{ delivery.recipient_email || '–' }}
-                                </td>
-                                <td class="px-3 py-3">
-                                    <Badge
-                                        :variant="
-                                            delivery.status === 'failed'
-                                                ? 'destructive'
-                                                : 'outline'
-                                        "
-                                        >{{
-                                            delivery.status === 'sent'
-                                                ? 'Versendet'
-                                                : delivery.status ===
-                                                    'generated'
-                                                  ? 'Erzeugt'
-                                                  : delivery.status === 'failed'
-                                                    ? 'Fehlgeschlagen'
-                                                    : 'Ausstehend'
-                                        }}</Badge
-                                    >
-                                </td>
-                                <td class="px-5 py-3 text-muted-foreground">
-                                    {{ delivery.error || '–' }}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table></CardContent
-                ></Card
-            >
+            <CommunicationHistory
+                :campaigns="campaigns"
+                :deliveries="deliveries"
+                :selected-campaign="selectedCampaign"
+            />
         </template>
     </div>
 </template>
