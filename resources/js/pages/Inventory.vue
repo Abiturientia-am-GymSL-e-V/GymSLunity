@@ -17,7 +17,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import { formatDate, formatMoney } from '@/lib/format';
 import type {
     InventoryItem,
     InventoryOptions,
@@ -42,13 +41,6 @@ const tabs = [
 ] as const;
 
 const today = new Intl.DateTimeFormat('sv-SE').format(new Date());
-const detailsOpen = ref(false);
-const selected = ref<InventoryItem | null>(null);
-function showDetails(item: InventoryItem) {
-    selected.value = item;
-    detailsOpen.value = true;
-}
-
 const disposalOpen = ref(false);
 const retiring = ref<InventoryItem | null>(null);
 const disposalForm = useForm({
@@ -132,7 +124,6 @@ function closeDisposal(value: boolean) {
                 :items="items"
                 :options="options"
                 :summary="summary"
-                @details="showDetails"
                 @dispose="openDisposal"
             />
         </template>
@@ -141,139 +132,6 @@ function closeDisposal(value: boolean) {
             <InventoryCreateForm :options="options" />
         </template>
     </div>
-
-    <Dialog v-model:open="detailsOpen">
-        <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-            <template v-if="selected">
-                <DialogHeader>
-                    <DialogTitle>{{ selected.name }}</DialogTitle>
-                    <DialogDescription class="font-mono">
-                        {{ selected.inventory_number }}
-                    </DialogDescription>
-                </DialogHeader>
-                <dl class="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
-                    <div>
-                        <dt class="text-muted-foreground">Kategorie</dt>
-                        <dd class="font-medium">
-                            {{ options.categories[selected.category] }}
-                        </dd>
-                    </div>
-                    <div>
-                        <dt class="text-muted-foreground">Status</dt>
-                        <dd class="font-medium">
-                            {{ options.statuses[selected.status] }}
-                        </dd>
-                    </div>
-                    <div>
-                        <dt class="text-muted-foreground">
-                            Hersteller / Modell
-                        </dt>
-                        <dd class="font-medium">
-                            {{
-                                [selected.manufacturer, selected.model]
-                                    .filter(Boolean)
-                                    .join(' · ') || '–'
-                            }}
-                        </dd>
-                    </div>
-                    <div>
-                        <dt class="text-muted-foreground">Seriennummer</dt>
-                        <dd class="font-medium">
-                            {{ selected.serial_number || '–' }}
-                        </dd>
-                    </div>
-                    <div>
-                        <dt class="text-muted-foreground">Standort</dt>
-                        <dd class="font-medium">{{ selected.location }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-muted-foreground">Verantwortlich</dt>
-                        <dd class="font-medium">
-                            {{ selected.responsible_person || '–' }}
-                        </dd>
-                    </div>
-                    <div>
-                        <dt class="text-muted-foreground">Anschaffung</dt>
-                        <dd class="font-medium">
-                            {{ formatDate(selected.acquisition_date) }} ·
-                            {{ formatMoney(selected.acquisition_cost_cents) }}
-                        </dd>
-                    </div>
-                    <div>
-                        <dt class="text-muted-foreground">Beleg/Referenz</dt>
-                        <dd class="font-medium">
-                            {{ selected.document_reference || '–' }}
-                        </dd>
-                    </div>
-                    <div>
-                        <dt class="text-muted-foreground">Abschreibung</dt>
-                        <dd class="font-medium">
-                            {{
-                                options.depreciationMethods[
-                                    selected.depreciation_method
-                                ]
-                            }}
-                            <template v-if="selected.useful_life_years">
-                                ·
-                                {{ selected.useful_life_years }} Jahre</template
-                            >
-                        </dd>
-                    </div>
-                    <div>
-                        <dt class="text-muted-foreground">
-                            {{
-                                selected.status === 'active'
-                                    ? 'Aktueller Restwert'
-                                    : 'Restwert bei Abgang'
-                            }}
-                        </dt>
-                        <dd class="font-medium">
-                            {{ formatMoney(selected.book_value_cents) }}
-                        </dd>
-                    </div>
-                    <div v-if="selected.description" class="sm:col-span-2">
-                        <dt class="text-muted-foreground">
-                            Beschreibung/Zustand
-                        </dt>
-                        <dd class="mt-1 whitespace-pre-wrap">
-                            {{ selected.description }}
-                        </dd>
-                    </div>
-                    <template v-if="selected.status !== 'active'">
-                        <div>
-                            <dt class="text-muted-foreground">Abgang am</dt>
-                            <dd class="font-medium">
-                                {{ formatDate(selected.disposed_at) }}
-                            </dd>
-                        </div>
-                        <div>
-                            <dt class="text-muted-foreground">Verkaufserlös</dt>
-                            <dd class="font-medium">
-                                {{
-                                    selected.disposal_proceeds_cents === null
-                                        ? '–'
-                                        : formatMoney(
-                                              selected.disposal_proceeds_cents,
-                                          )
-                                }}
-                            </dd>
-                        </div>
-                        <div
-                            v-if="selected.disposal_note"
-                            class="sm:col-span-2"
-                        >
-                            <dt class="text-muted-foreground">
-                                Abgangsvermerk
-                            </dt>
-                            <dd class="mt-1 whitespace-pre-wrap">
-                                {{ selected.disposal_note }}
-                            </dd>
-                        </div>
-                    </template>
-                </dl>
-            </template>
-        </DialogContent>
-    </Dialog>
 
     <Dialog :open="disposalOpen" @update:open="closeDisposal">
         <DialogContent class="sm:max-w-lg">

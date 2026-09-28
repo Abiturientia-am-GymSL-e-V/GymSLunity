@@ -31,6 +31,8 @@ use App\Http\Controllers\Forms\ReceiptController;
 use App\Http\Controllers\Forms\SignatureListController;
 use App\Http\Controllers\InstallController;
 use App\Http\Controllers\Inventory\InventoryController;
+use App\Http\Controllers\Inventory\InventoryDocumentController;
+use App\Http\Controllers\Inventory\InventorySheetController;
 use App\Http\Controllers\Members\BulkUpdateMemberController;
 use App\Http\Controllers\Members\MemberCardController;
 use App\Http\Controllers\Members\MemberController;
@@ -185,8 +187,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [InventoryController::class, 'index'])->defaults('tab', 'overview')->name('inventory');
         Route::get('inventarisieren', [InventoryController::class, 'index'])->defaults('tab', 'create')->name('inventory.create');
         Route::post('/', [InventoryController::class, 'store'])->name('inventory.store');
-        Route::patch('{inventoryItem:inventory_number}/abgang', [InventoryController::class, 'dispose'])->name('inventory.dispose');
         Route::get('inventarliste.pdf', [InventoryController::class, 'report'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('inventory.report');
+        Route::get('{inventoryItem:inventory_number}', [InventoryController::class, 'show'])->name('inventory.show');
+        Route::get('{inventoryItem:inventory_number}/bearbeiten', [InventoryController::class, 'edit'])->name('inventory.edit');
+        Route::patch('{inventoryItem:inventory_number}', [InventoryController::class, 'update'])->name('inventory.update');
+        Route::patch('{inventoryItem:inventory_number}/abgang', [InventoryController::class, 'dispose'])->name('inventory.dispose');
+        Route::get('{inventoryItem:inventory_number}/inventarblatt.pdf', InventorySheetController::class)->middleware(['throttle:sensitive', 'audit:data_export'])->name('inventory.sheet');
+        Route::post('{inventoryItem:inventory_number}/belege', [InventoryDocumentController::class, 'store'])->name('inventory.documents.store');
+        Route::get('{inventoryItem:inventory_number}/belege/{inventoryDocument}', [InventoryDocumentController::class, 'show'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('inventory.documents.show');
     });
     Route::middleware(['module:calendar', 'can:view-calendar'])->prefix('kalender')->name('calendar.')->group(function () {
         Route::get('/', [CalendarController::class, 'index'])->name('index');

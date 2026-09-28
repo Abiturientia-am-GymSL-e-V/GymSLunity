@@ -9,6 +9,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Inventory\DisposeInventoryItemRequest;
 use App\Http\Requests\Inventory\InventoryFilterRequest;
 use App\Http\Requests\Inventory\StoreInventoryItemRequest;
+use App\Http\Requests\Inventory\UpdateInventoryItemRequest;
+use App\Inventory\InventoryDocuments;
 use App\Inventory\InventoryOptions;
 use App\Inventory\InventorySequence;
 use App\Members\MemberReportWriter;
@@ -59,14 +61,14 @@ class InventoryController extends Controller
         ]);
     }
 
-    public function store(StoreInventoryItemRequest $request): RedirectResponse
+    public function store(StoreInventoryItemRequest $request, InventoryDocuments $documents): RedirectResponse
     {
         $data = $request->validated();
 
-        $item = DB::transaction(function () use ($data, $request): InventoryItem {
+        $item = DB::transaction(function () use ($data, $request, $documents): InventoryItem {
             $number = InventorySequence::next();
 
-            return InventoryItem::query()->create([
+            $item = InventoryItem::query()->create([
                 'inventory_number' => sprintf('INV-%06d', $number),
                 'name' => $data['name'],
                 'category' => $data['category'],
@@ -85,11 +87,62 @@ class InventoryController extends Controller
                 'created_by' => $request->user()->id,
                 'created_by_name' => $request->user()->name,
             ]);
+
+            if ($request->hasFile('document')) {
+                $documents->store($item, $request->file('document'), $request->user());
+            }
+
+            return $item;
         });
 
         Inertia::flash('toast', ['type' => 'success', 'message' => $item->inventory_number.' wurde inventarisiert.']);
 
         return to_route('inventory');
+    }
+
+    public function show(InventoryItem $inventoryItem): Response
+    {
+        $inventoryItem->load('documents');
+
+        return Inertia::render('inventory/Show', [
+            'navigationBreadcrumb' => [
+                'title' => $inventoryItem->inventory_number,
+                'href' => route('inventory.show', $inventoryItem),
+            ],
+            'item' => $this->row($inventoryItem),
+            'documents' => $inventoryItem->documents->map(fn ($document): array => [
+                'id' => $document->id,
+                'original_name' => $document->original_name,
+                'uploaded_by_name' => $document->uploaded_by_name,
+                'created_at' => $document->created_at->toIso8601String(),
+                'url' => route('inventory.documents.show', [$inventoryItem, $document]),
+            ])->values(),
+            'options' => $this->options(),
+        ]);
+    }
+
+    public function edit(InventoryItem $inventoryItem): Response
+    {
+        return Inertia::render('inventory/Edit', [
+            'navigationBreadcrumb' => [
+                'title' => $inventoryItem->inventory_number.' bearbeiten',
+                'href' => route('inventory.edit', $inventoryItem),
+            ],
+            'item' => $this->row($inventoryItem),
+        ]);
+    }
+
+    public function update(UpdateInventoryItemRequest $request, InventoryItem $inventoryItem): RedirectResponse
+    {
+        $data = $request->validated();
+        $inventoryItem->update([
+            'location' => $data['location'],
+            'responsible_person' => ($data['responsible_person'] ?? null) ?: null,
+        ]);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Standort und Verantwortlichkeit wurden gespeichert.']);
+
+        return to_route('inventory.show', $inventoryItem);
     }
 
     public function dispose(DisposeInventoryItemRequest $request, InventoryItem $inventoryItem): RedirectResponse
@@ -185,6 +238,17 @@ class InventoryController extends Controller
             'disposal_note' => $item->disposal_note,
             'created_by_name' => $item->created_by_name,
             'disposed_by_name' => $item->disposed_by_name,
+        ];
+    }
+
+    /** @return array<string, array<string, string>> */
+    private function options(): array
+    {
+        return [
+            'categories' => InventoryOptions::categories(),
+            'acquisitionTypes' => InventoryOptions::acquisitionTypes(),
+            'depreciationMethods' => InventoryOptions::depreciationMethods(),
+            'statuses' => InventoryOptions::statuses(),
         ];
     }
 

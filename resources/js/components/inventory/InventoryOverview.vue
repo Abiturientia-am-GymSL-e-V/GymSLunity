@@ -19,7 +19,6 @@ const props = defineProps<{
     summary: InventorySummary;
 }>();
 const emit = defineEmits<{
-    details: [item: InventoryItem];
     dispose: [item: InventoryItem];
 }>();
 
@@ -292,13 +291,13 @@ const reportUrl = computed(() => {
                         </td>
                         <td class="px-4 py-4">
                             <div class="flex justify-end gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    :aria-label="`${item.inventory_number} Details anzeigen`"
-                                    @click="emit('details', item)"
-                                >
-                                    <Eye class="size-3.5" />Details
+                                <Button variant="outline" size="sm" as-child>
+                                    <Link
+                                        :href="`/inventar/${encodeURIComponent(item.inventory_number)}`"
+                                        :aria-label="`${item.inventory_number} Details anzeigen`"
+                                    >
+                                        <Eye class="size-3.5" />Details
+                                    </Link>
                                 </Button>
                                 <Button
                                     v-if="item.status === 'active'"

@@ -33,6 +33,7 @@ class StoreInventoryItemRequest extends FormRequest
             'acquisition_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'acquisition_cost' => ['required', 'decimal:0,2', 'min:0', 'max:9999999.99'],
             'document_reference' => ['nullable', 'string', 'max:255'],
+            'document' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
             'depreciation_method' => ['required', Rule::in(array_keys(InventoryOptions::depreciationMethods()))],
             'useful_life_years' => ['nullable', 'required_if:depreciation_method,linear', 'integer', 'min:1', 'max:100'],
         ];
