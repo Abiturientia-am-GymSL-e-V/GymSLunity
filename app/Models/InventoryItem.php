@@ -7,6 +7,7 @@ namespace App\Models;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
@@ -47,6 +48,12 @@ class InventoryItem extends Model
             'disposed_at' => 'immutable_date:Y-m-d',
             'disposal_proceeds_cents' => 'integer',
         ];
+    }
+
+    /** @return HasMany<InventoryDocument, $this> */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(InventoryDocument::class)->latest();
     }
 
     public function bookValueCents(?CarbonInterface $asOf = null): int

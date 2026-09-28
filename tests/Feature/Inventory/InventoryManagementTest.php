@@ -9,6 +9,7 @@ use App\Models\InventoryItem;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\View;
 use Illuminate\View\View as BladeView;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -99,6 +100,98 @@ class InventoryManagementTest extends TestCase
                 ->where('activeTab', $tab)
                 ->where('navigationBreadcrumb.title', $title));
         }
+    }
+
+    public function test_inventory_has_detail_and_restricted_edit_pages(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-09-23 12:00:00'));
+        $this->signIn();
+        $this->post(route('inventory.store'), $this->itemData())->assertSessionHasNoErrors();
+        $item = InventoryItem::sole();
+
+        $this->get(route('inventory.show', $item))->assertInertia(fn (Assert $page) => $page
+            ->component('inventory/Show')
+            ->where('item.inventory_number', 'INV-000001')
+            ->where('item.location', 'Turnhalle, Geräteraum 1')
+            ->has('documents', 0));
+        $this->get(route('inventory.edit', $item))->assertInertia(fn (Assert $page) => $page
+            ->component('inventory/Edit')
+            ->where('item.inventory_number', 'INV-000001'));
+
+        $this->patch(route('inventory.update', $item), [
+            'location' => 'Vereinslager',
+            'responsible_person' => 'Materialwart',
+            'acquisition_cost_cents' => 1,
+            'acquisition_date' => '2026-09-23',
+            'depreciation_method' => 'immediate',
+        ])->assertSessionHasNoErrors()->assertRedirect(route('inventory.show', $item));
+
+        $item->refresh();
+        $this->assertSame('Vereinslager', $item->location);
+        $this->assertSame('Materialwart', $item->responsible_person);
+        $this->assertSame(120000, $item->acquisition_cost_cents);
+        $this->assertSame('2025-01-15', $item->acquisition_date->format('Y-m-d'));
+        $this->assertSame('linear', $item->depreciation_method);
+    }
+
+    public function test_invoice_can_be_uploaded_during_creation_and_more_documents_can_be_added(): void
+    {
+        $actor = $this->signIn();
+        $first = "%PDF-1.4\ninvoice\n%%EOF";
+
+        $this->post(route('inventory.store'), $this->itemData([
+            'document' => UploadedFile::fake()->createWithContent('rechnung.pdf', $first),
+        ]))->assertSessionHasNoErrors();
+        $item = InventoryItem::sole();
+        $document = $item->documents()->sole();
+        $this->assertSame('rechnung.pdf', $document->original_name);
+        $this->assertSame($actor->name, $document->uploaded_by_name);
+        $this->assertSame(hash('sha256', $first), $document->content_sha256);
+        $this->assertNotSame($first, $document->contents);
+
+        $this->get(route('inventory.documents.show', [$item, $document]))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertContent($first);
+
+        $second = "%PDF-1.4\nreceipt\n%%EOF";
+        $this->post(route('inventory.documents.store', $item), [
+            'document' => UploadedFile::fake()->createWithContent('quittung.pdf', $second),
+        ])->assertSessionHasNoErrors();
+        $this->assertCount(2, $item->documents()->get());
+
+        $this->post(route('inventory.documents.store', $item), [
+            'document' => UploadedFile::fake()->createWithContent('notiz.txt', 'kein PDF'),
+        ])->assertSessionHasErrors('document');
+        $this->assertCount(2, $item->documents()->get());
+    }
+
+    public function test_inventory_document_must_belong_to_the_item_in_the_url(): void
+    {
+        $this->signIn();
+        $this->post(route('inventory.store'), $this->itemData([
+            'document' => UploadedFile::fake()->createWithContent('rechnung.pdf', "%PDF-1.4\none\n%%EOF"),
+        ]))->assertSessionHasNoErrors();
+        $first = InventoryItem::sole();
+        $document = $first->documents()->sole();
+        $this->post(route('inventory.store'), $this->itemData(['name' => 'Zweiter Gegenstand']))->assertSessionHasNoErrors();
+        $second = InventoryItem::query()->latest('id')->firstOrFail();
+
+        $this->get(route('inventory.documents.show', [$second, $document]))->assertNotFound();
+    }
+
+    public function test_inventory_sheet_can_be_downloaded(): void
+    {
+        $this->signIn();
+        $this->post(route('inventory.store'), $this->itemData())->assertSessionHasNoErrors();
+        $item = InventoryItem::sole();
+
+        $this->get(route('inventory.sheet', $item))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('Content-Disposition', 'attachment; filename="inventarblatt-INV-000001.pdf"')
+            ->assertSee('%PDF-', false);
     }
 
     public function test_filtered_inventory_can_be_exported_as_pdf(): void

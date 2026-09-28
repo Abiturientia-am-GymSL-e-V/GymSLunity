@@ -42,3 +42,11 @@ export type InventorySummary = {
     acquisition_value_cents: number;
     book_value_cents: number;
 };
+
+export type InventoryDocument = {
+    id: number;
+    original_name: string;
+    uploaded_by_name: string;
+    created_at: string;
+    url: string;
+};

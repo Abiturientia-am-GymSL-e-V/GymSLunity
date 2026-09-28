@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import InputError from '@/components/InputError.vue';
+import SearchableDropdown from '@/components/SearchableDropdown.vue';
 import StatusAlert from '@/components/StatusAlert.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,10 +11,39 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import type { DepreciationMethod, InventoryOptions } from '@/types/inventory';
 
-defineProps<{ options: InventoryOptions }>();
+const props = defineProps<{ options: InventoryOptions }>();
+
+const categoryOptions = computed(() =>
+    Object.entries(props.options.categories).map(([value, label]) => ({
+        value,
+        label,
+    })),
+);
+const acquisitionTypeOptions = computed(() =>
+    Object.entries(props.options.acquisitionTypes).map(([value, label]) => ({
+        value,
+        label,
+    })),
+);
 
 const today = new Intl.DateTimeFormat('sv-SE').format(new Date());
-const createForm = useForm({
+const createForm = useForm<{
+    name: string;
+    category: string;
+    description: string;
+    manufacturer: string;
+    model: string;
+    serial_number: string;
+    location: string;
+    responsible_person: string;
+    acquisition_type: string;
+    acquisition_date: string;
+    acquisition_cost: string;
+    document_reference: string;
+    document: File | null;
+    depreciation_method: DepreciationMethod;
+    useful_life_years: string | number;
+}>({
     name: '',
     category: 'sports_equipment',
     description: '',
@@ -25,12 +56,18 @@ const createForm = useForm({
     acquisition_date: today,
     acquisition_cost: '',
     document_reference: '',
+    document: null,
     depreciation_method: 'linear' as DepreciationMethod,
     useful_life_years: '' as string | number,
 });
+function selectDocument(event: Event) {
+    const input = event.target as HTMLInputElement;
+    createForm.document = input.files?.[0] ?? null;
+}
 function store() {
     createForm.post('/inventar', {
         preserveScroll: true,
+        forceFormData: true,
         onSuccess: () => {
             createForm.reset();
         },
@@ -62,20 +99,16 @@ function store() {
                 </div>
                 <div class="space-y-2">
                     <Label for="inventory-category">Kategorie *</Label>
-                    <select
+                    <SearchableDropdown
                         id="inventory-category"
-                        v-model="createForm.category"
-                        required
-                        class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs"
-                    >
-                        <option
-                            v-for="(label, value) in options.categories"
-                            :key="value"
-                            :value="value"
-                        >
-                            {{ label }}
-                        </option>
-                    </select>
+                        :model-value="createForm.category"
+                        :options="categoryOptions"
+                        aria-label="Kategorie auswählen"
+                        search-placeholder="Kategorie suchen"
+                        empty-text="Keine Kategorie gefunden"
+                        trigger-class="h-9 w-full rounded-md border border-input bg-background px-3 shadow-xs"
+                        @update:model-value="createForm.category = $event"
+                    />
                     <InputError :message="createForm.errors.category" />
                 </div>
                 <div class="space-y-2">
@@ -157,20 +190,18 @@ function store() {
             <div class="grid gap-5 p-5 md:grid-cols-2">
                 <div class="space-y-2">
                     <Label for="inventory-acquisition-type">Zugangsart *</Label>
-                    <select
+                    <SearchableDropdown
                         id="inventory-acquisition-type"
-                        v-model="createForm.acquisition_type"
-                        required
-                        class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs"
-                    >
-                        <option
-                            v-for="(label, value) in options.acquisitionTypes"
-                            :key="value"
-                            :value="value"
-                        >
-                            {{ label }}
-                        </option>
-                    </select>
+                        :model-value="createForm.acquisition_type"
+                        :options="acquisitionTypeOptions"
+                        aria-label="Zugangsart auswählen"
+                        search-placeholder="Zugangsart suchen"
+                        empty-text="Keine Zugangsart gefunden"
+                        trigger-class="h-9 w-full rounded-md border border-input bg-background px-3 shadow-xs"
+                        @update:model-value="
+                            createForm.acquisition_type = $event
+                        "
+                    />
                     <InputError :message="createForm.errors.acquisition_type" />
                 </div>
                 <div class="space-y-2">
@@ -218,6 +249,18 @@ function store() {
                     <InputError
                         :message="createForm.errors.document_reference"
                     />
+                </div>
+                <div class="space-y-2">
+                    <Label for="inventory-document-upload">
+                        Rechnung / Beleg (PDF, max. 10 MB)
+                    </Label>
+                    <Input
+                        id="inventory-document-upload"
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        @change="selectDocument"
+                    />
+                    <InputError :message="createForm.errors.document" />
                 </div>
                 <div class="space-y-2">
                     <Label for="inventory-depreciation">Abschreibung *</Label>
