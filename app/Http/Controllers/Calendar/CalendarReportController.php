@@ -52,7 +52,7 @@ class CalendarReportController extends Controller
         $printedAt = now()->setTimezone(config('app.display_timezone'));
         $html = view('calendar.report', compact('layout', 'events', 'days', 'calendars', 'focus', 'from', 'until', 'club', 'logo', 'printedAt'))->render();
 
-        return response(MemberReportWriter::pdf($html), 200, [
+        return response(MemberReportWriter::pdf($html, $layout === 'month'), 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
             'Cache-Control' => 'private, no-store',

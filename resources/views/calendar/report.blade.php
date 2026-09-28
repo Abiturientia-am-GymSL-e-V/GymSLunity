@@ -5,7 +5,7 @@
     <title>{{ $layout === 'month' ? 'Monatskalender '.$focus->locale('de')->translatedFormat('F Y') : 'Terminliste' }}</title>
     @include('payments.report-styles')
     <style>
-        @page { size: A4 portrait; margin: 10mm; }
+        @page { size: A4 {{ $layout === 'month' ? 'landscape' : 'portrait' }}; margin: 10mm; }
         body { font-size: 8px; }
         .calendar-grid { border-collapse: collapse; table-layout: fixed; width: 100%; }
         .calendar-grid th { padding: 4px; text-align: center; }

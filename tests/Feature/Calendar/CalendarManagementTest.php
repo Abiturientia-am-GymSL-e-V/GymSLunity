@@ -97,7 +97,7 @@ class CalendarManagementTest extends TestCase
             ->assertHeader('X-Content-Type-Options', 'nosniff')
             ->assertSee('%PDF-', false);
 
-        $this->assertStringContainsString('/MediaBox [0.000 0.000 595.280 841.890]', $response->getContent());
+        $this->assertStringContainsString('/MediaBox [0.000 0.000 841.890 595.280]', $response->getContent());
         $this->assertSame(['Mitgliederversammlung'], $renderedTitles);
         $this->assertSame('month', $renderedLayout);
         $this->assertSame(42, $renderedDays);
@@ -134,14 +134,16 @@ class CalendarManagementTest extends TestCase
             $renderedLayout = $view->getData()['layout'];
         });
 
-        $this->get(route('calendar.report', [
+        $response = $this->get(route('calendar.report', [
             'layout' => 'list',
             'from' => '2026-09-01',
             'until' => '2026-12-31',
             'calendars' => [$calendar->id],
-        ]))->assertOk()
+        ]));
+        $response->assertOk()
             ->assertHeader('Content-Disposition', 'attachment; filename="terminliste-2026-09-01-bis-2026-12-31.pdf"');
 
+        $this->assertStringContainsString('/MediaBox [0.000 0.000 595.280 841.890]', $response->getContent());
         $this->assertSame(['Herbst'], $renderedTitles);
         $this->assertSame('list', $renderedLayout);
     }
