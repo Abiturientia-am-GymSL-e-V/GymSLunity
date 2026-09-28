@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature\Communication;
 
 use App\Mail\SerialMemberMail;

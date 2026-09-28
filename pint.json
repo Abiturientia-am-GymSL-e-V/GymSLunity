@@ -1,4 +1,7 @@
 {
     "preset": "laravel",
-    "exclude": [".alt"]
+    "exclude": [".alt"],
+    "rules": {
+        "declare_strict_types": true
+    }
 }

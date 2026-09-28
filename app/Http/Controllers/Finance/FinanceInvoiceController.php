@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers\Finance;
 
 use App\Configuration\MailConfigurator;
@@ -211,7 +213,7 @@ class FinanceInvoiceController extends Controller
             'items' => ['required', 'array', 'min:1', 'max:100'],
             'items.*.description' => ['required', 'string', 'max:500'],
             'items.*.quantity' => ['required', 'string', 'regex:/\A\d{1,6}(?:[.,]\d{1,3})?\z/', function ($attribute, $value, $fail): void {
-                if ((float) str_replace(',', '.', $value) <= 0) {
+                if (is_string($value) && (float) str_replace(',', '.', $value) <= 0) {
                     $fail('Die Menge muss größer als null sein.');
                 }
             }],

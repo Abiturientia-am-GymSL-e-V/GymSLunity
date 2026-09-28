@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 return [
     'privileged_roles' => ['admin', 'vereinsverwaltung', 'mv', 'auditor', 'bh', 'bv', 'kp'],
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Donations;
 
 use App\Members\MemberReportWriter;

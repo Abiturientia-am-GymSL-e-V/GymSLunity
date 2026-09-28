@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Payments;
 
 use App\Support\Iban as IbanFormatter;

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature\Finance;
 
 use App\Mail\FinanceInvoiceMail;
@@ -164,6 +166,14 @@ class FinanceInvoiceTest extends TestCase
             'giroCode' => null,
         ])->render();
         $this->assertStringContainsString('8,403361 €', $pdfHtml);
+    }
+
+    public function test_non_string_position_quantity_is_rejected_without_server_error(): void
+    {
+        $data = $this->data();
+        $data['items'][0]['quantity'] = 2;
+
+        $this->postJson('/buchhaltung/rechnungen', $data)->assertUnprocessable()->assertJsonValidationErrors('items.0.quantity');
     }
 
     public function test_finance_landing_page_links_to_the_invoice_area(): void

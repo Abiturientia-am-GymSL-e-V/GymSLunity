@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Http\Middleware\AuditSecurityEvent;
 use App\Http\Middleware\EnforceSessionInactivity;
 use App\Http\Middleware\EnsureActiveUser;

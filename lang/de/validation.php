@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 return [
     'required' => ':attribute ist erforderlich.',
     'required_if' => ':attribute ist bei dieser Auswahl erforderlich.',
