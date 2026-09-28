@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $price_cents
  * @property int|null $charge_transaction_id
  * @property int|null $refund_transaction_id
+ * @property int|null $finance_invoice_id
  * @property string|null $created_by_name
  * @property string|null $decided_by_name
  * @property BookingResource $resource

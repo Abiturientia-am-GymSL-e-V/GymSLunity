@@ -28,7 +28,7 @@ class UpdateClubRequest extends FormRequest
         $rules = ['version' => ['required', 'integer', 'min:0']];
         foreach (ClubData::fields() as $field) {
             $rules[$field['key']] = [$field['required'] ? 'required' : 'nullable', ...match ($field['type']) {
-                'boolean' => ['boolean'], 'date' => ['date_format:Y-m-d'], 'email' => ['email:rfc', 'max:255'], 'url' => ['url:http,https', 'max:255'], 'select' => [Rule::in(array_keys($field['options']))], default => ['string', 'max:255'],
+                'boolean' => ['boolean'], 'integer' => ['integer', 'min:0', 'max:10080'], 'date' => ['date_format:Y-m-d'], 'email' => ['email:rfc', 'max:255'], 'url' => ['url:http,https', 'max:255'], 'select' => [Rule::in(array_keys($field['options']))], default => ['string', 'max:255'],
             }];
         }
         $rules['iban'][] = new Iban;

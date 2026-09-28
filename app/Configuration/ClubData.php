@@ -6,10 +6,10 @@ namespace App\Configuration;
 
 final class ClubData
 {
-    /** @return list<array{key: string, label: string, type: string, section: string, required: bool, options: array<string, string>, default: string|bool|null}> */
+    /** @return list<array{key: string, label: string, type: string, section: string, required: bool, options: array<string, string>, default: string|int|bool|null}> */
     public static function fields(): array
     {
-        $field = fn (string $key, string $label, string $section, string $type = 'text', bool $required = false, array $options = [], string|bool|null $default = null): array => compact('key', 'label', 'type', 'section', 'required', 'options', 'default');
+        $field = fn (string $key, string $label, string $section, string $type = 'text', bool $required = false, array $options = [], string|int|bool|null $default = null): array => compact('key', 'label', 'type', 'section', 'required', 'options', 'default');
 
         return [
             $field('name', 'Vollständiger Vereinsname', 'Allgemein', required: true),
@@ -34,6 +34,10 @@ final class ClubData
             $field('bic', 'BIC', 'Bankverbindung'),
             $field('bank_name', 'Kreditinstitut', 'Bankverbindung'),
             $field('creditor_id', 'SEPA-Gläubiger-ID', 'Bankverbindung'),
+            $field('booking_cancellation_notice_value', 'Stornierungsfrist', 'Buchungssystem', 'integer', default: 24),
+            $field('booking_cancellation_notice_unit', 'Einheit der Stornierungsfrist', 'Buchungssystem', 'select', options: [
+                'minutes' => 'Minuten', 'hours' => 'Stunden', 'days' => 'Tage',
+            ], default: 'hours'),
         ];
     }
 }

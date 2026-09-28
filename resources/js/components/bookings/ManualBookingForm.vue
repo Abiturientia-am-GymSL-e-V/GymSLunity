@@ -25,7 +25,8 @@ const bookingForm = useForm({
     notes: '',
     starts_at: '',
     ends_at: '',
-    recurrence: 'none' as 'none' | 'weekly' | 'monthly',
+    recurrence: 'none' as 'none' | 'daily' | 'weekly',
+    recurrence_interval: 1,
     occurrences: 1,
 });
 const resourceOptions = computed(() =>
@@ -49,6 +50,11 @@ const memberOptions = computed(() => [
         search: `${member.label} ${member.membership_type}`,
     })),
 ]);
+const recurrenceOptions = [
+    { value: 'none', label: 'Keine Wiederholung' },
+    { value: 'daily', label: 'Alle X Tage' },
+    { value: 'weekly', label: 'Alle X Wochen' },
+];
 function createBooking() {
     bookingForm.post('/buchungen', {
         preserveScroll: true,
@@ -79,7 +85,7 @@ function createBooking() {
             @submit.prevent="createBooking"
         >
             <div class="grid gap-5 sm:grid-cols-2">
-                <div class="min-w-0 space-y-2">
+                <div class="min-w-0 space-y-2 sm:col-span-2">
                     <Label for="booking-resource">Ressource *</Label
                     ><SearchableDropdown
                         id="booking-resource"
@@ -127,35 +133,57 @@ function createBooking() {
                         required
                     /><InputError :message="bookingForm.errors.title" />
                 </div>
-                <div class="min-w-0 space-y-2">
+                <div class="min-w-0 space-y-2 sm:col-span-2">
                     <Label for="booking-start">Beginn *</Label
                     ><Input
                         id="booking-start"
                         v-model="bookingForm.starts_at"
                         type="datetime-local"
+                        class="date-safe"
                         required
                     /><InputError :message="bookingForm.errors.starts_at" />
                 </div>
-                <div class="min-w-0 space-y-2">
+                <div class="min-w-0 space-y-2 sm:col-span-2">
                     <Label for="booking-end">Ende *</Label
                     ><Input
                         id="booking-end"
                         v-model="bookingForm.ends_at"
                         type="datetime-local"
+                        class="date-safe"
                         required
                     /><InputError :message="bookingForm.errors.ends_at" />
                 </div>
                 <div class="min-w-0 space-y-2">
                     <Label for="booking-recurrence">Wiederholung</Label
-                    ><select
+                    ><SearchableDropdown
                         id="booking-recurrence"
-                        v-model="bookingForm.recurrence"
-                        class="field"
-                    >
-                        <option value="none">Keine</option>
-                        <option value="weekly">Wöchentlich</option>
-                        <option value="monthly">Monatlich</option>
-                    </select>
+                        :model-value="bookingForm.recurrence"
+                        :options="recurrenceOptions"
+                        trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                        aria-label="Wiederholung auswählen"
+                        search-placeholder="Wiederholung suchen"
+                        empty-text="Keine Wiederholung gefunden"
+                        @update:model-value="
+                            bookingForm.recurrence =
+                                $event as typeof bookingForm.recurrence
+                        "
+                    />
+                </div>
+                <div
+                    v-if="bookingForm.recurrence !== 'none'"
+                    class="min-w-0 space-y-2"
+                >
+                    <Label for="booking-recurrence-interval">Intervall</Label
+                    ><Input
+                        id="booking-recurrence-interval"
+                        v-model="bookingForm.recurrence_interval"
+                        type="number"
+                        min="1"
+                        max="365"
+                        required
+                    /><InputError
+                        :message="bookingForm.errors.recurrence_interval"
+                    />
                 </div>
                 <div
                     v-if="bookingForm.recurrence !== 'none'"

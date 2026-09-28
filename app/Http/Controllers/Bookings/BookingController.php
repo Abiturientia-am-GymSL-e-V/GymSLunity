@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Bookings;
 
 use App\Bookings\BookingManager;
+use App\Configuration\SoftwareModules;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Bookings\BookingResourceRequest;
 use App\Http\Requests\Bookings\StoreManualBookingRequest;
+use App\Http\Requests\Bookings\UpdateBookingRequest;
 use App\Models\BookingResource;
 use App\Models\InventoryItem;
 use App\Models\Member;
@@ -26,13 +28,14 @@ class BookingController extends Controller
     public function index(Request $request, BookingManager $manager): Response
     {
         $tab = (string) $request->route('tab', 'calendar');
-        abort_unless(in_array($tab, ['calendar', 'resources', 'requests', 'create'], true), 404);
+        abort_unless(in_array($tab, ['calendar', 'resources', 'resource-create', 'requests', 'create'], true), 404);
         $month = (string) $request->query('month', now()->setTimezone(config('app.display_timezone'))->format('Y-m'));
         if (! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month)) {
             $month = now()->setTimezone(config('app.display_timezone'))->format('Y-m');
         }
-        $start = CarbonImmutable::createFromFormat('!Y-m', $month, config('app.display_timezone'))->utc();
-        $end = $start->setTimezone(config('app.display_timezone'))->addMonth()->utc();
+        $focus = CarbonImmutable::createFromFormat('!Y-m', $month, config('app.display_timezone'));
+        $start = $focus->startOfMonth()->startOfWeek(CarbonImmutable::MONDAY)->utc();
+        $end = $focus->endOfMonth()->endOfWeek(CarbonImmutable::SUNDAY)->addDay()->utc();
 
         return Inertia::render('Bookings', [
             'activeTab' => $tab,
@@ -44,6 +47,8 @@ class BookingController extends Controller
                     'description' => $item->description, 'location' => $item->location,
                 ]),
             'membershipTypes' => $manager->membershipTypes(),
+            'memberFields' => $manager->memberFields(),
+            'editingResourceId' => $tab === 'resource-create' ? $request->integer('edit') ?: null : null,
             'members' => Member::query()
                 ->whereNotNull('joined_at')->whereNull('deceased_at')
                 ->where(fn ($query) => $query->whereNull('left_at')->orWhereDate('left_at', '>=', today()))
@@ -64,8 +69,9 @@ class BookingController extends Controller
         if (! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month)) {
             $month = now()->setTimezone(config('app.display_timezone'))->format('Y-m');
         }
-        $start = CarbonImmutable::createFromFormat('!Y-m', $month, config('app.display_timezone'))->utc();
-        $end = $start->setTimezone(config('app.display_timezone'))->addMonth()->utc();
+        $focus = CarbonImmutable::createFromFormat('!Y-m', $month, config('app.display_timezone'));
+        $start = $focus->startOfMonth()->startOfWeek(CarbonImmutable::MONDAY)->utc();
+        $end = $focus->endOfMonth()->endOfWeek(CarbonImmutable::SUNDAY)->addDay()->utc();
         $ids = $resource->relatedIds();
 
         return Inertia::render('BookingResource', [
@@ -74,6 +80,25 @@ class BookingController extends Controller
             'bookings' => $this->bookingQuery()->whereIn('resource_id', $ids)->whereIn('status', ['requested', 'confirmed'])
                 ->where('starts_at', '<', $end)->where('ends_at', '>', $start)
                 ->get()->map(fn (ResourceBooking $booking): array => $this->booking($booking)),
+        ]);
+    }
+
+    public function showBooking(Request $request, ResourceBooking $booking, BookingManager $manager): Response
+    {
+        $booking->load(['resource:id,name,parent_id', 'member:id,member_number,first_name,last_name']);
+        $scope = $request->query('scope') === 'series' && $booking->series_id !== null ? 'series' : 'occurrence';
+        $series = $booking->series_id === null ? collect() : $this->bookingQuery()
+            ->where('series_id', $booking->series_id)->get()->map(fn (ResourceBooking $item): array => $this->booking($item));
+
+        return Inertia::render('BookingDetail', [
+            'booking' => $this->booking($booking),
+            'scope' => $scope,
+            'series' => $series,
+            'resources' => $this->resources(),
+            'canCreateInvoice' => SoftwareModules::enabled('finance') && $request->user()->can('view-finance')
+                && $booking->member_id === null && $booking->status === 'confirmed'
+                && $booking->price_cents > 0 && $booking->finance_invoice_id === null
+                && $manager->isChargeDue($booking),
         ]);
     }
 
@@ -115,10 +140,20 @@ class BookingController extends Controller
 
     public function cancel(Request $request, ResourceBooking $booking, BookingManager $manager): RedirectResponse
     {
-        $manager->cancel($booking, $request->user());
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Der einzelne Buchungstermin wurde storniert.']);
+        $data = $request->validate(['scope' => ['nullable', Rule::in(['occurrence', 'series'])]]);
+        $scope = (string) ($data['scope'] ?? 'occurrence');
+        $count = $manager->cancelScope($booking, $scope, $request->user());
+        Inertia::flash('toast', ['type' => 'success', 'message' => $count > 1 ? "$count Buchungstermine wurden storniert." : 'Der Buchungstermin wurde storniert.']);
 
-        return back();
+        return to_route('bookings.index');
+    }
+
+    public function updateBooking(UpdateBookingRequest $request, ResourceBooking $booking, BookingManager $manager): RedirectResponse
+    {
+        $count = $manager->update($booking, $request->validated());
+        Inertia::flash('toast', ['type' => 'success', 'message' => $count > 1 ? "$count Buchungstermine wurden geändert." : 'Der Buchungstermin wurde geändert.']);
+
+        return to_route('bookings.booking.show', ['booking' => $booking, 'scope' => $request->validated('scope')]);
     }
 
     /** @return Builder<ResourceBooking> */
@@ -142,6 +177,9 @@ class BookingController extends Controller
             'allowed_membership_types' => $resource->allowed_membership_types ?? [],
             'auto_approve_membership_types' => $resource->auto_approve_membership_types ?? [],
             'price_mode' => $resource->price_mode, 'price_cents' => $resource->price_cents,
+            'access_rules' => $resource->access_rules ?? [],
+            'auto_approve_rules' => $resource->auto_approve_rules ?? [],
+            'pricing_rules' => $resource->pricing_rules ?? [],
             'is_active' => $resource->is_active,
         ];
     }
@@ -161,6 +199,7 @@ class BookingController extends Controller
             'ends_at' => $booking->ends_at->setTimezone($timezone)->format('Y-m-d\TH:i'),
             'series_id' => $booking->series_id, 'occurrence' => $booking->occurrence,
             'status' => $booking->status, 'price_cents' => $booking->price_cents,
+            'finance_invoice_id' => $booking->finance_invoice_id,
             'created_by_name' => $booking->created_by_name, 'decided_by_name' => $booking->decided_by_name,
         ];
     }

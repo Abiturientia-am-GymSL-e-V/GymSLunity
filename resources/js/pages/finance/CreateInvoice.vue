@@ -41,6 +41,14 @@ const props = defineProps<{
     smallBusinessRegulationEnabled: boolean;
     smallBusinessNotice: string;
     financeMandates: FinanceMandate[];
+    bookingPrefill: {
+        id: number;
+        recipient_name: string;
+        buyer_reference: string;
+        service_date: string;
+        description: string;
+        unit_price: string;
+    } | null;
 }>();
 defineOptions({
     layout: {
@@ -64,15 +72,16 @@ const emptyItem = (): Item => ({
 });
 const form = useForm({
     creation_key: props.creationKey,
-    recipient_name: '',
+    booking_id: props.bookingPrefill?.id ?? null,
+    recipient_name: props.bookingPrefill?.recipient_name ?? '',
     recipient_street: '',
     recipient_postal_code: '',
     recipient_city: '',
     recipient_country: props.defaultCountry || 'DE',
     recipient_email: '',
-    buyer_reference: '',
+    buyer_reference: props.bookingPrefill?.buyer_reference ?? '',
     issue_date: props.today,
-    service_date: props.today,
+    service_date: props.bookingPrefill?.service_date ?? props.today,
     due_date: props.defaultDueDate,
     currency: 'EUR',
     payment_method: (props.paymentReadiness.bank_transfer
@@ -89,7 +98,14 @@ const form = useForm({
     mandate_signed_at: '',
     mandate_type: 'recurring' as 'recurring' | 'one_off',
     notes: '',
-    items: [emptyItem()],
+    items: [
+        {
+            ...emptyItem(),
+            description: props.bookingPrefill?.description ?? '',
+            unit_price: props.bookingPrefill?.unit_price ?? '',
+            price_mode: 'gross',
+        } as Item,
+    ],
 });
 const mandateOptions = computed(() =>
     props.financeMandates.map((mandate) => ({

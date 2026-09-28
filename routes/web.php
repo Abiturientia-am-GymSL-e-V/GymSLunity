@@ -213,6 +213,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['module:bookings', 'can:view-bookings'])->prefix('buchungen')->name('bookings.')->group(function () {
         Route::get('/', [BookingController::class, 'index'])->defaults('tab', 'calendar')->name('index');
         Route::get('ressourcen', [BookingController::class, 'index'])->defaults('tab', 'resources')->name('resources.index');
+        Route::get('ressourcen/anlegen', [BookingController::class, 'index'])->defaults('tab', 'resource-create')->name('resources.create');
         Route::get('anfragen', [BookingController::class, 'index'])->defaults('tab', 'requests')->name('requests.index');
         Route::get('anlegen', [BookingController::class, 'index'])->defaults('tab', 'create')->name('create');
         Route::get('ressourcen/{resource}', [BookingController::class, 'show'])->name('resources.show');
@@ -220,6 +221,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('ressourcen/{resource}', [BookingController::class, 'updateResource'])->name('resources.update');
         Route::post('/', [BookingController::class, 'store'])->name('store');
         Route::patch('{booking}/entscheidung', [BookingController::class, 'decide'])->name('decide');
+        Route::get('{booking}', [BookingController::class, 'showBooking'])->name('booking.show');
+        Route::patch('{booking}', [BookingController::class, 'updateBooking'])->name('booking.update');
         Route::patch('{booking}/stornieren', [BookingController::class, 'cancel'])->name('cancel');
     });
     Route::get('ortsangaben', PostalCodeController::class)->middleware('throttle:60,1')->name('postal.lookup');
