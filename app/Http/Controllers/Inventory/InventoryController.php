@@ -4,15 +4,20 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Inventory;
 
+use App\Configuration\ClubSettings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Inventory\DisposeInventoryItemRequest;
+use App\Http\Requests\Inventory\InventoryFilterRequest;
 use App\Http\Requests\Inventory\StoreInventoryItemRequest;
 use App\Inventory\InventoryOptions;
 use App\Inventory\InventorySequence;
+use App\Members\MemberReportWriter;
 use App\Models\InventoryItem;
 use App\Payments\Money;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -20,6 +25,10 @@ use Inertia\Response;
 
 class InventoryController extends Controller
 {
+    public function __construct(
+        private readonly ClubSettings $clubSettings,
+    ) {}
+
     public function index(Request $request): Response
     {
         $tab = (string) $request->route('tab', 'overview');
@@ -107,6 +116,47 @@ class InventoryController extends Controller
         return to_route('inventory');
     }
 
+    public function report(InventoryFilterRequest $request): HttpResponse
+    {
+        $filters = $request->validated();
+
+        $query = $this->filteredQuery($filters)->orderByDesc('id');
+        if ((clone $query)->count() > 5000) {
+            throw ValidationException::withMessages([
+                'scope' => 'Der Bericht ist auf 5.000 Inventareinträge begrenzt. Bitte die Filter einschränken.',
+            ]);
+        }
+        $items = $query->get();
+
+        $club = $this->clubSettings->data();
+        $logo = $this->clubSettings->logoDataUri();
+        $options = [
+            'categories' => InventoryOptions::categories(),
+            'acquisitionTypes' => InventoryOptions::acquisitionTypes(),
+            'depreciationMethods' => InventoryOptions::depreciationMethods(),
+            'statuses' => InventoryOptions::statuses(),
+        ];
+        $printedAt = now()->setTimezone(config('app.display_timezone'));
+
+        $html = view('inventory.report', compact(
+            'items',
+            'filters',
+            'club',
+            'logo',
+            'options',
+            'printedAt',
+        ))->render();
+
+        $pdf = MemberReportWriter::pdf($html, true);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="inventarliste-'.now()->format('Y-m-d-His').'.pdf"',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     /** @return array<string, mixed> */
     private function row(InventoryItem $item): array
     {
@@ -136,5 +186,41 @@ class InventoryController extends Controller
             'created_by_name' => $item->created_by_name,
             'disposed_by_name' => $item->disposed_by_name,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return Builder<InventoryItem>
+     */
+    private function filteredQuery(array $filters): Builder
+    {
+        $search = trim((string) ($filters['search'] ?? ''));
+
+        return InventoryItem::query()
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $term = '%'.addcslashes($search, '%_\\').'%';
+
+                $query->where(function (Builder $query) use ($term): void {
+                    foreach ([
+                        'inventory_number',
+                        'name',
+                        'manufacturer',
+                        'model',
+                        'serial_number',
+                        'location',
+                        'responsible_person',
+                    ] as $column) {
+                        $query->orWhere($column, 'like', $term);
+                    }
+                });
+            })
+            ->when(
+                ! empty($filters['category']),
+                fn (Builder $query) => $query->where('category', $filters['category']),
+            )
+            ->when(
+                ! empty($filters['status']),
+                fn (Builder $query) => $query->where('status', $filters['status']),
+            );
     }
 }

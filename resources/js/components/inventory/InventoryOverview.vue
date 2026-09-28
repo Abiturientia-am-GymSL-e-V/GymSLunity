@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { ArchiveX, Eye, PackagePlus, Search } from '@lucide/vue';
+import { ArchiveX, Download, Eye, PackagePlus, Search } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -51,6 +51,25 @@ const filteredItems = computed(() => {
             .toLocaleLowerCase('de')
             .includes(needle);
     });
+});
+const reportUrl = computed(() => {
+    const params = new URLSearchParams();
+
+    if (query.value.trim()) {
+        params.set('search', query.value.trim());
+    }
+
+    if (categoryFilter.value !== 'all') {
+        params.set('category', categoryFilter.value);
+    }
+
+    if (statusFilter.value !== 'all') {
+        params.set('status', statusFilter.value);
+    }
+
+    const search = params.toString();
+
+    return `/inventar/inventarliste.pdf${search ? `?${search}` : ''}`;
 });
 </script>
 
@@ -143,11 +162,21 @@ const filteredItems = computed(() => {
                     {{ filteredItems.length }} von {{ items.length }} Einträgen
                 </p>
             </div>
-            <Button size="sm" as-child>
-                <Link href="/inventar/inventarisieren">
-                    <PackagePlus class="size-4" />Inventarisieren
-                </Link>
-            </Button>
+            <div class="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" as-child>
+                    <a :href="reportUrl">
+                        <Download class="size-4" />
+                        PDF
+                    </a>
+                </Button>
+
+                <Button size="sm" as-child>
+                    <Link href="/inventar/inventarisieren">
+                        <PackagePlus class="size-4" />
+                        Inventarisieren
+                    </Link>
+                </Button>
+            </div>
         </div>
         <p
             v-if="!filteredItems.length"

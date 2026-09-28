@@ -186,6 +186,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('inventarisieren', [InventoryController::class, 'index'])->defaults('tab', 'create')->name('inventory.create');
         Route::post('/', [InventoryController::class, 'store'])->name('inventory.store');
         Route::patch('{inventoryItem:inventory_number}/abgang', [InventoryController::class, 'dispose'])->name('inventory.dispose');
+        Route::get('inventarliste.pdf', [InventoryController::class, 'report'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('inventory.report');
     });
     Route::middleware(['module:calendar', 'can:view-calendar'])->prefix('kalender')->name('calendar.')->group(function () {
         Route::get('/', [CalendarController::class, 'index'])->name('index');
