@@ -5,14 +5,21 @@ on:
     tags:
       - 'v*'
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
@@ -31,19 +38,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" \
-              "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz" \
-              "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz.sha256" \
-              --clobber
-          else
-            gh release create "$GITHUB_REF_NAME" \
-              "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz" \
-              "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz.sha256" \
-              --verify-tag \
-              --prerelease \
-              --title "GymSLunity ${GITHUB_REF_NAME}" \
-              --notes-file - <<'NOTES'
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz" \
+            "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz.sha256" \
+            --verify-tag \
+            --prerelease \
+            --title "GymSLunity ${GITHUB_REF_NAME}" \
+            --notes-file - <<'NOTES'
           Erstes öffentliches Alpha-Release von GymSLunity.
 
           Enthalten sind unter anderem Mitgliederverwaltung, Beiträge und Zahlungen, Spenden, Quittungen, Kommunikation, Auswertungen, Inventar, Selfservice sowie rollenbasierte Sicherheitsfunktionen. Privilegierte Konten müssen TOTP oder einen Passkey einrichten.
@@ -52,8 +53,3 @@ jobs:
 
           Dieses Release ist eine Alpha-Version und sollte vor produktivem Einsatz mit eigenen Testdaten geprüft werden.
           NOTES
-          fi
-
-          published_tag="published-$GITHUB_REF_NAME"
-          git tag -f "$published_tag"
-          git push --force origin "$published_tag"
