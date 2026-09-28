@@ -21,7 +21,22 @@ const page = usePage();
         >
             <div class="max-w-2xl space-y-8">
                 <div class="space-y-5">
+                    <img
+                        v-if="page.props.logoUrl"
+                        :src="page.props.logoUrl"
+                        :alt="`${page.props.clubName ?? 'Verein'} – Vereinslogo`"
+                        class="max-h-40 max-w-full object-contain object-left"
+                    />
+
                     <h1
+                        v-else-if="page.props.clubName"
+                        class="text-4xl leading-tight font-semibold tracking-tight sm:text-6xl"
+                    >
+                        {{ page.props.clubName }}
+                    </h1>
+
+                    <h1
+                        v-else
                         class="text-4xl leading-tight font-semibold tracking-tight sm:text-6xl"
                     >
                         Mehr Raum für<br />unseren Verein.
