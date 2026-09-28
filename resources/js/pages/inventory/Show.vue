@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ArrowLeft, Download, FileText, Pencil, Upload } from '@lucide/vue';
+import { ArrowLeft, FileText, Pencil, Printer, Upload } from '@lucide/vue';
 import InputError from '@/components/InputError.vue';
 import StatusAlert from '@/components/StatusAlert.vue';
 import { Badge } from '@/components/ui/badge';
@@ -48,8 +48,32 @@ function uploadDocument() {
     <Head :title="`${item.inventory_number} · ${item.name}`" />
 
     <div class="mx-auto w-full max-w-[1200px] space-y-6 p-4 sm:p-6">
-        <header class="space-y-4">
-            <div>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <Button
+                variant="ghost"
+                class="-ml-3 text-muted-foreground"
+                as-child
+            >
+                <Link href="/inventar">
+                    <ArrowLeft class="size-4" />Zur Inventarliste
+                </Link>
+            </Button>
+            <Button variant="outline" size="sm" as-child>
+                <a
+                    :href="`/inventar/${encodeURIComponent(item.inventory_number)}/inventarblatt.pdf`"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Inventarblatt mit dem gespeicherten Datenstand öffnen"
+                >
+                    <Printer class="size-4" />Inventarblatt / Ausdruck
+                </a>
+            </Button>
+        </div>
+
+        <header
+            class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+            <div class="min-w-0">
                 <p class="font-mono text-sm text-muted-foreground">
                     {{ item.inventory_number }}
                 </p>
@@ -69,28 +93,13 @@ function uploadDocument() {
                     Stammdaten, Bewertung, Zuordnung und hinterlegte Belege.
                 </p>
             </div>
-
-            <div class="flex flex-wrap gap-2">
-                <Button variant="outline" as-child>
-                    <Link href="/inventar">
-                        <ArrowLeft class="size-4" />Zur Inventarliste
-                    </Link>
-                </Button>
-                <Button variant="outline" as-child>
-                    <a
-                        :href="`/inventar/${encodeURIComponent(item.inventory_number)}/inventarblatt.pdf`"
-                    >
-                        <Download class="size-4" />Inventarblatt / Ausdruck
-                    </a>
-                </Button>
-                <Button as-child>
-                    <Link
-                        :href="`/inventar/${encodeURIComponent(item.inventory_number)}/bearbeiten`"
-                    >
-                        <Pencil class="size-4" />Bearbeiten
-                    </Link>
-                </Button>
-            </div>
+            <Button as-child>
+                <Link
+                    :href="`/inventar/${encodeURIComponent(item.inventory_number)}/bearbeiten`"
+                >
+                    <Pencil class="size-4" />Bearbeiten
+                </Link>
+            </Button>
         </header>
 
         <div class="grid gap-6 lg:grid-cols-2">
@@ -286,14 +295,11 @@ function uploadDocument() {
                     </li>
                 </ul>
 
-                <form
-                    class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
-                    @submit.prevent="uploadDocument"
-                >
-                    <div class="min-w-0 space-y-2">
-                        <Label for="inventory-document-upload"
-                            >Beleg hinzufügen (PDF, max. 10 MB)</Label
-                        >
+                <form class="space-y-2" @submit.prevent="uploadDocument">
+                    <Label for="inventory-document-upload">
+                        Beleg hinzufügen (PDF, max. 10 MB)
+                    </Label>
+                    <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
                         <Input
                             id="inventory-document-upload"
                             type="file"
@@ -301,17 +307,18 @@ function uploadDocument() {
                             required
                             @change="selectDocument"
                         />
-                        <InputError :message="uploadForm.errors.document" />
+                        <Button
+                            type="submit"
+                            class="h-9"
+                            :disabled="
+                                uploadForm.processing || !uploadForm.document
+                            "
+                        >
+                            <Spinner v-if="uploadForm.processing" />
+                            <Upload v-else class="size-4" />Beleg hochladen
+                        </Button>
                     </div>
-                    <Button
-                        type="submit"
-                        :disabled="
-                            uploadForm.processing || !uploadForm.document
-                        "
-                    >
-                        <Spinner v-if="uploadForm.processing" />
-                        <Upload v-else class="size-4" />Beleg hochladen
-                    </Button>
+                    <InputError :message="uploadForm.errors.document" />
                 </form>
             </div>
         </section>

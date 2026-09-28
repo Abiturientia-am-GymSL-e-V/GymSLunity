@@ -25,6 +25,12 @@ const acquisitionTypeOptions = computed(() =>
         label,
     })),
 );
+const depreciationOptions = computed(() =>
+    Object.entries(props.options.depreciationMethods).map(([value, label]) => ({
+        value,
+        label,
+    })),
+);
 
 const today = new Intl.DateTimeFormat('sv-SE').format(new Date());
 const createForm = useForm<{
@@ -63,6 +69,9 @@ const createForm = useForm<{
 function selectDocument(event: Event) {
     const input = event.target as HTMLInputElement;
     createForm.document = input.files?.[0] ?? null;
+}
+function selectDepreciationMethod(value: string) {
+    createForm.depreciation_method = value as DepreciationMethod;
 }
 function store() {
     createForm.post('/inventar', {
@@ -264,22 +273,16 @@ function store() {
                 </div>
                 <div class="space-y-2">
                     <Label for="inventory-depreciation">Abschreibung *</Label>
-                    <select
+                    <SearchableDropdown
                         id="inventory-depreciation"
-                        v-model="createForm.depreciation_method"
-                        required
-                        class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs"
-                    >
-                        <option
-                            v-for="(
-                                label, value
-                            ) in options.depreciationMethods"
-                            :key="value"
-                            :value="value"
-                        >
-                            {{ label }}
-                        </option>
-                    </select>
+                        :model-value="createForm.depreciation_method"
+                        :options="depreciationOptions"
+                        aria-label="Abschreibung auswählen"
+                        search-placeholder="Abschreibung suchen"
+                        empty-text="Keine Abschreibungsart gefunden"
+                        trigger-class="h-9 w-full rounded-md border border-input bg-background px-3 shadow-xs"
+                        @update:model-value="selectDepreciationMethod"
+                    />
                     <InputError
                         :message="createForm.errors.depreciation_method"
                     />
