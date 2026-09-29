@@ -56,6 +56,7 @@ use App\Http\Controllers\Payments\SepaExportController;
 use App\Http\Controllers\Payments\TransactionExportController;
 use App\Http\Controllers\Payments\TransactionReceiptController;
 use App\Http\Controllers\PublicPageController;
+use App\Http\Controllers\Security\AuditLogController;
 use App\Http\Controllers\SelfService\AccessController;
 use App\Http\Controllers\SelfService\BookingController as SelfServiceBookingController;
 use App\Http\Controllers\SelfService\CancellationController as SelfServiceCancellationController;
@@ -246,7 +247,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('mitglieder/export', MemberExportController::class)->middleware(['throttle:20,1', 'reconfirm', 'audit:data_export'])->name('members.export');
     Route::patch('mitglieder/massenbearbeitung', BulkUpdateMemberController::class)->middleware('throttle:10,1')->name('members.bulk-update');
     Route::get('mitglieder/{member:member_number}/karteiblatt', MemberCardController::class)->middleware(['throttle:sensitive', 'audit:document_access'])->name('members.card');
-    Route::get('mitglieder/{member:member_number}', [MemberController::class, 'show'])->name('members.show');
+    Route::get('mitglieder/{member:member_number}', [MemberController::class, 'show'])->middleware('audit:member_viewed')->name('members.show');
     Route::patch('mitglieder/{member:member_number}', [MemberController::class, 'update'])->name('members.update');
     Route::post('mitglieder/{member:member_number}/dokumente/{kind}', [MemberController::class, 'storeDocument'])->name('members.documents.store');
     Route::get('mitglieder/{member:member_number}/dokumente/{kind}', [MemberController::class, 'document'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('members.document');
@@ -288,6 +289,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 require __DIR__.'/settings.php';
 
+Route::middleware(['auth', 'verified', 'can:view-audit'])->prefix('auditlog')->group(function () {
+    Route::get('/', [AuditLogController::class, 'index'])->name('audit.index');
+    Route::get('export', [AuditLogController::class, 'export'])->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('audit.export');
+});
 Route::middleware(EnsureSelfService::class)->prefix('selfservice')->group(function () {
     Route::get('zugang', [AccessController::class, 'index']);
     Route::get('mitglied-werden', [AccessController::class, 'join']);

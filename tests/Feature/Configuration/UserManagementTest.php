@@ -55,12 +55,12 @@ class UserManagementTest extends TestCase
         $this->admin();
 
         $this->get(route('configuration.users.index'))->assertInertia(fn (Assert $page) => $page
-            ->where('areas.admin', ['Mitglieder', 'Beiträge', 'Auswertungen', 'Buchhaltung', 'Formulare', 'Spenden', 'Inventar', 'Kalender', 'Buchungen', 'Kommunikation', 'Konfiguration'])
+            ->where('areas.admin', ['Mitglieder', 'Beiträge', 'Auswertungen', 'Buchhaltung', 'Formulare', 'Spenden', 'Inventar', 'Kalender', 'Buchungen', 'Kommunikation', 'Auditlog', 'Konfiguration'])
             ->where('areas.vereinsverwaltung', ['Mitglieder', 'Auswertungen', 'Formulare', 'Inventar', 'Kalender', 'Buchungen', 'Kommunikation'])
             ->where('areas.mv', ['Mitglieder', 'Auswertungen', 'Formulare', 'Kalender', 'Buchungen', 'Kommunikation'])
             ->where('areas.bh', ['Auswertungen', 'Buchhaltung', 'Spenden'])
             ->where('areas.bv', ['Beiträge', 'Auswertungen'])
-            ->where('areas.kp', ['Auswertungen', 'Buchhaltung']));
+            ->where('areas.kp', ['Auswertungen', 'Buchhaltung', 'Auditlog']));
     }
 
     public function test_role_validation_unique_email_and_password_rules_are_enforced(): void

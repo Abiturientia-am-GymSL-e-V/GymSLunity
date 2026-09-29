@@ -21,12 +21,12 @@ final class UserRoles
     ];
 
     public const AREAS = [
-        'admin' => ['Mitglieder', 'Beiträge', 'Auswertungen', 'Buchhaltung', 'Formulare', 'Spenden', 'Inventar', 'Kalender', 'Buchungen', 'Kommunikation', 'Konfiguration'],
+        'admin' => ['Mitglieder', 'Beiträge', 'Auswertungen', 'Buchhaltung', 'Formulare', 'Spenden', 'Inventar', 'Kalender', 'Buchungen', 'Kommunikation', 'Auditlog', 'Konfiguration'],
         'vereinsverwaltung' => ['Mitglieder', 'Auswertungen', 'Formulare', 'Inventar', 'Kalender', 'Buchungen', 'Kommunikation'],
         'mv' => ['Mitglieder', 'Auswertungen', 'Formulare', 'Kalender', 'Buchungen', 'Kommunikation'],
-        'auditor' => ['Mitglieder (Lesen)', 'Auswertungen'],
+        'auditor' => ['Mitglieder (Lesen)', 'Auswertungen', 'Auditlog'],
         'bh' => ['Auswertungen', 'Buchhaltung', 'Spenden'],
         'bv' => ['Beiträge', 'Auswertungen'],
-        'kp' => ['Auswertungen', 'Buchhaltung'],
+        'kp' => ['Auswertungen', 'Buchhaltung', 'Auditlog'],
     ];
 }
