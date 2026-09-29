@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { usePage } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { FlaskConical } from '@lucide/vue';
+import { index as mailbox } from '@/routes/demo/mailbox';
 
 const page = usePage();
 </script>
@@ -19,6 +20,10 @@ const page = usePage();
             <span class="font-medium">Öffentliche Demo:</span>
             Alle Daten werden täglich um {{ page.props.demo.resetAt }} Uhr
             zurückgesetzt. Bitte keine echten personenbezogenen Daten eingeben.
+            Versendete E-Mails stehen im
+            <Link :href="mailbox.url()" class="font-medium underline">
+                Demo-Postfach</Link
+            >.
         </p>
     </div>
 </template>

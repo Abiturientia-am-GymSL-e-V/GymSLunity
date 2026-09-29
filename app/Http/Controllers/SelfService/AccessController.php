@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\SelfService;
 
 use App\Configuration\ClubSettings;
+use App\Demo\DemoAccounts;
 use App\Http\Controllers\Controller;
 use App\Mail\SelfServiceAccessMail;
 use App\Models\Member;
@@ -62,7 +63,9 @@ class AccessController extends Controller
         (new Timebox)->call(function () use ($values, $email, $purpose): void {
             $identifier = $email !== '' ? $email : 'member:'.($values['member_number'] ?? '');
             $key = 'selfservice-mail:'.hash('sha256', $identifier);
-            if (RateLimiter::tooManyAttempts($key, 3)) {
+            // All demo visitors share one member; the route throttle per IP still applies.
+            $sharedDemoMember = DemoAccounts::enabled() && $email === DemoAccounts::MEMBER_EMAIL;
+            if (! $sharedDemoMember && RateLimiter::tooManyAttempts($key, 3)) {
                 return;
             }
             RateLimiter::hit($key, 900);

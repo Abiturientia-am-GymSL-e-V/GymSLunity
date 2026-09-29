@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Configuration;
 
+use App\Demo\DemoAccounts;
 use App\Models\MailSetting;
 use Illuminate\Mail\MailManager;
 use Illuminate\Support\Facades\Mail;
@@ -26,7 +27,9 @@ final class MailConfigurator
                 : null,
         ]);
 
-        if ($settings->driver === 'environment') {
+        if (DemoAccounts::enabled()) {
+            config(['mail.default' => 'demo']);
+        } elseif ($settings->driver === 'environment') {
             config(['mail.default' => config('mail.environment_default', 'log')]);
         } else {
             config([
@@ -44,6 +47,10 @@ final class MailConfigurator
      */
     public function transientConfig(array $data, ?string $password): array
     {
+        if (DemoAccounts::enabled()) {
+            return ['transport' => 'demo'];
+        }
+
         return match ($data['driver']) {
             'smtp' => [
                 'transport' => 'smtp',
