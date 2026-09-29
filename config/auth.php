@@ -101,6 +101,14 @@ return [
             'expire' => 60,
             'throttle' => 60,
         ],
+
+        // Links in the mail for new administration accounts.
+        'invitations' => [
+            'provider' => 'users',
+            'table' => 'user_invitation_tokens',
+            'expire' => 4320,
+            'throttle' => 0,
+        ],
     ],
 
     /*

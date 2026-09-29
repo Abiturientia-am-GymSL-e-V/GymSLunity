@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
-import { KeyRound, Pencil, Plus, Search } from '@lucide/vue';
+import { KeyRound, MailPlus, Pencil, Plus, Search } from '@lucide/vue';
 import { ref } from 'vue';
 import ConfigurationNav from '@/components/configuration/ConfigurationNav.vue';
 import InputError from '@/components/InputError.vue';
@@ -17,7 +17,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import { index, store, update } from '@/routes/configuration/users';
+import { index, invite, store, update } from '@/routes/configuration/users';
 
 type Account = {
     id: number;
@@ -41,6 +41,7 @@ const props = defineProps<{
     roles: Record<string, string>;
     descriptions: Record<string, string>;
     areas: Record<string, string[]>;
+    invitationHours: number;
 }>();
 defineOptions({
     layout: {
@@ -63,7 +64,9 @@ const form = useForm({
     is_active: true,
     verified: true,
     lock_version: 0,
+    send_invitation: true,
 });
+const inviting = ref<number | null>(null);
 function edit(user: Account | null) {
     selected.value = user;
     form.defaults({
@@ -75,6 +78,7 @@ function edit(user: Account | null) {
         is_active: user?.is_active ?? true,
         verified: user ? !!user.email_verified_at : true,
         lock_version: user?.lock_version ?? 0,
+        send_invitation: !user,
     });
     form.reset();
     form.clearErrors();
@@ -90,6 +94,23 @@ function save() {
     };
     if (selected.value) form.patch(update.url(selected.value.id), options);
     else form.post(store.url(), options);
+}
+function sendInvitation(user: Account) {
+    if (
+        !window.confirm(
+            `Eine neue Zugangsmail an ${user.email} senden? Frühere Links werden ungültig.`,
+        )
+    )
+        return;
+    inviting.value = user.id;
+    router.post(
+        invite.url(user.id),
+        {},
+        {
+            preserveScroll: true,
+            onFinish: () => (inviting.value = null),
+        },
+    );
 }
 function close(value: boolean) {
     if (!value && form.processing) return;
@@ -189,6 +210,21 @@ function close(value: boolean) {
                         >E-Mail unbestätigt</Badge
                     >
                     <Button
+                        v-if="
+                            user.is_active &&
+                            user.id !== page.props.auth.user.id
+                        "
+                        variant="outline"
+                        size="sm"
+                        :disabled="inviting === user.id"
+                        :aria-label="`Zugangsmail an ${user.name} senden`"
+                        @click="sendInvitation(user)"
+                        ><Spinner v-if="inviting === user.id" /><MailPlus
+                            v-else
+                            class="size-3.5"
+                        />Zugangsmail</Button
+                    >
+                    <Button
                         variant="outline"
                         size="sm"
                         :aria-label="`${user.name} bearbeiten`"
@@ -233,7 +269,8 @@ function close(value: boolean) {
                 ><DialogDescription
                     >Anmeldung erfolgt mit E-Mail-Adresse und Passwort.
                     Berechtigungen werden aus den ausgewählten Rollen
-                    kombiniert.</DialogDescription
+                    kombiniert. Passwörter werden nie per E-Mail
+                    versendet.</DialogDescription
                 ></DialogHeader
             >
             <form
@@ -316,10 +353,28 @@ function close(value: boolean) {
                         :message="form.errors.is_active || form.errors.verified"
                     />
                 </div>
+                <label v-if="!selected" class="flex items-start gap-2 text-sm"
+                    ><input
+                        v-model="form.send_invitation"
+                        type="checkbox"
+                        class="mt-0.5 size-4 shrink-0 accent-primary"
+                        data-test="send-invitation"
+                    /><span
+                        ><span class="font-medium">Zugangsmail senden</span
+                        ><span
+                            class="mt-0.5 block text-xs text-muted-foreground"
+                            >Die Person erhält eine E-Mail mit ihren Rollen und
+                            einem {{ invitationHours }} Stunden gültigen Link,
+                            über den sie ihr Passwort selbst festlegt.</span
+                        ></span
+                    ></label
+                ><InputError :message="form.errors.send_invitation" />
                 <fieldset class="space-y-3 rounded-lg border p-4">
                     <legend class="px-1 text-sm font-medium">
                         <KeyRound class="mr-1 inline size-3.5" />{{
-                            selected ? 'Neues Passwort (optional)' : 'Passwort'
+                            selected || form.send_invitation
+                                ? 'Passwort (optional)'
+                                : 'Passwort'
                         }}
                     </legend>
                     <p class="text-xs text-muted-foreground">
@@ -327,7 +382,9 @@ function close(value: boolean) {
                         {{
                             selected
                                 ? 'Leer lassen, um das bisherige Passwort beizubehalten.'
-                                : 'Das Passwort wird nicht per E-Mail versendet.'
+                                : form.send_invitation
+                                  ? 'Leer lassen, damit die Person ihr Passwort über den Link selbst festlegt.'
+                                  : 'Das Passwort wird nicht per E-Mail versendet.'
                         }}
                     </p>
                     <div class="grid gap-4 sm:grid-cols-2">
@@ -339,7 +396,7 @@ function close(value: boolean) {
                                 v-model="form.password"
                                 type="password"
                                 autocomplete="new-password"
-                                :required="!selected"
+                                :required="!selected && !form.send_invitation"
                                 placeholder="Passwort"
                             /><InputError :message="form.errors.password" />
                         </div>
@@ -353,7 +410,7 @@ function close(value: boolean) {
                                 v-model="form.password_confirmation"
                                 type="password"
                                 autocomplete="new-password"
-                                :required="!selected"
+                                :required="!selected && !form.send_invitation"
                                 placeholder="Passwort wiederholen"
                             />
                         </div>

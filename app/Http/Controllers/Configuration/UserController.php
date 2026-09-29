@@ -11,6 +11,7 @@ use App\Http\Requests\Configuration\UserRequest;
 use App\Models\ClubSetting;
 use App\Models\User;
 use App\Security\SecurityAudit;
+use App\Security\UserInvitations;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -22,7 +23,7 @@ use Inertia\Response;
 
 class UserController extends Controller
 {
-    public function __construct(private readonly SecurityAudit $securityAudit) {}
+    public function __construct(private readonly SecurityAudit $securityAudit, private readonly UserInvitations $invitations) {}
 
     public function index(Request $request): Response
     {
@@ -37,6 +38,7 @@ class UserController extends Controller
         return Inertia::render('configuration/Users', [
             'users' => $query->orderBy('name')->orderBy('id')->paginate(25)->withQueryString(), 'q' => $q,
             'roles' => UserRoles::LABELS, 'descriptions' => UserRoles::DESCRIPTIONS, 'areas' => UserRoles::AREAS,
+            'invitationHours' => UserInvitations::validHours(),
         ]);
     }
 
@@ -50,11 +52,27 @@ class UserController extends Controller
         return $this->save($request, $user);
     }
 
+    /** Sends a new link to set the password, e.g. when the first one expired. */
+    public function invite(Request $request, User $user): RedirectResponse
+    {
+        abort_unless($request->user()->fresh()?->isAdministrator(), 403);
+        if (! $user->is_active) {
+            throw ValidationException::withMessages(['invitation' => 'Gesperrte Konten erhalten keine Zugangsmail.']);
+        }
+        $sent = $this->invitations->send($user, $request, resent: true);
+        Inertia::flash('toast', $sent
+            ? ['type' => 'success', 'message' => 'Die Zugangsmail wurde erneut versendet.']
+            : ['type' => 'error', 'message' => 'Die Zugangsmail konnte nicht versendet werden. Bitte die E-Mail-Konfiguration prüfen.']);
+
+        return back();
+    }
+
     private function save(UserRequest $request, ?User $user = null): RedirectResponse
     {
         $data = $request->validated();
+        $invite = $user === null && (bool) ($data['send_invitation'] ?? false);
 
-        DB::transaction(function () use ($request, $data, $user): void {
+        $saved = DB::transaction(function () use ($request, $data, $user): User {
             ClubSetting::query()->whereKey(1)->lockForUpdate()->firstOrFail();
             abort_unless($request->user()->fresh()?->isAdministrator(), 403);
             $current = $user ? User::query()->whereKey($user->getKey())->lockForUpdate()->firstOrFail() : new User;
@@ -68,6 +86,10 @@ class UserController extends Controller
             $current->fill(Arr::only($data, ['name', 'email']));
             $current->forceFill(Arr::only($data, ['roles', 'is_active']));
             $current->email_verified_at = $data['verified'] ? ($current->email_verified_at ?? now()) : null;
+            if (! $current->exists && empty($data['password'])) {
+                // Nobody knows this password; the invitation link replaces it.
+                $current->password = Str::password(64);
+            }
             $passwordChanged = ! empty($data['password']);
             $rolesChanged = $current->exists && ($before['roles'] ?? []) !== $data['roles'];
             if ($passwordChanged) {
@@ -92,9 +114,17 @@ class UserController extends Controller
             if ($passwordChanged || $rolesChanged || ! $data['is_active']) {
                 DB::table('sessions')->where('user_id', $current->getKey())->where('id', '<>', $request->session()->getId())->delete();
                 DB::table('password_reset_tokens')->where('email', $current->email)->delete();
+                $this->invitations->revoke($current);
             }
+
+            return $current;
         });
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Benutzerkonto gespeichert.']);
+        if ($invite && ! $this->invitations->send($saved, $request)) {
+            Inertia::flash('toast', ['type' => 'warning', 'message' => 'Benutzerkonto angelegt, die Zugangsmail konnte jedoch nicht versendet werden. Bitte die E-Mail-Konfiguration prüfen und die Mail erneut senden.']);
+
+            return to_route('configuration.users.index');
+        }
+        Inertia::flash('toast', ['type' => 'success', 'message' => $invite ? 'Benutzerkonto angelegt und Zugangsmail versendet.' : 'Benutzerkonto gespeichert.']);
 
         return to_route('configuration.users.index');
     }

@@ -27,7 +27,9 @@ class UserRequest extends FormRequest
 
         return [
             'name' => ['required', 'string', 'max:255'], 'email' => ['required', 'email:rfc', 'max:255', Rule::unique('users')->ignore($user)],
-            'password' => [$user ? 'nullable' : 'required', 'string', 'max:72', 'confirmed', Password::default()],
+            // New accounts either get a password or an invitation mail to set one.
+            'password' => [$user || $this->boolean('send_invitation') ? 'nullable' : 'required', 'string', 'max:72', 'confirmed', Password::default()],
+            'send_invitation' => ['sometimes', 'boolean'],
             'roles' => ['present', 'array', 'max:7'], 'roles.*' => ['required', 'string', 'distinct', Rule::in(array_keys(UserRoles::LABELS))],
             'is_active' => ['required', 'boolean'], 'verified' => ['required', 'boolean'],
             'lock_version' => [$user ? 'required' : 'nullable', 'integer', 'min:0'],

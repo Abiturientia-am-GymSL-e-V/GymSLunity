@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Configuration\ClubSettings;
+use App\Http\Controllers\Auth\InvitationController;
 use App\Http\Controllers\Bookings\BookingController;
 use App\Http\Controllers\Calendar\CalendarController;
 use App\Http\Controllers\Calendar\CalendarEventController;
@@ -269,6 +270,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('benutzer', [UserController::class, 'index'])->name('users.index');
         Route::post('benutzer', [UserController::class, 'store'])->middleware('reconfirm')->name('users.store');
         Route::patch('benutzer/{user}', [UserController::class, 'update'])->middleware('reconfirm')->name('users.update');
+        Route::post('benutzer/{user}/einladung', [UserController::class, 'invite'])->middleware(['throttle:5,1', 'reconfirm'])->name('users.invite');
         Route::get('email', [MailSettingsController::class, 'edit'])->name('mail.edit');
         Route::patch('email', [MailSettingsController::class, 'update'])->middleware('reconfirm')->name('mail.update');
         Route::post('email/test', [MailSettingsController::class, 'test'])->middleware(['throttle:5,1', 'reconfirm'])->name('mail.test');
@@ -293,6 +295,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 require __DIR__.'/settings.php';
+
+Route::middleware('guest')->group(function () {
+    Route::get('einladung/{token}', [InvitationController::class, 'show'])->middleware('throttle:20,1')->name('invitation.show');
+    Route::post('einladung', [InvitationController::class, 'store'])->middleware('throttle:10,1')->name('invitation.store');
+});
 
 Route::middleware(['auth', 'verified', 'can:view-audit'])->prefix('auditlog')->group(function () {
     Route::get('/', [AuditLogController::class, 'index'])->name('audit.index');

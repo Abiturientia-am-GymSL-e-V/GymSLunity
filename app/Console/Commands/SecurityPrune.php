@@ -25,6 +25,9 @@ class SecurityPrune extends Command
         if (Schema::hasTable('password_reset_tokens')) {
             $tasks['Abgelaufene Passwort-Reset-Tokens'] = DB::table('password_reset_tokens')->where('created_at', '<', now()->subMinutes((int) config('auth.passwords.users.expire', 60)));
         }
+        if (Schema::hasTable('user_invitation_tokens')) {
+            $tasks['Abgelaufene Einladungslinks'] = DB::table('user_invitation_tokens')->where('created_at', '<', now()->subMinutes((int) config('auth.passwords.invitations.expire', 4320)));
+        }
         if (config('session.driver') === 'database' && Schema::hasTable(config('session.table', 'sessions'))) {
             $tasks['Inaktive Sitzungen'] = DB::table(config('session.table', 'sessions'))->where('last_activity', '<', now()->subSeconds((int) config('security.inactivity_timeout'))->timestamp);
         }
