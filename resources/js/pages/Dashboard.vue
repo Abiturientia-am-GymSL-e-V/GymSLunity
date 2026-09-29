@@ -23,6 +23,7 @@ import { index as members, show as member } from '@/routes/members';
 
 type MembershipCount = { label: string; count: number };
 type MemberOverview = {
+    year: string;
     current_count: number;
     joined_this_year: number;
     left_this_year: number;
@@ -36,7 +37,7 @@ type Birthday = {
     age: number;
 };
 type ContributionOverview = {
-    year: number;
+    year: string;
     assessed_count: number;
     assessed_cents: number;
     paid_cents: number;
@@ -204,7 +205,7 @@ const eventDate = (event: UpcomingEvent) => {
                                 </p>
                                 <p class="text-muted-foreground">
                                     Eintritte
-                                    {{ new Date(today).getFullYear() }}
+                                    {{ memberOverview.year }}
                                 </p>
                             </div>
                             <div>
@@ -213,7 +214,7 @@ const eventDate = (event: UpcomingEvent) => {
                                 </p>
                                 <p class="text-muted-foreground">
                                     Austritte
-                                    {{ new Date(today).getFullYear() }}
+                                    {{ memberOverview.year }}
                                 </p>
                             </div>
                         </div>

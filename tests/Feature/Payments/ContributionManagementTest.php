@@ -83,7 +83,8 @@ class ContributionManagementTest extends TestCase
             ->where('missingMandates.0.missing', ['IBAN', 'Mandatsreferenz', 'Mandatsdatum']));
         $this->get(route('payments.create'))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('payments/Create')
-            ->where('filterOptions.fields.0.key', 'custom_graduation_year'));
+            ->where('filterOptions.fields.0.key', 'custom_graduation_year')
+            ->where('periodTemplates.0.label', 'Jahr '.now()->year));
     }
 
     public function test_missing_mandates_print_uses_club_name_and_logo(): void

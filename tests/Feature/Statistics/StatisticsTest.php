@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Statistics;
 
+use App\Models\ClubSetting;
 use App\Models\Contribution;
 use App\Models\Donation;
 use App\Models\Member;
@@ -195,6 +196,16 @@ class StatisticsTest extends TestCase
             'to' => '2026-09-23',
             'as_of' => '2026-09-23',
         ]))->assertUnprocessable();
+    }
+
+    public function test_quick_periods_offer_the_running_and_previous_financial_year(): void
+    {
+        $settings = ClubSetting::current();
+        $settings->update(['data' => [...$settings->data, 'fiscal_year_start' => '7']]);
+
+        $this->get(route('statistics'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('periods.1', ['label' => 'Geschäftsjahr 2026/27', 'from' => '2026-07-01', 'to' => '2026-09-23'])
+            ->where('periods.2', ['label' => 'Geschäftsjahr 2025/26', 'from' => '2025-07-01', 'to' => '2026-06-30']));
     }
 
     private function createDonation(string $number, int $amountCents, string $date): Donation

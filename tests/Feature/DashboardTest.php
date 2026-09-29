@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\ClubSetting;
 use App\Models\Contribution;
 use App\Models\Donation;
 use App\Models\Member;
@@ -125,6 +126,30 @@ class DashboardTest extends TestCase
             ->where('donationOverview.average_cents', 3750)
             ->where('donationOverview.open_certificate_count', 2)
             ->where('donationOverview.latest.donor_name', 'Letzter Spender'));
+    }
+
+    public function test_year_figures_follow_a_financial_year_starting_in_july(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-09-23 12:00:00'));
+        $settings = ClubSetting::current();
+        $settings->update(['data' => [...$settings->data, 'fiscal_year_start' => '7']]);
+        $this->actingAs(User::factory()->create(['roles' => ['admin']]));
+
+        $member = Member::factory()->create(['joined_at' => '2026-08-01']);
+        Member::factory()->create(['joined_at' => '2026-03-01']);
+        foreach (['2026-06-30' => 3000, '2026-07-01' => 5000, '2027-06-30' => 7000] as $due => $amount) {
+            Contribution::query()->create([
+                'account_id' => $member->contributionAccount->id, 'kind' => 'contribution', 'description' => 'Beitrag',
+                'amount_cents' => $amount, 'paid_cents' => 0, 'period_start' => $due, 'period_end' => $due,
+                'due_date' => $due, 'status' => 'open',
+            ]);
+        }
+
+        $this->get(route('dashboard'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('memberOverview.year', '2026/27')
+            ->where('memberOverview.joined_this_year', 1)
+            ->where('contributionOverview.year', '2026/27')
+            ->where('contributionOverview.assessed_cents', 12000));
     }
 
     public function test_birthday_window_works_across_the_turn_of_the_year(): void

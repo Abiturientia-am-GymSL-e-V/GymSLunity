@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Configuration;
 
 use App\Models\ClubSetting;
+use App\Support\Clock;
+use App\Support\FiscalYear;
+use Carbon\CarbonImmutable;
 
 /**
  * Request-scoped access to the single club configuration row.
@@ -57,6 +60,12 @@ final class ClubSettings
     public function enabled(string $key): bool
     {
         return (bool) $this->get($key, false);
+    }
+
+    /** Financial year containing the given date, today by default. */
+    public function fiscalYear(?CarbonImmutable $date = null): FiscalYear
+    {
+        return FiscalYear::containing($date ?? Clock::today(), (int) $this->get('fiscal_year_start', 1));
     }
 
     public function version(): int

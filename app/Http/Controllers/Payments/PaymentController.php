@@ -42,8 +42,9 @@ class PaymentController extends Controller
             'from' => ['nullable', 'date_format:Y-m-d'],
             'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
         ]);
-        $from = $filters['from'] ?? now()->startOfYear()->toDateString();
-        $to = $filters['to'] ?? now()->endOfYear()->toDateString();
+        $fiscalYear = $this->clubSettings->fiscalYear();
+        $from = $filters['from'] ?? $fiscalYear->start->toDateString();
+        $to = $filters['to'] ?? $fiscalYear->end->toDateString();
 
         $pages = [
             'overview' => fn (): array => [
@@ -55,7 +56,7 @@ class PaymentController extends Controller
                 'missingMandates' => $this->missingMandates()->orderBy('last_name')->orderBy('first_name')->get()
                     ->map(fn (Member $member): array => $this->memberRow($member) + ['missing' => $this->missingReasons($member)]),
             ],
-            'create' => fn (): array => ['filterOptions' => $this->filterOptions(), 'club' => $this->club()],
+            'create' => fn (): array => ['filterOptions' => $this->filterOptions(), 'club' => $this->club(), 'periodTemplates' => $fiscalYear->periodTemplates()],
             'invoices' => fn (): array => ['contributions' => $this->contributions($from, $to), 'club' => $this->club()],
             'dunning' => fn (): array => ['openDebtors' => $dunningNotices->rows()],
             'sepa' => fn (): array => ['contributions' => $this->contributions($from, $to), 'club' => $this->club()],
