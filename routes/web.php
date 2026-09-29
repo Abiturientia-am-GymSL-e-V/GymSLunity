@@ -89,6 +89,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('serienmails', [CommunicationController::class, 'index'])->defaults('tab', 'mail')->name('communication.mail');
         Route::get('serienbriefe', [CommunicationController::class, 'index'])->defaults('tab', 'letters')->name('communication.letters');
         Route::get('verlauf', [CommunicationController::class, 'index'])->defaults('tab', 'history')->name('communication.history');
+        Route::get('verlauf/{campaign}/bericht.pdf', [CommunicationController::class, 'report'])->whereNumber('campaign')->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('communication.report');
         Route::post('serienmails', [CommunicationController::class, 'sendMail'])->middleware('throttle:2,1')->name('communication.mail.send');
         Route::post('serienbriefe', [CommunicationController::class, 'generateLetters'])->middleware(['throttle:10,1', 'reconfirm', 'audit:data_export'])->name('communication.letters.generate');
     });

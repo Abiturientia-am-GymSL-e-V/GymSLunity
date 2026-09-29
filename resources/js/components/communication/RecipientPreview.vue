@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { Link } from '@inertiajs/vue3';
 import { AtSign, MapPin, UsersRound } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Card,
     CardContent,
@@ -10,13 +12,13 @@ import {
 } from '@/components/ui/card';
 import { formatNumber } from '@/lib/format';
 import type {
-    RecipientPreviewRow,
+    RecipientPreviewPage,
     RecipientSummary,
 } from '@/types/communication';
 
 defineProps<{
     summary: RecipientSummary;
-    preview: RecipientPreviewRow[];
+    preview: RecipientPreviewPage;
 }>();
 </script>
 
@@ -32,7 +34,7 @@ defineProps<{
                     formatNumber(summary.total)
                 }}</CardTitle></CardHeader
             ><CardContent class="px-5 text-xs text-muted-foreground"
-                >Die ersten 50 werden unten angezeigt.</CardContent
+                >Unten seitenweise zur Kontrolle aufgelistet.</CardContent
             ></Card
         >
         <Card class="gap-2 py-5"
@@ -91,7 +93,10 @@ defineProps<{
                     </tr>
                 </thead>
                 <tbody class="divide-y">
-                    <tr v-for="member in preview" :key="member.member_number">
+                    <tr
+                        v-for="member in preview.data"
+                        :key="member.member_number"
+                    >
                         <td class="px-5 py-3 tabular-nums">
                             {{ member.member_number }}
                         </td>
@@ -124,7 +129,7 @@ defineProps<{
                             >
                         </td>
                     </tr>
-                    <tr v-if="preview.length === 0">
+                    <tr v-if="preview.data.length === 0">
                         <td
                             colspan="5"
                             class="px-5 py-8 text-center text-muted-foreground"
@@ -135,5 +140,40 @@ defineProps<{
                 </tbody>
             </table></CardContent
         >
+        <div
+            v-if="preview.last_page > 1"
+            class="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3 text-sm"
+        >
+            <span class="text-muted-foreground"
+                >Seite {{ preview.current_page }} von
+                {{ preview.last_page }}</span
+            >
+            <div class="flex gap-2">
+                <Button
+                    v-if="preview.prev_page_url"
+                    as-child
+                    variant="outline"
+                    size="sm"
+                    ><Link
+                        :href="preview.prev_page_url"
+                        preserve-scroll
+                        preserve-state
+                        >Zurück</Link
+                    ></Button
+                >
+                <Button
+                    v-if="preview.next_page_url"
+                    as-child
+                    variant="outline"
+                    size="sm"
+                    ><Link
+                        :href="preview.next_page_url"
+                        preserve-scroll
+                        preserve-state
+                        >Weiter</Link
+                    ></Button
+                >
+            </div>
+        </div>
     </Card>
 </template>

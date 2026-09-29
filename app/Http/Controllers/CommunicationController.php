@@ -8,10 +8,12 @@ use App\Communication\CommunicationRecipients;
 use App\Communication\CommunicationTemplate;
 use App\Communication\RichTextSanitizer;
 use App\Communication\SerialLetterGenerator;
+use App\Configuration\ClubSettings;
 use App\Configuration\MailConfigurator;
 use App\Http\Requests\CommunicationRequest;
 use App\Mail\SerialMemberMail;
-use App\Members\MemberFields;
+use App\Members\MemberFieldFilter;
+use App\Members\MemberReportWriter;
 use App\Models\CommunicationCampaign;
 use App\Models\MailSetting;
 use App\Models\Member;
@@ -39,6 +41,13 @@ class CommunicationController extends Controller
         ];
         abort_unless(isset($tabs[$tab]), 404);
         $filters = $request->filters();
+        // Reusing an earlier campaign fills subject, text and its recipient filters.
+        $template = $tab !== 'history' && $request->integer('campaign_template') > 0
+            ? CommunicationCampaign::query()->whereKey($request->integer('campaign_template'))->first(['id', 'subject', 'body', 'filters'])
+            : null;
+        if ($template !== null) {
+            $filters = CommunicationRequest::normalizeFilters((array) $template->filters);
+        }
         $query = CommunicationRecipients::query($filters);
         $total = (clone $query)->count();
         $withEmail = $this->withValue(clone $query, 'email')->count();
@@ -47,10 +56,10 @@ class CommunicationController extends Controller
             $this->withValue($completeAddress, $column);
         }
         $completeAddressCount = $completeAddress->count();
-        $preview = (clone $query)->limit(50)->get([
+        $preview = (clone $query)->paginate(25, [
             'member_number', 'first_name', 'middle_name', 'last_name', 'email',
             'street', 'postal_code', 'city', 'membership_type', 'joined_at', 'left_at', 'deceased_at',
-        ])->map(fn (Member $member): array => [
+        ], 'preview_page')->withQueryString()->through(fn (Member $member): array => [
             'member_number' => $member->member_number,
             'name' => collect([$member->first_name, $member->middle_name, $member->last_name])->filter()->join(' '),
             'email' => $member->email,
@@ -58,10 +67,7 @@ class CommunicationController extends Controller
             'membership_type' => $member->membership_type,
             'email_ready' => is_string($member->email) && filter_var($member->email, FILTER_VALIDATE_EMAIL) !== false,
             'address_ready' => collect([$member->street, $member->postal_code, $member->city])->every(fn (?string $value): bool => is_string($value) && trim($value) !== ''),
-        ])->values();
-        $customFilters = collect(MemberFields::directoryFields())
-            ->filter(fn (array $field): bool => $field['custom'] && $field['filterable'])
-            ->values();
+        ]);
         $settings = MailSetting::current();
         $selectedCampaign = $tab === 'history' && $request->integer('campaign') > 0
             ? CommunicationCampaign::query()->whereKey($request->integer('campaign'))->first()
@@ -71,14 +77,8 @@ class CommunicationController extends Controller
             'activeTab' => $tab,
             'navigationBreadcrumb' => ['title' => $tabs[$tab][0], 'href' => $tabs[$tab][1]],
             'filters' => $filters,
-            'filterOptions' => [
-                'memberships' => $this->options('membership_type'),
-                'departmentRoles' => $this->options('department_role'),
-                'clubRoles' => $this->options('club_role'),
-                'paymentMethods' => $this->options('payment_method'),
-                'cities' => $this->options('city'),
-            ],
-            'customFilters' => $customFilters,
+            'filterFields' => MemberFieldFilter::fields(),
+            'template' => $template === null ? null : ['id' => $template->id, 'subject' => $template->subject, 'body' => $template->body],
             'summary' => [
                 'total' => $total,
                 'with_email' => $withEmail,
@@ -304,11 +304,26 @@ class CommunicationController extends Controller
         return $attachments;
     }
 
-    /** @return list<string> */
-    private function options(string $column): array
+    /** Message and recipient list of one campaign as a PDF. */
+    public function report(CommunicationCampaign $campaign, RichTextSanitizer $sanitizer, ClubSettings $settings): HttpResponse
     {
-        return array_values(Member::query()->whereNotNull($column)->where($column, '<>', '')
-            ->distinct()->orderBy($column)->pluck($column)->map(fn ($value): string => (string) $value)->all());
+        $deliveries = $campaign->deliveries()->orderBy('recipient_name')->get(['member_number', 'recipient_name', 'recipient_email', 'status', 'error']);
+        $pdf = MemberReportWriter::pdf(view('communication.report', [
+            'campaign' => $campaign,
+            'body' => $sanitizer->sanitize((string) $campaign->body),
+            'deliveries' => $deliveries,
+            'club' => $settings->data(),
+            'logo' => $settings->logoDataUri(),
+            'createdAt' => $campaign->created_at->setTimezone(config('app.display_timezone'))->format('d.m.Y H:i'),
+            'printedAt' => Clock::localNow()->format('d.m.Y H:i'),
+        ])->render());
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="kommunikationsbericht-'.$campaign->id.'.pdf"',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     /** @param Builder<Member> $query
