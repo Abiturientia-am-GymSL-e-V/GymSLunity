@@ -33,12 +33,15 @@ final class DemoData
 
     private const STREETS = ['Hauptstraße', 'Gartenweg', 'Lindenallee', 'Schulstraße', 'Am Sportplatz'];
 
+    public function __construct(private readonly DemoModules $modules) {}
+
     public function seed(): void
     {
         DB::transaction(function (): void {
             $this->seedClub();
             $this->seedUsers();
             $this->seedMembers();
+            $this->modules->seed(User::query()->where('email', DemoAccounts::USERS[0]['email'])->firstOrFail());
         });
     }
 
@@ -54,8 +57,10 @@ final class DemoData
             'street' => 'Am Sportplatz 1',
             'postal_code' => '12345',
             'city' => 'Musterstadt',
-            'country' => 'Deutschland',
+            // ISO code, as the XRechnung requires it.
+            'country' => 'DE',
             'email' => 'info@example.org',
+            'phone' => '+49 1234 567890',
             'website' => 'https://example.org',
             'register_number' => 'VR 12345',
             'register_court' => 'Amtsgericht Musterstadt',
@@ -68,6 +73,12 @@ final class DemoData
             'bic' => 'COBADEFFXXX',
             'bank_name' => 'Demobank Musterstadt',
             'creditor_id' => 'DE98ZZZ09999999999',
+            'donation_purpose_codes' => ['52-21', '52-4'],
+            'contributions_tax_deductible' => true,
+            'tax_privilege_notice_type' => 'exemption_notice',
+            'tax_privilege_notice_date' => Clock::today()->subMonths(10)->toDateString(),
+            'tax_privilege_assessment_period' => (Clock::today()->year - 3).'–'.(Clock::today()->year - 1),
+            'certificate_machine_generated_notified' => true,
             'selfservice_enabled' => true,
             'public_join_enabled' => true,
         ]]);
@@ -99,9 +110,10 @@ final class DemoData
                 'postal_code' => $postalCode,
                 'city' => $city,
                 'country' => 'Deutschland',
-                // Two birthdays fall into the coming week for the dashboard and calendar.
-                'birth_date' => $today->subYears(8 + ($i * 7) % 70)->addDays($i < 2 ? 2 + $i * 3 : $i * 11)->toDateString(),
+                // Board members (the first eight) are adults; two birthdays fall into the coming week.
+                'birth_date' => $today->subYears(($i < 8 ? 28 : 7) + ($i * 7) % 50)->addDays($i < 2 ? 2 + $i * 3 : $i * 11)->toDateString(),
                 'membership_type' => $i % 5 === 4 ? 'Fördermitglied' : 'Aktiv/ordentliches Mitglied',
+                'sponsor_contribution' => $i % 5 === 4 ? '120.00' : null,
                 'club_role' => [0 => '1. Vorsitzende', 1 => '2. Vorsitzender', 4 => 'Kassenwartin', 7 => 'Kassenprüfer'][$i] ?? null,
                 'is_honorary' => $i === 29,
                 'joined_at' => $joinedAt->toDateString(),

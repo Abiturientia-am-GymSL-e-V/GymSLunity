@@ -5,8 +5,17 @@ declare(strict_types=1);
 namespace Tests\Feature\Demo;
 
 use App\Demo\DemoAccounts;
+use App\Models\ClubCalendarEvent;
 use App\Models\ClubSetting;
+use App\Models\Contribution;
+use App\Models\ContributionTransaction;
+use App\Models\Donation;
+use App\Models\DonationCertificate;
+use App\Models\FinanceInvoice;
+use App\Models\InventoryItem;
 use App\Models\Member;
+use App\Models\Receipt;
+use App\Models\ResourceBooking;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -45,6 +54,17 @@ class DemoResetTest extends TestCase
             $this->assertTrue(Hash::check('Geteiltes-Passwort', $user->password));
             $this->assertTrue($user->hasVerifiedEmail());
         }
+        // Optional modules, created through the application services.
+        $this->assertSame(0, ContributionTransaction::query()->where('kind', 'payment')->count());
+        $this->assertGreaterThan(0, Contribution::query()->where('status', 'open')->count());
+        $this->assertGreaterThan(0, Contribution::query()->where('status', 'paid')->count());
+        $this->assertSame(3, FinanceInvoice::query()->count());
+        $this->assertSame(4, Donation::query()->count());
+        $this->assertSame(2, DonationCertificate::query()->count());
+        $this->assertSame(5, InventoryItem::query()->count());
+        $this->assertSame(6, ClubCalendarEvent::query()->count());
+        $this->assertSame(1, ResourceBooking::query()->where('status', 'requested')->count());
+        $this->assertSame(2, Receipt::query()->count());
         $this->assertFalse(app()->isDownForMaintenance());
     }
 }
