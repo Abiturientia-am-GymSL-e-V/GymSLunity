@@ -3,6 +3,7 @@ import { router, useForm } from '@inertiajs/vue3';
 import { Copy, Link2, Plus, Trash2 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
+import { firstError } from '@/lib/formErrors';
 import SearchableDropdown from '@/components/SearchableDropdown.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -320,7 +321,14 @@ defineExpose({ open, add: addCalendar });
                             @click="ruleForm.rules.splice(index, 1)"
                             ><Trash2 class="size-4"
                         /></Button>
+                        <InputError
+                            class="sm:col-span-3"
+                            :message="
+                                firstError(ruleForm.errors, `rules.${index}`)
+                            "
+                        />
                     </div>
+                    <InputError :message="ruleForm.errors.rules" />
                     <div class="flex flex-wrap justify-between gap-2">
                         <Button
                             type="button"

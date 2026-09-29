@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Configuration\ClubSettings;
 use App\Http\Controllers\Bookings\BookingController;
 use App\Http\Controllers\Calendar\CalendarController;
 use App\Http\Controllers\Calendar\CalendarEventController;
@@ -63,14 +64,13 @@ use App\Http\Controllers\SelfService\PortalController;
 use App\Http\Controllers\SelfService\ProfileController as SelfServiceProfileController;
 use App\Http\Controllers\StatisticsController;
 use App\Http\Middleware\EnsureSelfService;
-use App\Models\ClubSetting;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('install', [InstallController::class, 'create'])->name('install.create');
 Route::post('install', [InstallController::class, 'store'])->middleware('throttle:5,1')->name('install.store');
 
-Route::get('/', fn () => Inertia::render('Welcome', ['selfserviceEnabled' => (bool) (ClubSetting::current()->data['selfservice_enabled'] ?? false), 'publicJoinEnabled' => (bool) (ClubSetting::current()->data['public_join_enabled'] ?? false)]))->name('home');
+Route::get('/', fn (ClubSettings $settings) => Inertia::render('Welcome', ['selfserviceEnabled' => $settings->enabled('selfservice_enabled'), 'publicJoinEnabled' => $settings->enabled('public_join_enabled')]))->name('home');
 Route::get('branding/logo', [ClubLogoController::class, 'show'])->name('branding.logo');
 Route::get('impressum', [PublicPageController::class, 'imprint'])->name('imprint');
 Route::get('datenschutz', [PublicPageController::class, 'privacy'])->name('privacy');

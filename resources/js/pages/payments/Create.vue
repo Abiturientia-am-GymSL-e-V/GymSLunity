@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { CalendarPlus, Plus } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
 import PaymentsPage from '@/components/payments/PaymentsPage.vue';
 import SearchableDropdown from '@/components/SearchableDropdown.vue';
@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import type { ContributionFilterField, PaymentsClub } from '@/types/payments';
 import { localDateString } from '@/lib/format';
+import { firstError } from '@/lib/formErrors';
+import type { ContributionFilterField, PaymentsClub } from '@/types/payments';
 
 const props = defineProps<{
     filterOptions: {
@@ -40,6 +41,26 @@ const createForm = useForm({
     filters: [] as Array<{ key: string; value: string }>,
 });
 const filterFieldToAdd = ref('');
+const periodTemplate = ref('year');
+const periodOptions = [
+    { value: 'year', label: `Jahr ${year}` },
+    { value: 'h1', label: '1. Halbjahr' },
+    { value: 'h2', label: '2. Halbjahr' },
+    { value: 'q1', label: '1. Quartal' },
+    { value: 'q2', label: '2. Quartal' },
+    { value: 'q3', label: '3. Quartal' },
+    { value: 'q4', label: '4. Quartal' },
+];
+const amountModeOptions = [
+    { value: 'fixed', label: 'Fester Betrag' },
+    { value: 'member', label: 'Förderbeitrag des Mitglieds' },
+];
+const honoraryOptions = [
+    { value: 'exclude', label: 'Ausschließen' },
+    { value: 'include', label: 'Einschließen' },
+    { value: 'only', label: 'Nur Ehrenmitglieder' },
+];
+watch(periodTemplate, (value) => period(value));
 const availableContributionFilters = computed(() =>
     props.filterOptions.fields.filter(
         (field) =>
@@ -158,21 +179,16 @@ function period(value: string) {
             <div class="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
                 <div class="min-w-0 space-y-2">
                     <Label for="period">Zeitraumvorlage</Label
-                    ><select
+                    ><SearchableDropdown
                         id="period"
-                        class="field"
-                        @change="
-                            period(($event.target as HTMLSelectElement).value)
-                        "
-                    >
-                        <option value="year">Jahr {{ year }}</option>
-                        <option value="h1">1. Halbjahr</option>
-                        <option value="h2">2. Halbjahr</option>
-                        <option value="q1">1. Quartal</option>
-                        <option value="q2">2. Quartal</option>
-                        <option value="q3">3. Quartal</option>
-                        <option value="q4">4. Quartal</option>
-                    </select>
+                        v-model="periodTemplate"
+                        :options="periodOptions"
+                        placeholder="Zeitraum auswählen"
+                        search-placeholder="Zeitraum suchen"
+                        empty-text="Kein Zeitraum gefunden"
+                        aria-label="Zeitraumvorlage auswählen"
+                        trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                    />
                 </div>
                 <div class="min-w-0 space-y-2">
                     <Label for="period-start">Von</Label
@@ -210,16 +226,16 @@ function period(value: string) {
                 </div>
                 <div class="space-y-2">
                     <Label for="amount-mode">Betragsquelle</Label
-                    ><select
+                    ><SearchableDropdown
                         id="amount-mode"
                         v-model="createForm.amount_mode"
-                        class="field"
-                    >
-                        <option value="fixed">Fester Betrag</option>
-                        <option value="member">
-                            Förderbeitrag des Mitglieds
-                        </option>
-                    </select>
+                        :options="amountModeOptions"
+                        placeholder="Betragsquelle auswählen"
+                        search-placeholder="Betragsquelle suchen"
+                        empty-text="Keine Betragsquelle gefunden"
+                        aria-label="Betragsquelle auswählen"
+                        trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                    /><InputError :message="createForm.errors.amount_mode" />
                 </div>
                 <div
                     v-if="createForm.amount_mode === 'fixed'"
@@ -240,9 +256,13 @@ function period(value: string) {
                         id="membership"
                         v-model="createForm.membership_type"
                         :options="membershipOptions"
+                        placeholder="Alle Mitgliedschaften"
                         search-placeholder="Mitgliedschaft suchen"
+                        empty-text="Keine Mitgliedschaft gefunden"
                         aria-label="Mitgliedschaft filtern"
                         trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                    /><InputError
+                        :message="createForm.errors.membership_type"
                     />
                 </div>
                 <div class="space-y-2">
@@ -251,22 +271,25 @@ function period(value: string) {
                         id="payment-method"
                         v-model="createForm.payment_method"
                         :options="paymentMethodOptions"
+                        placeholder="Alle Zahlungsarten"
                         search-placeholder="Zahlungsart suchen"
+                        empty-text="Keine Zahlungsart gefunden"
                         aria-label="Zahlungsart filtern"
                         trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
-                    />
+                    /><InputError :message="createForm.errors.payment_method" />
                 </div>
                 <div class="space-y-2">
                     <Label for="honorary">Ehrenmitglieder</Label
-                    ><select
+                    ><SearchableDropdown
                         id="honorary"
                         v-model="createForm.honorary"
-                        class="field"
-                    >
-                        <option value="exclude">Ausschließen</option>
-                        <option value="include">Einschließen</option>
-                        <option value="only">Nur Ehrenmitglieder</option>
-                    </select>
+                        :options="honoraryOptions"
+                        placeholder="Ehrenmitglieder berücksichtigen"
+                        search-placeholder="Auswahl suchen"
+                        empty-text="Keine Auswahl gefunden"
+                        aria-label="Ehrenmitglieder berücksichtigen"
+                        trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                    /><InputError :message="createForm.errors.honorary" />
                 </div>
             </div>
             <section class="space-y-4 rounded-lg border bg-muted/20 p-4">
@@ -282,7 +305,7 @@ function period(value: string) {
                     class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
                 >
                     <div
-                        v-for="filterItem in createForm.filters"
+                        v-for="(filterItem, filterIndex) in createForm.filters"
                         :key="filterItem.key"
                         class="min-w-0 space-y-2"
                     >
@@ -315,7 +338,9 @@ function period(value: string) {
                             :id="`contribution-filter-${filterItem.key}`"
                             v-model="filterItem.value"
                             :options="contributionValueOptions(filterItem.key)"
+                            placeholder="Wert auswählen"
                             search-placeholder="Wert suchen"
+                            empty-text="Kein Wert gefunden"
                             :aria-label="
                                 contributionFilterField(filterItem.key)?.label
                             "
@@ -350,8 +375,17 @@ function period(value: string) {
                             }"
                             required
                         />
+                        <InputError
+                            :message="
+                                firstError(
+                                    createForm.errors,
+                                    `filters.${filterIndex}`,
+                                )
+                            "
+                        />
                     </div>
                 </div>
+                <InputError :message="createForm.errors.filters" />
                 <div
                     v-if="availableContributionFilters.length"
                     class="flex flex-col gap-2 sm:flex-row"
@@ -363,7 +397,9 @@ function period(value: string) {
                         root-class="w-full sm:max-w-sm"
                         trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
                         aria-label="Weiteren Filter auswählen"
+                        placeholder="Feld auswählen"
                         search-placeholder="Feld suchen"
+                        empty-text="Kein Feld gefunden"
                     />
                     <Button
                         type="button"
@@ -384,6 +420,7 @@ function period(value: string) {
                     type="checkbox"
                 />Als möglicherweise steuerlich abzugsfähig kennzeichnen</label
             >
+            <InputError :message="createForm.errors.tax_deductible" />
             <Button type="submit" :disabled="createForm.processing"
                 ><Spinner v-if="createForm.processing" /><CalendarPlus
                     v-else

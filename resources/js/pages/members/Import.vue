@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { firstError } from '@/lib/formErrors';
 import { index as members } from '@/routes/members';
 import {
     index,
@@ -85,13 +86,7 @@ const validCount = computed(
 const importError = computed(
     () => (importForm.errors as Record<string, string>).form,
 );
-const mappingError = computed(() => {
-    const errors = mappingForm.errors as Record<string, string>;
-    return (
-        errors.mapping ??
-        Object.entries(errors).find(([key]) => key.startsWith('mapping.'))?.[1]
-    );
-});
+const mappingError = computed(() => firstError(mappingForm.errors, 'mapping'));
 const targetFields = computed(() => [
     { key: 'member_number', label: 'Mitgliedsnummer', required: true },
     ...props.fields.map((field) => ({
