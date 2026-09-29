@@ -32,7 +32,7 @@ GymSLunity befindet sich in der **Beta-Phase**. Die Funktionen sind vollständig
 
 ## Technik
 
-- PHP 8.3 oder neuer und Laravel 13
+- PHP 8.4.1 oder neuer und Laravel 13
 - Vue 3, TypeScript, Inertia 3 und Vite 8
 - Tailwind CSS 4 und editierbare shadcn-vue-Komponenten
 - MariaDB/MySQL oder SQLite
