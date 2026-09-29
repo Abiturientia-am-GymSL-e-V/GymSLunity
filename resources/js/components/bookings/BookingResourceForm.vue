@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { resourceLabel } from '@/lib/bookings';
+import { firstError } from '@/lib/formErrors';
 import type {
     BookableInventoryItem,
     BookingMemberField,
@@ -169,13 +170,10 @@ function removeAccessRule(index: number) {
             (item) => ruleKey(item) !== ruleKey(removed),
         );
 }
-function pricingRuleError(index: number) {
-    const errors = form.errors as Record<string, string | undefined>;
-
-    return ['from_value', 'from_unit', 'unit_value', 'unit', 'price']
-        .map((key) => errors['pricing_rules.' + index + '.' + key])
-        .find(Boolean);
-}
+const pricingRuleError = (index: number) =>
+    firstError(form.errors, `pricing_rules.${index}`);
+const accessRuleError = (index: number) =>
+    firstError(form.errors, `access_rules.${index}`);
 function useInventoryItem() {
     const item = props.inventoryItems.find(
         (entry) => String(entry.id) === form.inventory_item_id,
@@ -341,6 +339,10 @@ function submit() {
                         @click="removeAccessRule(index)"
                         ><Trash2 class="size-4"
                     /></Button>
+                    <InputError
+                        class="lg:col-span-3"
+                        :message="accessRuleError(index)"
+                    />
                 </div>
                 <Button
                     type="button"
@@ -378,7 +380,9 @@ function submit() {
                             )?.label
                         }}
                     </label>
-                    <InputError :message="form.errors.auto_approve_rules" />
+                    <InputError
+                        :message="firstError(form.errors, 'auto_approve_rules')"
+                    />
                 </div>
             </section>
 

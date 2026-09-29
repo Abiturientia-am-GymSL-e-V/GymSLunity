@@ -12,6 +12,7 @@ import {
 import { computed, ref, watch } from 'vue';
 import InvoiceNav from '@/components/finance/InvoiceNav.vue';
 import InputError from '@/components/InputError.vue';
+import SearchableDropdown from '@/components/SearchableDropdown.vue';
 import StatusAlert from '@/components/StatusAlert.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -87,6 +88,17 @@ defineOptions({
 const search = ref(props.filters.search);
 const status = ref(props.filters.status);
 const documentType = ref(props.filters.document_type);
+const documentTypeOptions = [
+    { value: 'all', label: 'Alle Belegarten' },
+    { value: 'invoice', label: 'Rechnungen' },
+    { value: 'cancellation', label: 'Stornorechnungen' },
+];
+const statusOptions = [
+    { value: 'all', label: 'Alle Belege' },
+    { value: 'open', label: 'Offene Forderungen' },
+    { value: 'paid', label: 'Bezahlte Rechnungen' },
+    { value: 'cancelled', label: 'Stornierte Belege' },
+];
 const from = ref(props.filters.from);
 const to = ref(props.filters.to);
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -307,28 +319,29 @@ const cancelInvoice = () => {
                 </div>
                 <div class="min-w-0 space-y-2">
                     <Label for="invoice-filter-type">Belegart</Label>
-                    <select
+                    <SearchableDropdown
                         id="invoice-filter-type"
                         v-model="documentType"
-                        class="h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm"
-                    >
-                        <option value="all">Alle Belegarten</option>
-                        <option value="invoice">Rechnungen</option>
-                        <option value="cancellation">Stornorechnungen</option>
-                    </select>
+                        :options="documentTypeOptions"
+                        placeholder="Alle Belegarten"
+                        search-placeholder="Belegart suchen"
+                        empty-text="Keine Belegart gefunden"
+                        aria-label="Belegart filtern"
+                        trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                    />
                 </div>
                 <div class="min-w-0 space-y-2">
                     <Label for="invoice-filter-status">Status</Label>
-                    <select
+                    <SearchableDropdown
                         id="invoice-filter-status"
                         v-model="status"
-                        class="h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm"
-                    >
-                        <option value="all">Alle Belege</option>
-                        <option value="open">Offene Forderungen</option>
-                        <option value="paid">Bezahlte Rechnungen</option>
-                        <option value="cancelled">Stornierte Belege</option>
-                    </select>
+                        :options="statusOptions"
+                        placeholder="Alle Belege"
+                        search-placeholder="Status suchen"
+                        empty-text="Kein Status gefunden"
+                        aria-label="Status filtern"
+                        trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                    />
                 </div>
                 <Button variant="outline" type="button" @click="resetFilters">
                     Zurücksetzen

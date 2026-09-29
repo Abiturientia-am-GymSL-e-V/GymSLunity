@@ -13,4 +13,16 @@ export function initializeFlashToast(): void {
 
         toast[data.type](data.message);
     });
+
+    // Validation errors are shown next to their fields where a form has
+    // them; this makes sure none stays invisible, e.g. for nested keys.
+    router.on('error', (event) => {
+        const errors = (event as CustomEvent).detail?.errors as
+            | Record<string, string>
+            | undefined;
+        const first = errors ? Object.values(errors).find(Boolean) : undefined;
+        if (first) {
+            toast.error('Bitte die Eingaben prüfen.', { description: first });
+        }
+    });
 }
