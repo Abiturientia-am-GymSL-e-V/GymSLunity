@@ -75,7 +75,11 @@ jobs:
           for domain in demo.example.test next.demo.example.test; do
             curl -fsS --resolve "$domain:80:127.0.0.1" "http://$domain/login" | grep -qi 'demo'
           done
-          test "$(curl -s --resolve demo.example.test:80:127.0.0.1 -o /dev/null -w '%{http_code}' http://demo.example.test/.env)" = 404
+          # Files outside public/ and dotfiles are not served.
+          for path in .env ../.env artisan composer.json; do
+            code="$(curl -s --resolve demo.example.test:80:127.0.0.1 -o /dev/null -w '%{http_code}' "http://demo.example.test/$path")"
+            [ "$code" = 403 ] || [ "$code" = 404 ]
+          done
           systemctl is-active gymslunity-demo-queue@release gymslunity-demo-queue@next \
             gymslunity-demo-schedule@release.timer gymslunity-demo-schedule@next.timer
           sudo systemctl start gymslunity-demo-schedule@release.service
