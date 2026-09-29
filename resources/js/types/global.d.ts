@@ -37,6 +37,12 @@ declare module '@inertiajs/core' {
             };
             defaultCountry: string;
             formOfAddress: 'du' | 'sie';
+            demo: {
+                password: string;
+                resetAt: string;
+                accounts: { email: string; roles: string }[];
+                memberEmail: string;
+            } | null;
             sidebarOpen: boolean;
             navigationBreadcrumb?: {
                 title: string;

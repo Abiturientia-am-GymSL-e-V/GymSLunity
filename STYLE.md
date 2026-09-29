@@ -171,6 +171,7 @@ Semantische Rückmeldungen innerhalb einer Seite verwenden `StatusAlert`:
 - Warnungen und Fehler erhalten automatisch `role="alert"`, neutrale und erfolgreiche Meldungen `role="status"`.
 - Toasts sind für kurze Rückmeldungen nach einer Aktion gedacht. Dauerhafte oder entscheidungsrelevante Informationen bleiben als `StatusAlert` im Seiteninhalt sichtbar.
 - Ein leerer Tabellenzustand darf als ruhige Tabellenzeile dargestellt werden. Ein fachlich bedeutsamer leerer Arbeitsvorrat wird als `StatusAlert` gezeigt.
+- Instanzweite Hinweise, die auf jeder Seite sichtbar sein müssen, etwa der Hinweis auf die öffentliche Demo, stehen als schmale, volle Breite nutzende Leiste über dem Seitenkopf. Das Muster ist `DemoBanner` (`border-b bg-primary px-4 py-2 text-sm text-primary-foreground`); es wird im App-Layout und im öffentlichen Kopf eingebunden und nicht in einzelnen Seiten wiederholt.
 
 ## Tabellen und lange Daten
 

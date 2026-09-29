@@ -138,6 +138,16 @@ Nur nötig, wenn `CACHE_STORE` oder `QUEUE_CONNECTION` auf `redis` stehen. `SESS
 | `REDIS_QUEUE`             | `default`         | Name der Warteschlange.                                          |
 | `REDIS_QUEUE_RETRY_AFTER` | `90`              | Sekunden, nach denen ein hängender Auftrag erneut versucht wird. |
 
+## Öffentliche Demo
+
+Nur für eine öffentliche Demo-Instanz ohne echte Vereinsdaten. Im Demo-Modus zeigt die Anmeldeseite die Zugangsdaten der gemeinsamen Demo-Konten, jede Seite zeigt einen Hinweis-Banner, und die Demo-Konten brauchen keinen zweiten Faktor. `php artisan demo:reset` löscht die Datenbank und die hochgeladenen Dateien und legt den Musterverein neu an. Der Scheduler führt das jede Nacht aus; die täglichen Backups entfallen im Demo-Modus.
+
+| Variable        | Vorlage              | Bedeutung                                                                               |
+| --------------- | -------------------- | --------------------------------------------------------------------------------------- |
+| `DEMO_MODE`     | `false`              | `true` aktiviert den Demo-Modus. **Niemals auf einer Instanz mit echten Daten setzen.** |
+| `DEMO_PASSWORD` | `Demo-Passwort-2026` | Gemeinsames Passwort aller Demo-Konten. Es steht öffentlich auf der Anmeldeseite.       |
+| `DEMO_RESET_AT` | `00:00`              | Uhrzeit der nächtlichen Zurücksetzung in der Zeitzone aus `APP_DISPLAY_TIMEZONE`.       |
+
 ## Entwicklung
 
 | Variable                 | Bedeutung                                         |

@@ -7,6 +7,7 @@ namespace App\Http\Middleware;
 use App\Configuration\ClubSettings;
 use App\Configuration\Countries;
 use App\Configuration\SoftwareModules;
+use App\Demo\DemoAccounts;
 use App\Models\Member;
 use App\Support\FormOfAddress;
 use Illuminate\Http\Request;
@@ -75,6 +76,7 @@ class HandleInertiaRequests extends Middleware
                 'viewCommunication' => fn () => ($request->user()?->can('view-communication') ?? false) && $moduleValues()['communication'],
                 'viewAudit' => fn () => $request->user()?->can('view-audit') ?? false,
             ],
+            'demo' => fn () => DemoAccounts::publicInfo(),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

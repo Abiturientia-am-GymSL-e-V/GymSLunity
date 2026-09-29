@@ -16,5 +16,8 @@ Artisan::command('bookings:charge-due', function (BookingManager $manager): void
 })->purpose('Fällige Entgelte bestätigter Serientermine sollstellen');
 
 Schedule::command('security:prune')->dailyAt('03:30')->withoutOverlapping();
-Schedule::command('app:backup --prune')->dailyAt('02:30')->withoutOverlapping();
+// The demo discards all data every night, backups would only collect visitor input.
+Schedule::command('app:backup --prune')->dailyAt('02:30')->withoutOverlapping()->skip(fn () => config('demo.enabled'));
+Schedule::command('demo:reset')->dailyAt((string) config('demo.reset_at'))->timezone((string) config('app.display_timezone'))
+    ->when(fn () => config('demo.enabled'));
 Schedule::command('bookings:charge-due')->everyFifteenMinutes()->withoutOverlapping();

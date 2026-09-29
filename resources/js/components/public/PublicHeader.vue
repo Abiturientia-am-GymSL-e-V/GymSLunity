@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import AppLogo from '@/components/AppLogo.vue';
+import DemoBanner from '@/components/DemoBanner.vue';
 import { Button } from '@/components/ui/button';
 
 defineProps<{ signedIn?: boolean; showHome?: boolean }>();
@@ -9,6 +10,7 @@ const page = usePage();
 
 <template>
     <header class="w-full">
+        <DemoBanner />
         <div
             class="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-8"
         >
