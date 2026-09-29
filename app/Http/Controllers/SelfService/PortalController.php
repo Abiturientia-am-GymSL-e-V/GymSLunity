@@ -70,6 +70,7 @@ class PortalController extends Controller
                 'calendars' => $calendars->map(fn ($calendar): array => ['name' => $calendar->name, 'color' => $calendar->color])->values(),
             ],
             'contributionAccount' => SoftwareModules::enabled('payments') ? $view->contributionAccount($member) : null,
+            'passkeys' => $member->passkeys()->latest()->get(['id', 'name', 'last_used_at', 'created_at']),
         ]);
     }
 

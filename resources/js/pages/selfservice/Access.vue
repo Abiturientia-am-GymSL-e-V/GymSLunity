@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { usePasskeyVerify } from '@laravel/passkeys/vue';
 import { Head, useForm } from '@inertiajs/vue3';
+import { KeyRound } from '@lucide/vue';
 import { onMounted, ref } from 'vue';
 import Frame from '@/components/selfservice/Frame.vue';
 import StatusAlert from '@/components/StatusAlert.vue';
@@ -9,6 +11,20 @@ import { Label } from '@/components/ui/label';
 const sent = ref(false);
 const form = useForm({ email: '', member_number: '', purpose: 'login' });
 const confirmation = useForm({ token: '' });
+const {
+    verify: verifyPasskey,
+    isLoading: passkeyLoading,
+    error: passkeyError,
+    isSupported: passkeySupported,
+} = usePasskeyVerify({
+    autofill: false,
+    routes: {
+        options: '/selfservice/passkey-anmeldung/optionen',
+        submit: '/selfservice/passkey-anmeldung',
+    },
+    onSuccess: (response) =>
+        window.location.assign(response.redirect ?? '/selfservice'),
+});
 onMounted(() => {
     const token = new URLSearchParams(window.location.hash.slice(1)).get(
         'token',
@@ -80,6 +96,38 @@ onMounted(() => {
                     }}
                 </StatusAlert>
             </form>
+            <div
+                v-if="passkeySupported"
+                class="space-y-3 rounded-xl border p-5"
+            >
+                <h2 class="text-lg font-medium">Mit Passkey anmelden</h2>
+                <p class="text-sm">
+                    {{
+                        $address(
+                            'Wenn du im Portal einen Passkey eingerichtet hast, kannst du dich ohne E-Mail-Link anmelden.',
+                            'Wenn Sie im Portal einen Passkey eingerichtet haben, können Sie sich ohne E-Mail-Link anmelden.',
+                        )
+                    }}
+                </p>
+                <Button
+                    type="button"
+                    variant="outline"
+                    :disabled="passkeyLoading"
+                    @click="verifyPasskey"
+                    ><KeyRound class="size-4" />
+                    {{
+                        passkeyLoading
+                            ? 'Passkey wird geprüft …'
+                            : 'Mit Passkey anmelden'
+                    }}</Button
+                >
+                <StatusAlert
+                    v-if="passkeyError"
+                    type="error"
+                    title="Passkey-Anmeldung fehlgeschlagen"
+                    >{{ passkeyError }}</StatusAlert
+                >
+            </div>
             <form
                 class="space-y-4 rounded-xl border p-5"
                 @submit.prevent="
