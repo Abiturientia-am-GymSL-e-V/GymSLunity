@@ -642,13 +642,13 @@ install_packages() {
             # update-alternatives. Keep whatever was the default before.
             local alternative previous=()
             for alternative in php phar phar.phar; do
-                previous+=("$(readlink -f "/etc/alternatives/$alternative" 2> /dev/null || true)")
+                previous+=("$(readlink "/etc/alternatives/$alternative" 2> /dev/null || true)")
             done
             record pkg apt-get remove -y "${php[@]}"
             DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends "${php[@]}"
             local i=0
             for alternative in php phar phar.phar; do
-                if [[ -n ${previous[i]} && -e ${previous[i]} && "$(readlink -f "/etc/alternatives/$alternative")" != "${previous[i]}" ]]; then
+                if [[ -n ${previous[i]} && -e ${previous[i]} && "$(readlink "/etc/alternatives/$alternative")" != "${previous[i]}" ]]; then
                     update-alternatives --quiet --set "$alternative" "${previous[i]}"
                     info "Der Befehl $alternative bleibt bei ${previous[i]}."
                 fi
