@@ -9,11 +9,13 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Concerns\WithSchoolMemberFields;
 use Tests\TestCase;
 
 class MemberImportTest extends TestCase
 {
     use RefreshDatabase;
+    use WithSchoolMemberFields;
 
     private function signIn(array $roles = ['mv']): void
     {

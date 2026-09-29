@@ -25,11 +25,13 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Concerns\WithSchoolMemberFields;
 use Tests\TestCase;
 
 class ContributionManagementTest extends TestCase
 {
     use RefreshDatabase;
+    use WithSchoolMemberFields;
 
     private function signIn(string $role = 'bv'): User
     {

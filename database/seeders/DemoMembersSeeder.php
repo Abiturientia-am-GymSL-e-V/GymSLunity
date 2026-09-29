@@ -22,6 +22,7 @@ class DemoMembersSeeder extends Seeder
             return;
         }
 
+        $this->call(SchoolMemberFieldsSeeder::class);
         $names = ['Anna', 'Ben', 'Clara', 'David', 'Emilia', 'Felix', 'Greta', 'Hannes', 'Ida', 'Jonas', 'Klara', 'Leon', 'Mia', 'Noah', 'Olivia', 'Paul', 'Romy', 'Samuel', 'Thea', 'Vincent'];
         $memberships = ['Kontakt', 'Aktive Schüler', 'Ehemalige', 'Fördermitglieder', 'Externe Mitglieder', 'Lehrer'];
         $cities = [['12345', 'Musterstadt'], ['01234', 'Beispielhausen'], ['23456', 'Demodorf']];

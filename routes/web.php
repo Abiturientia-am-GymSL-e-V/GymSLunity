@@ -280,6 +280,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('buchhaltung', [FinanceSettingsController::class, 'edit'])->name('finance.edit');
         Route::patch('buchhaltung', [FinanceSettingsController::class, 'update'])->name('finance.update');
         Route::get('system', SystemController::class)->name('system');
+        Route::post('system/updates', [SystemController::class, 'checkForUpdates'])->middleware('throttle:5,1')->name('system.updates');
         Route::get('system/backup/konfiguration', [BackupController::class, 'downloadConfiguration'])->middleware(['throttle:sensitive', 'reconfirm', 'audit:configuration_backup_export'])->name('backup.configuration.download');
         Route::get('system/backup/datenbank', [BackupController::class, 'downloadDatabase'])->middleware(['throttle:2,1', 'reconfirm', 'audit:database_backup_export'])->name('backup.database.download');
         Route::post('system/backup/konfiguration', [BackupController::class, 'restoreConfiguration'])->middleware(['throttle:5,1', 'reconfirm', 'audit:configuration_backup_restore'])->name('backup.configuration.restore');

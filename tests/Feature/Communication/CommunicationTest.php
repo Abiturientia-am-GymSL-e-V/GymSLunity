@@ -16,12 +16,14 @@ use Illuminate\Support\Facades\Mail;
 use Inertia\Testing\AssertableInertia as Assert;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\Mime\Email;
+use Tests\Concerns\WithSchoolMemberFields;
 use Tests\TestCase;
 use ZipArchive;
 
 class CommunicationTest extends TestCase
 {
     use RefreshDatabase;
+    use WithSchoolMemberFields;
 
     protected function setUp(): void
     {

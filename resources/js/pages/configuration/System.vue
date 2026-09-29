@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import { Deferred, Head, router, useForm } from '@inertiajs/vue3';
 import {
     ArchiveRestore,
     CheckCircle2,
     CircleAlert,
     Database,
     Download,
+    ExternalLink,
+    PackageCheck,
+    RefreshCw,
     ServerCog,
     Upload,
 } from '@lucide/vue';
@@ -17,6 +21,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { formatDateTime } from '@/lib/format';
+import { updates as checkForUpdatesRoute } from '@/routes/configuration/system';
 import {
     download as downloadConfiguration,
     restore as restoreConfiguration,
@@ -26,7 +32,21 @@ import {
     restore as restoreDatabase,
 } from '@/routes/configuration/backup/database';
 
+type VersionStatus = {
+    installed: string;
+    status: 'current' | 'update' | 'unknown' | 'disabled';
+    latest: {
+        version: string;
+        url: string;
+        published_at: string | null;
+        prerelease: boolean;
+    } | null;
+    checked_at: string | null;
+    releases_url: string;
+};
+
 defineProps<{
+    version?: VersionStatus;
     runtime: {
         productName: string;
         environment: string;
@@ -78,6 +98,22 @@ const labels: Record<string, string> = {
 };
 const display = (value: string | boolean) =>
     typeof value === 'boolean' ? (value ? 'Aktiv' : 'Inaktiv') : value;
+
+const checkingUpdates = ref(false);
+function checkForUpdates() {
+    router.post(
+        checkForUpdatesRoute.url(),
+        {},
+        {
+            preserveScroll: true,
+            onStart: () => (checkingUpdates.value = true),
+            onFinish: () => {
+                checkingUpdates.value = false;
+                router.reload({ only: ['version'] });
+            },
+        },
+    );
+}
 
 const configurationRestoreForm = useForm<{
     configuration_backup: File | null;
@@ -133,19 +169,150 @@ function importDatabase() {
                 über die Weboberfläche geändert.
                 {{ $address('Passe', 'Passen Sie') }} die Datei
                 <code class="rounded bg-muted px-1 py-0.5">.env</code> auf dem
-                Server an und führe danach
+                Server an und {{ $address('führe', 'führen Sie') }} danach
                 <code class="rounded bg-muted px-1 py-0.5"
                     >php artisan optimize</code
                 >
-                aus. Der Produktname GymSLunity ist fest; den Vereinsnamen
-                {{
-                    $address(
-                        'pflegst du unter „Vereinsdaten“.',
-                        'pflegen Sie unter „Vereinsdaten“.',
-                    )
-                }}
+                aus.
             </AlertDescription>
         </Alert>
+
+        <section
+            class="rounded-xl border bg-card"
+            aria-labelledby="version-title"
+        >
+            <div
+                class="flex flex-wrap items-start justify-between gap-3 border-b px-5 py-4"
+            >
+                <div>
+                    <h2
+                        id="version-title"
+                        class="flex items-center gap-2 text-sm font-semibold"
+                    >
+                        <PackageCheck class="size-4" />Version &amp; Updates
+                    </h2>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                        Installierte Version im Vergleich mit den
+                        veröffentlichten Releases auf GitHub.
+                    </p>
+                </div>
+                <Button
+                    v-if="version && version.status !== 'disabled'"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    :disabled="checkingUpdates"
+                    @click="checkForUpdates"
+                    ><Spinner v-if="checkingUpdates" /><RefreshCw
+                        v-else
+                        class="size-4"
+                    />Erneut prüfen</Button
+                >
+            </div>
+            <Deferred data="version">
+                <template #fallback>
+                    <p
+                        class="flex items-center gap-2 p-5 text-sm text-muted-foreground"
+                    >
+                        <Spinner /> Version wird geprüft …
+                    </p>
+                </template>
+                <div v-if="version" class="space-y-4 p-5">
+                    <dl class="grid gap-4 text-sm sm:grid-cols-2">
+                        <div>
+                            <dt class="text-xs text-muted-foreground">
+                                Installierte Version
+                            </dt>
+                            <dd class="mt-1 font-medium">
+                                {{ version.installed }}
+                            </dd>
+                        </div>
+                        <div v-if="version.latest">
+                            <dt class="text-xs text-muted-foreground">
+                                Neuestes Release
+                            </dt>
+                            <dd class="mt-1 font-medium">
+                                {{ version.latest.version }}
+                                <span
+                                    v-if="version.latest.published_at"
+                                    class="font-normal text-muted-foreground"
+                                    >·
+                                    {{
+                                        formatDateTime(
+                                            version.latest.published_at,
+                                        )
+                                    }}</span
+                                >
+                            </dd>
+                        </div>
+                    </dl>
+                    <StatusAlert
+                        v-if="version.status === 'update' && version.latest"
+                        type="warning"
+                        :title="`Update auf ${version.latest.version} verfügbar`"
+                    >
+                        {{
+                            $address(
+                                'Lies vor dem Update die Release-Notizen und erstelle ein Backup. Die Schritte stehen in docs/installation.md.',
+                                'Lesen Sie vor dem Update die Release-Notizen und erstellen Sie ein Backup. Die Schritte stehen in docs/installation.md.',
+                            )
+                        }}
+                    </StatusAlert>
+                    <StatusAlert
+                        v-else-if="version.status === 'current'"
+                        type="success"
+                        title="GymSLunity ist auf dem neuesten Stand"
+                    />
+                    <StatusAlert
+                        v-else-if="version.status === 'unknown'"
+                        type="info"
+                        title="Keine Update-Information verfügbar"
+                    >
+                        GitHub war nicht erreichbar oder es gibt noch kein
+                        passendes Release.
+                    </StatusAlert>
+                    <p
+                        v-else-if="version.status === 'disabled'"
+                        class="text-sm text-muted-foreground"
+                    >
+                        Die Update-Prüfung ist mit
+                        <code class="rounded bg-muted px-1 py-0.5"
+                            >GYMSLUNITY_UPDATE_CHECK=false</code
+                        >
+                        abgeschaltet.
+                    </p>
+                    <div class="flex flex-wrap items-center gap-3 text-sm">
+                        <Button
+                            v-if="version.latest"
+                            as-child
+                            variant="outline"
+                            size="sm"
+                        >
+                            <a
+                                :href="version.latest.url"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                ><ExternalLink class="size-4" />
+                                Release-Notizen</a
+                            >
+                        </Button>
+                        <a
+                            :href="version.releases_url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="text-muted-foreground underline-offset-4 hover:underline"
+                            >Alle Releases</a
+                        >
+                        <span
+                            v-if="version.checked_at"
+                            class="text-xs text-muted-foreground"
+                            >Zuletzt geprüft:
+                            {{ formatDateTime(version.checked_at) }}</span
+                        >
+                    </div>
+                </div>
+            </Deferred>
+        </section>
 
         <StatusAlert
             v-if="backupError"
