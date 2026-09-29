@@ -89,3 +89,13 @@ jobs:
             "${prerelease[@]}" \
             --title "GymSLunity ${GITHUB_REF_NAME}" \
             --notes-file "docs/releases/${GITHUB_REF_NAME}.md"
+
+  # Public demo of the newest release, including pre-releases.
+  demo:
+    needs: release
+    if: vars.DEMO_DEPLOY == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/demo-deploy.yml
+    with:
+      target: release

@@ -8,6 +8,7 @@ use App\Demo\DemoAccounts;
 use App\Models\ClubSetting;
 use App\Models\Member;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -22,6 +23,8 @@ class DemoResetTest extends TestCase
     {
         config(['demo.enabled' => true, 'demo.password' => 'Geteiltes-Passwort']);
         $this->artisan('migrate')->assertSuccessful();
+        // As in production (AppServiceProvider).
+        DB::prohibitDestructiveCommands();
         Storage::fake('local');
         Storage::fake('public');
         Storage::disk('local')->put('documents/visitor.pdf', 'upload');

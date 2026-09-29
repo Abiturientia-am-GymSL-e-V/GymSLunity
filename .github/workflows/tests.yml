@@ -40,3 +40,13 @@ jobs:
 
       - name: Run CI Checks
         run: composer ci:check
+
+  # Public demo of the current main branch, only after green checks.
+  demo:
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEMO_DEPLOY == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/demo-deploy.yml
+    with:
+      target: next
