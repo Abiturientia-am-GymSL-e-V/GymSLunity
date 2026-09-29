@@ -54,6 +54,7 @@ use App\Http\Controllers\Payments\PaymentController;
 use App\Http\Controllers\Payments\ReturnDebitController;
 use App\Http\Controllers\Payments\SepaExportController;
 use App\Http\Controllers\Payments\TransactionExportController;
+use App\Http\Controllers\Payments\TransactionReceiptController;
 use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\SelfService\AccessController;
 use App\Http\Controllers\SelfService\BookingController as SelfServiceBookingController;
@@ -62,6 +63,7 @@ use App\Http\Controllers\SelfService\DocumentController as SelfServiceDocumentCo
 use App\Http\Controllers\SelfService\FormController as SelfServiceFormController;
 use App\Http\Controllers\SelfService\PortalController;
 use App\Http\Controllers\SelfService\ProfileController as SelfServiceProfileController;
+use App\Http\Controllers\SelfService\TransactionReceiptController as SelfServiceTransactionReceiptController;
 use App\Http\Controllers\StatisticsController;
 use App\Http\Middleware\EnsureSelfService;
 use Illuminate\Support\Facades\Route;
@@ -101,6 +103,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('ruecklastschriften', PaymentController::class)->defaults('tab', 'returns')->name('payments.return-debits.index');
         Route::get('manuell-buchen', PaymentController::class)->defaults('tab', 'manual')->name('payments.manual.index');
         Route::post('anlegen', [ContributionController::class, 'store'])->name('payments.contributions.store');
+        Route::get('kontobuchungen/{transaction}/beleg.pdf', TransactionReceiptController::class)->whereNumber('transaction')->middleware(['throttle:sensitive', 'audit:document_access'])->name('payments.transactions.receipt');
         Route::get('mandate/export', MandateExportController::class)->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('payments.mandates.export');
         Route::get('kontobuchungen/export', TransactionExportController::class)->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('payments.transactions.export');
         Route::post('rechnungen/erzeugen', [InvoiceController::class, 'generate'])->name('payments.invoices.generate');
@@ -303,6 +306,7 @@ Route::middleware(EnsureSelfService::class)->prefix('selfservice')->group(functi
     Route::post('formulare/application', [SelfServiceFormController::class, 'storeApplication'])->middleware('throttle:5,1');
     Route::post('formulare/sepa', [SelfServiceFormController::class, 'storeMandate'])->middleware('throttle:5,1');
     Route::get('dokumente/{kind}', SelfServiceDocumentController::class)->middleware(['throttle:30,1', 'audit:document_access']);
+    Route::get('kontobuchungen/{transaction}/beleg.pdf', SelfServiceTransactionReceiptController::class)->whereNumber('transaction')->middleware(['module:payments', 'throttle:30,1', 'audit:document_access'])->name('selfservice.transactions.receipt');
     Route::middleware('module:bookings')->group(function () {
         Route::get('buchungen', [SelfServiceBookingController::class, 'index'])->name('selfservice.bookings.index');
         Route::post('buchungen', [SelfServiceBookingController::class, 'store'])->middleware('throttle:10,1')->name('selfservice.bookings.store');

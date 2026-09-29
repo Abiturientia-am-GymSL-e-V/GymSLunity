@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { HandCoins } from '@lucide/vue';
+import { usePage } from '@inertiajs/vue3';
+import { FileDown, HandCoins } from '@lucide/vue';
 import { formatDate, formatMoney } from '@/lib/format';
+import { receipt } from '@/routes/payments/transactions';
 
 type Entry = {
     id: number;
@@ -12,6 +14,7 @@ type Entry = {
     actor_name: string;
 };
 defineProps<{ account: { balance_cents: number; transactions: Entry[] } }>();
+const page = usePage();
 </script>
 
 <template>
@@ -75,6 +78,13 @@ defineProps<{ account: { balance_cents: number; transactions: Entry[] } }>();
                         · {{ entry.reference }}</template
                     >
                 </p>
+                <a
+                    v-if="page.props.can.viewPayments"
+                    :href="receipt.url(entry.id)"
+                    class="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                    ><FileDown class="size-3" aria-hidden="true" />Beleg
+                    herunterladen</a
+                >
             </li>
         </ol>
     </aside>

@@ -379,6 +379,32 @@ class ContributionManagementTest extends TestCase
         $this->assertSame(4700, ContributionAccount::where('member_id', $member->id)->sole()->balance_cents);
     }
 
+    public function test_account_entries_have_downloadable_receipts_for_staff_and_the_own_member_only(): void
+    {
+        $this->signIn();
+        $member = Member::factory()->create(['joined_at' => '2020-01-01']);
+        $other = Member::factory()->create(['joined_at' => '2020-01-01']);
+        foreach ([$member, $other] as $owner) {
+            $this->post(route('payments.manual.store'), [
+                'member_number' => $owner->member_number, 'amount' => '12.00', 'booking_date' => '2026-10-02',
+                'description' => 'Barzahlung', 'reference' => 'KASSE-1', 'direction' => 'payment',
+                'creation_key' => (string) Str::uuid(),
+            ])->assertSessionHasNoErrors();
+        }
+        $own = ContributionAccount::where('member_id', $member->id)->sole()->transactions()->sole();
+        $foreign = ContributionAccount::where('member_id', $other->id)->sole()->transactions()->sole();
+
+        $this->get(route('payments.transactions.receipt', $own->id))
+            ->assertOk()->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('Content-Disposition', 'attachment; filename="beleg-KB-'.$own->id.'.pdf"');
+
+        $settings = ClubSetting::current();
+        $settings->update(['data' => [...$settings->data, 'selfservice_enabled' => true]]);
+        $session = ['selfservice' => ['email' => strtolower($member->email), 'member_id' => $member->id, 'until' => time() + 1800]];
+        $this->withSession($session)->get(route('selfservice.transactions.receipt', $own->id))->assertOk();
+        $this->withSession($session)->get(route('selfservice.transactions.receipt', $foreign->id))->assertNotFound();
+    }
+
     public function test_invoice_can_be_generated_downloaded_and_sent(): void
     {
         $this->signIn();
