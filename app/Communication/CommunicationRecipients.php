@@ -6,7 +6,7 @@ namespace App\Communication;
 
 use App\Members\MemberDirectory;
 use App\Models\Member;
-use Carbon\CarbonImmutable;
+use App\Support\Clock;
 use Illuminate\Database\Eloquent\Builder;
 
 final class CommunicationRecipients
@@ -25,7 +25,7 @@ final class CommunicationRecipients
             'sort' => 'name',
             'direction' => 'asc',
         ]);
-        $today = CarbonImmutable::today()->toDateString();
+        $today = Clock::today()->toDateString();
 
         match ($filters['status']) {
             'active' => $query

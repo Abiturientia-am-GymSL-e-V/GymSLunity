@@ -38,6 +38,17 @@ export function formatDateTime(value: string): string {
     return dateTimeFormat.format(new Date(value.replace(' ', 'T')));
 }
 
+/**
+ * Local calendar date as YYYY-MM-DD. Unlike toISOString(), which is UTC, this
+ * does not return yesterday's date shortly after midnight.
+ */
+export function localDateString(date: Date = new Date()): string {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${date.getFullYear()}-${month}-${day}`;
+}
+
 /** Integer or decimal with German grouping, e.g. 1234 → "1.234". */
 export function formatNumber(value: number): string {
     return numberFormat.format(value);

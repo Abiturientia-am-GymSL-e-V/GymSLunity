@@ -7,6 +7,8 @@ namespace App\Finance;
 use App\Models\ClubSetting;
 use App\Models\FinanceInvoice;
 use App\Models\User;
+use App\Support\Clock;
+use App\Support\DocumentSequence;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -94,13 +96,11 @@ final class CancelFinanceInvoice
             $allCancelled = count(array_unique([...$alreadyCancelled, ...$requested])) === count($items);
             $scope = count($requested) === count($items) ? 'full' : 'partial';
 
-            $issueDate = now()->toDateString();
-            $year = (int) now()->year;
-            $next = (int) (DB::table('finance_invoice_sequences')->where('year', $year)->value('next_number') ?? 1);
+            $issueDate = Clock::todayString();
+            $year = Clock::today()->year;
             do {
-                $number = 'RW-'.$year.'-'.str_pad((string) $next++, 6, '0', STR_PAD_LEFT);
+                $number = 'RW-'.$year.'-'.str_pad((string) DocumentSequence::next('finance_invoice_sequences', ['year' => $year]), 6, '0', STR_PAD_LEFT);
             } while (FinanceInvoice::query()->where('invoice_number', $number)->exists());
-            DB::table('finance_invoice_sequences')->updateOrInsert(['year' => $year], ['next_number' => $next]);
 
             $snapshot = [
                 ...$original->snapshot,
@@ -123,7 +123,7 @@ final class CancelFinanceInvoice
                 'total_cents' => $subtotal + $tax,
                 'notes' => '',
                 'created_by_name' => $actor->name,
-                'created_at' => now()->format('d.m.Y H:i:s T'),
+                'created_at' => Clock::localNow()->format('d.m.Y H:i:s T'),
             ];
             $documents = $this->documents->create($snapshot, $settings->logoDataUri());
             $cancellation = FinanceInvoice::query()->create([

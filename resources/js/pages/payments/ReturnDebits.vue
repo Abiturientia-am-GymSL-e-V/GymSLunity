@@ -6,6 +6,7 @@ import PaymentsPage from '@/components/payments/PaymentsPage.vue';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import type { PaymentMember } from '@/types/payments';
+import { localDateString } from '@/lib/format';
 
 defineProps<{ members: PaymentMember[] }>();
 defineOptions({
@@ -15,21 +16,26 @@ defineOptions({
 const returnForm = useForm({
     member_number: '',
     amount: '5.00',
-    booking_date: new Date().toISOString().slice(0, 10),
+    booking_date: localDateString(),
     description: 'Rücklastschriftgebühr',
     reference: '',
+    // Charges a double click only once; renewed after every booking.
+    creation_key: crypto.randomUUID(),
 });
+
+function submit() {
+    returnForm.post('/beitraege/ruecklastschriften', {
+        preserveScroll: true,
+        onSuccess: () => (returnForm.creation_key = crypto.randomUUID()),
+    });
+}
 </script>
 
 <template>
     <PaymentsPage active="returns">
         <form
             class="max-w-3xl space-y-5 rounded-xl border bg-card p-5"
-            @submit.prevent="
-                returnForm.post('/beitraege/ruecklastschriften', {
-                    preserveScroll: true,
-                })
-            "
+            @submit.prevent="submit"
         >
             <div>
                 <h2 class="font-semibold">Rücklastschriftgebühr anlasten</h2>

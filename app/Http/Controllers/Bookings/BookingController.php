@@ -14,6 +14,7 @@ use App\Models\BookingResource;
 use App\Models\InventoryItem;
 use App\Models\Member;
 use App\Models\ResourceBooking;
+use App\Support\Clock;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -51,7 +52,7 @@ class BookingController extends Controller
             'editingResourceId' => $tab === 'resource-create' ? $request->integer('edit') ?: null : null,
             'members' => Member::query()
                 ->whereNotNull('joined_at')->whereNull('deceased_at')
-                ->where(fn ($query) => $query->whereNull('left_at')->orWhereDate('left_at', '>=', today()))
+                ->where(fn ($query) => $query->whereNull('left_at')->orWhereDate('left_at', '>=', Clock::today()))
                 ->orderBy('last_name')->orderBy('first_name')->get(['id', 'member_number', 'first_name', 'last_name', 'membership_type'])
                 ->map(fn (Member $member): array => [
                     'id' => $member->id,

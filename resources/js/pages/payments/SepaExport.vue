@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { postDownload } from '@/lib/download';
-import { formatDate, formatMoney } from '@/lib/format';
+import { formatDate, formatMoney, localDateString } from '@/lib/format';
 import type { Contribution, PaymentsClub } from '@/types/payments';
 
 const props = defineProps<{
@@ -19,7 +19,7 @@ defineOptions({
     layout: { breadcrumbs: [{ title: 'Beiträge', href: '/beitraege' }] },
 });
 
-const today = new Date().toISOString().slice(0, 10);
+const today = localDateString();
 const sepaRows = computed(() =>
     props.contributions.filter((item) => item.sepa_ready),
 );

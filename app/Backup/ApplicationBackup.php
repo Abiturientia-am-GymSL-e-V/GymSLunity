@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Backup;
 
+use App\Support\Clock;
 use FilesystemIterator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -27,7 +28,7 @@ class ApplicationBackup
     {
         $root = $destinationDirectory ?? $this->backupRoot();
         $temporary = $root.'/.tmp-'.Str::uuid();
-        $filename = 'gymslunity-'.now()->format('Ymd-His').'-'.Str::lower(Str::random(8)).'.zip';
+        $filename = 'gymslunity-'.Clock::localNow()->format('Ymd-His').'-'.Str::lower(Str::random(8)).'.zip';
         $archive = $root.'/'.$filename;
         $partial = $archive.'.partial';
 

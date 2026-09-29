@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Forms;
 
 use App\Documents\SignatureImage;
+use App\Support\Clock;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -17,7 +18,7 @@ class StoreReceiptRequest extends FormRequest
         return [
             'creation_key' => ['required', 'uuid'],
             'receipt_number' => ['nullable', 'string', 'max:40', 'regex:/\A[A-Za-z0-9][A-Za-z0-9_\/-]*\z/'],
-            'receipt_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:1900-01-01', 'before_or_equal:today'],
+            'receipt_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:1900-01-01', 'before_or_equal:'.Clock::todayString()],
             'amount' => ['bail', 'required', 'string', 'regex:/\A\d{1,9}(?:[.,]\d{1,2})?\z/', function (string $attribute, mixed $value, Closure $fail): void {
                 if ((float) str_replace(',', '.', (string) $value) <= 0) {
                     $fail('Der Betrag muss größer als null sein.');

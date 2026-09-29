@@ -4,15 +4,23 @@ declare(strict_types=1);
 
 namespace App\Payments;
 
+use App\Banking\BankCsvReader;
 use App\Models\Contribution;
 use App\Models\Member;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class BankCsvImport
 {
+    /** @var Collection<int, Contribution>|null */
+    private ?Collection $contributions = null;
+
+    /** @var Collection<int, Member>|null */
+    private ?Collection $mandateMembers = null;
+
     public function __construct(private readonly ContributionLedger $ledger) {}
 
     /** @return array{rows: int, imported: int, unmatched: int} */
@@ -26,41 +34,15 @@ final class BankCsvImport
         if (DB::table('payment_imports')->where('checksum', $checksum)->exists()) {
             throw ValidationException::withMessages(['csv' => 'Diese Datei wurde bereits importiert.']);
         }
-        $stream = fopen('php://temp', 'r+');
-        if ($stream === false) {
-            throw ValidationException::withMessages(['csv' => 'Die CSV-Datei konnte nicht gelesen werden.']);
-        }
-        fwrite($stream, preg_replace('/^\xEF\xBB\xBF/', '', $contents) ?? $contents);
-        rewind($stream);
-        $sample = fgets($stream) ?: '';
-        $delimiter = substr_count($sample, ';') >= substr_count($sample, ',') ? ';' : ',';
-        rewind($stream);
-        $headers = fgetcsv($stream, separator: $delimiter, escape: '');
-        if (! is_array($headers)) {
-            fclose($stream);
-            throw ValidationException::withMessages(['csv' => 'Die CSV-Datei hat keine Kopfzeile.']);
-        }
-        $normalized = array_map(fn (?string $header): string => $this->header($header ?? ''), $headers);
-        $amountIndex = $this->column($normalized, ['betrag', 'amount', 'umsatz']);
-        $dateIndex = $this->column($normalized, ['buchungsdatum', 'datum', 'bookingdate']);
+        $csv = BankCsvReader::fromString($contents);
+        $rows = $csv->rows;
+        $amountIndex = $csv->column(['betrag', 'amount', 'umsatz']);
+        $dateIndex = $csv->column(['buchungsdatum', 'datum', 'bookingdate']);
         if ($amountIndex === null || $dateIndex === null) {
-            fclose($stream);
             throw ValidationException::withMessages(['csv' => 'Benötigte Spalten: Buchungsdatum/Datum und Betrag. Optional: Mitgliedsnummer, Verwendungszweck, Referenz.']);
         }
 
-        $rows = [];
-        while (($row = fgetcsv($stream, separator: $delimiter, escape: '')) !== false) {
-            if (count(array_filter($row, fn ($value): bool => trim((string) $value) !== '')) === 0) {
-                continue;
-            }
-            $rows[] = array_pad($row, count($headers), '');
-        }
-        fclose($stream);
-        if (count($rows) > 5000) {
-            throw ValidationException::withMessages(['csv' => 'Pro Import sind höchstens 5.000 Buchungen erlaubt.']);
-        }
-
-        return DB::transaction(function () use ($rows, $normalized, $amountIndex, $dateIndex, $actor, $file, $checksum): array {
+        return DB::transaction(function () use ($rows, $csv, $amountIndex, $dateIndex, $actor, $file, $checksum): array {
             $importId = DB::table('payment_imports')->insertGetId([
                 'actor_id' => $actor->id, 'actor_name' => $actor->name,
                 'original_name' => mb_substr($file->getClientOriginalName(), 0, 255), 'checksum' => $checksum,
@@ -70,11 +52,11 @@ final class BankCsvImport
             $imported = 0;
             $unmatchedRows = [];
             foreach ($rows as $number => $row) {
-                $amount = $this->amount((string) $row[$amountIndex]);
-                $date = $this->date((string) $row[$dateIndex]);
-                $memberNumber = $this->value($row, $normalized, ['mitgliedsnummer', 'membernumber']);
-                $reference = $this->value($row, $normalized, ['referenz', 'reference', 'endtoendid', 'endtoendreferenz']);
-                $purpose = $this->value($row, $normalized, ['verwendungszweck', 'buchungstext', 'zweck', 'description']);
+                $amount = BankCsvReader::amount($row[$amountIndex]);
+                $date = BankCsvReader::date($row[$dateIndex]);
+                $memberNumber = $csv->value($row, ['mitgliedsnummer', 'membernumber']);
+                $reference = $csv->value($row, ['referenz', 'reference', 'endtoendid', 'endtoendreferenz']);
+                $purpose = $csv->value($row, ['verwendungszweck', 'buchungstext', 'zweck', 'description']);
                 $type = $amount < 0 ? 'return_debit' : 'payment';
                 if ($amount === 0 || ! $date) {
                     $reason = 'Betrag oder Datum ungültig';
@@ -154,85 +136,39 @@ final class BankCsvImport
         }, attempts: 3);
     }
 
-    private function header(string $value): string
-    {
-        return preg_replace('/[^a-z0-9]/', '', mb_strtolower(trim($value))) ?? '';
-    }
-
-    /** @param list<string> $headers
-     * @param  list<string>  $names
-     */
-    private function column(array $headers, array $names): ?int
-    {
-        foreach ($names as $name) {
-            $index = array_search($name, $headers, true);
-            if ($index !== false) {
-                return $index;
-            }
-        }
-
-        return null;
-    }
-
-    /** @param list<string> $row
-     * @param  list<string>  $headers
-     * @param  list<string>  $names
-     */
-    private function value(array $row, array $headers, array $names): string
-    {
-        $index = $this->column($headers, $names);
-
-        return $index === null ? '' : trim((string) ($row[$index] ?? ''));
-    }
-
-    private function amount(string $value): int
-    {
-        $value = preg_replace('/[^0-9,.-]/', '', $value) ?? '';
-        if (str_contains($value, ',') && str_contains($value, '.')) {
-            $value = str_replace('.', '', $value);
-        }
-        $value = str_replace(',', '.', $value);
-
-        return is_numeric($value) ? (int) round((float) $value * 100) : 0;
-    }
-
-    private function date(string $value): ?string
-    {
-        foreach (['!Y-m-d', '!d.m.Y', '!d/m/Y'] as $format) {
-            $date = \DateTimeImmutable::createFromFormat($format, trim($value));
-            if ($date && $date->format(substr($format, 1)) === trim($value)) {
-                return $date->format('Y-m-d');
-            }
-        }
-
-        return null;
-    }
-
     private function member(string $explicitNumber, string $text): ?Member
     {
         if ($explicitNumber !== '' && ctype_digit($explicitNumber)) {
             return Member::query()->where('member_number', (int) $explicitNumber)->first();
         }
-        if (preg_match('/(?:Mitglied|Mitgliedsnummer|MNr\.?|Nr\.?)?\s*#?([0-9]{4,10})/iu', $text, $match)) {
+        // A bare number such as the year in "Beitrag 2026" is no member number.
+        if (preg_match('/(?<![\p{L}\p{N}])(?:Mitgliedsnummer|Mitglieds-?Nr\.?|Mitglied|MNr\.?)\s*[:#]?\s*([0-9]{1,10})(?![\p{L}\p{N}])/iu', $text, $match)) {
             $member = Member::query()->where('member_number', (int) $match[1])->first();
             if ($member) {
                 return $member;
             }
         }
-        $mandate = Member::query()->whereNotNull('mandate_reference')->get()
-            ->first(fn (Member $member): bool => str_contains($text, (string) $member->mandate_reference));
 
-        return $mandate;
+        return BankCsvReader::uniqueMatch($text, $this->membersWithMandate(), fn (Member $member): array => [$member->mandate_reference]);
     }
 
     private function contribution(string $text): ?Contribution
     {
-        $normalized = mb_strtoupper($text);
+        return BankCsvReader::uniqueMatch($text, $this->referencedContributions(), fn (Contribution $item): array => [$item->payment_reference, $item->invoice_number]);
+    }
 
-        return Contribution::query()->with('account.member')
+    /** @return Collection<int, Contribution> */
+    private function referencedContributions(): Collection
+    {
+        return $this->contributions ??= Contribution::query()->with('account.member')
             ->where(fn ($query) => $query->whereNotNull('payment_reference')->orWhereNotNull('invoice_number'))
-            ->get()->first(fn (Contribution $item): bool => ($item->payment_reference && str_contains($normalized, mb_strtoupper($item->payment_reference)))
-                || ($item->invoice_number && str_contains($normalized, mb_strtoupper($item->invoice_number))));
+            ->get();
+    }
+
+    /** @return Collection<int, Member> */
+    private function membersWithMandate(): Collection
+    {
+        return $this->mandateMembers ??= Member::query()->whereNotNull('mandate_reference')->where('mandate_reference', '<>', '')->get();
     }
 
     /** @param list<string|null> $raw */

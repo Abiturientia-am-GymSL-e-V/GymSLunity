@@ -79,6 +79,25 @@ class BookingSystemTest extends TestCase
             ->assertSessionHasErrors('pricing_rules.0.price');
     }
 
+    public function test_monthly_series_respects_the_interval(): void
+    {
+        $resource = BookingResource::query()->create([
+            'name' => 'Saal', 'allowed_membership_types' => [], 'auto_approve_membership_types' => [],
+            'price_mode' => 'free', 'price_cents' => 0, 'is_active' => true,
+        ]);
+
+        $bookings = app(BookingManager::class)->create($resource, null, [
+            'title' => 'Vorstandssitzung', 'requester_name' => 'Vorstand',
+            'starts_at' => '2026-10-05T18:00', 'ends_at' => '2026-10-05T20:00',
+            'recurrence' => 'monthly', 'recurrence_interval' => 2, 'occurrences' => 3,
+        ], null, true);
+
+        $this->assertSame(['2026-10-05', '2026-12-05', '2027-02-05'], array_map(
+            fn (ResourceBooking $booking): string => $booking->starts_at->setTimezone(config('app.display_timezone'))->toDateString(),
+            $bookings,
+        ));
+    }
+
     public function test_resource_hierarchy_and_auto_approval_are_validated(): void
     {
         $this->actingAs(User::factory()->create(['roles' => ['admin']]));

@@ -10,6 +10,9 @@ use App\Members\MemberReportWriter;
 use App\Models\ClubSetting;
 use App\Models\FinanceMandate;
 use App\Models\User;
+use App\Support\Clock;
+use App\Support\DocumentSequence;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -39,12 +42,10 @@ final class FinanceMandates
                     throw ValidationException::withMessages(['club' => 'Für SEPA-Mandate müssen Vereinsname, Anschrift, Land und Gläubiger-ID in der Vereinskonfiguration hinterlegt sein.']);
                 }
             }
-            $year = (int) now()->format('Y');
-            $next = (int) (DB::table('finance_mandate_sequences')->where('year', $year)->value('next_number') ?? 1);
+            $year = (int) Clock::localNow()->format('Y');
             do {
-                $reference = 'RM-'.$year.'-'.str_pad((string) $next++, 6, '0', STR_PAD_LEFT);
+                $reference = 'RM-'.$year.'-'.str_pad((string) DocumentSequence::next('finance_mandate_sequences', ['year' => $year]), 6, '0', STR_PAD_LEFT);
             } while (FinanceMandate::query()->where('mandate_reference', $reference)->exists());
-            DB::table('finance_mandate_sequences')->updateOrInsert(['year' => $year], ['next_number' => $next]);
             $token = Str::random(64);
             $text = FinanceMandateText::render((string) ($club['finance_mandate_text'] ?? FinanceMandateText::DEFAULT), $club);
             $attributes = [
@@ -81,7 +82,7 @@ final class FinanceMandates
             throw ValidationException::withMessages(['signature_data' => $exception->getMessage()]);
         }
 
-        return $this->sign($mandate, null, $signedByName, now()->toDateString(), 'digital', $signature);
+        return $this->sign($mandate, null, $signedByName, Clock::todayString(), 'digital', $signature);
     }
 
     public function revoke(FinanceMandate $mandate, User $actor, string $reason): FinanceMandate
@@ -117,7 +118,7 @@ final class FinanceMandates
             $club = $this->clubSettings->data();
             $values = [
                 'status' => 'signed',
-                'signed_at' => $signedAt.' '.now()->format('H:i:s'),
+                'signed_at' => CarbonImmutable::parse($signedAt.' '.Clock::localNow()->format('H:i:s'), (string) config('app.display_timezone'))->utc(),
                 'signature_method' => $method,
                 'signed_by_name' => $signedByName,
                 'signed_by' => $actor?->id,

@@ -20,6 +20,7 @@ use App\Models\Donation;
 use App\Models\DonationCertificate;
 use App\Models\DonationCertificateRevocation;
 use App\Payments\Money;
+use App\Support\Clock;
 use App\Support\FormOfAddress;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -305,7 +306,7 @@ class DonationController extends Controller
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="spendenbuch-'.now()->format('Y-m-d-His').'.pdf"',
+            'Content-Disposition' => 'attachment; filename="spendenbuch-'.Clock::localNow()->format('Y-m-d-His').'.pdf"',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
         ]);

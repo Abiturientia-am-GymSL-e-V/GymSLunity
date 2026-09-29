@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Payments;
 
 use App\Http\Controllers\Controller;
 use App\Payments\SepaDirectDebit;
+use App\Support\Clock;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
@@ -16,13 +17,13 @@ class SepaExportController extends Controller
         $data = $request->validate([
             'ids' => ['required', 'array', 'min:1', 'max:1000'],
             'ids.*' => ['integer', 'distinct', 'exists:contributions,id'],
-            'collection_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'collection_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.Clock::todayString()],
         ]);
         $xml = $export->export($data['ids'], $data['collection_date'], $request->user());
 
         return response($xml, 200, [
             'Content-Type' => 'application/xml; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="sepa-lastschriften-'.now()->format('Y-m-d-His').'.xml"',
+            'Content-Disposition' => 'attachment; filename="sepa-lastschriften-'.Clock::localNow()->format('Y-m-d-His').'.xml"',
             'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
         ]);
     }

@@ -6,6 +6,7 @@ namespace App\Members;
 
 use App\Models\Member;
 use App\Rules\Iban;
+use App\Support\Clock;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -71,7 +72,7 @@ final class MemberValidation
     public static function validateDates(array $data): void
     {
         $errors = [];
-        if (($data['birth_date'] ?? null) && $data['birth_date'] > now()->toDateString()) {
+        if (($data['birth_date'] ?? null) && $data['birth_date'] > Clock::todayString()) {
             $errors['birth_date'] = 'Das Geburtsdatum darf nicht in der Zukunft liegen.';
         }
         foreach (['joined_at' => 'Eintritt', 'deceased_at' => 'Tod', 'left_at' => 'Austritt'] as $key => $label) {

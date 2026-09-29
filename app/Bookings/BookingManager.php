@@ -12,6 +12,7 @@ use App\Models\Member;
 use App\Models\MemberFieldDefinition;
 use App\Models\ResourceBooking;
 use App\Models\User;
+use App\Support\Clock;
 use App\Support\FormOfAddress;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -50,7 +51,7 @@ final class BookingManager
             $occurrenceStart = match ($recurrence) {
                 'daily' => $start->addDays($index * $recurrenceInterval),
                 'weekly' => $start->addWeeks($index * $recurrenceInterval),
-                'monthly' => $start->addMonthsNoOverflow($index),
+                'monthly' => $start->addMonthsNoOverflow($index * $recurrenceInterval),
                 default => $start,
             };
             $occurrenceEnd = $occurrenceStart->addSeconds($start->diffInSeconds($end));
@@ -102,6 +103,10 @@ final class BookingManager
     public function approve(ResourceBooking $booking, User $actor): void
     {
         DB::transaction(function () use ($booking, $actor): void {
+            // Lock the resource family like create(), so two approvals of
+            // overlapping requests cannot both pass the availability check.
+            $resource = BookingResource::query()->whereKey($booking->resource_id)->firstOrFail();
+            BookingResource::query()->whereIn('id', $resource->relatedIds())->orderBy('id')->lockForUpdate()->get();
             $current = ResourceBooking::query()->with(['resource', 'member'])->whereKey($booking->id)->lockForUpdate()->firstOrFail();
             if ($current->status !== 'requested') {
                 throw ValidationException::withMessages(['booking' => 'Diese Anfrage wurde bereits bearbeitet.']);
@@ -148,9 +153,12 @@ final class BookingManager
         $bookings = $scope === 'series' && $booking->series_id !== null
             ? ResourceBooking::query()->where('series_id', $booking->series_id)->whereIn('status', ['requested', 'confirmed'])->where('ends_at', '>', now())->orderBy('occurrence')->get()
             : collect([$booking]);
-        foreach ($bookings as $item) {
-            $this->cancel($item, $actor);
-        }
+        // All or nothing: a failing occurrence must not leave half a series cancelled.
+        DB::transaction(function () use ($bookings, $actor): void {
+            foreach ($bookings as $item) {
+                $this->cancel($item, $actor);
+            }
+        }, attempts: 3);
 
         return $bookings->count();
     }
@@ -398,7 +406,7 @@ final class BookingManager
         $transaction = ContributionTransaction::query()->create([
             'account_id' => $account->id, 'actor_id' => $actor?->id,
             'actor_name' => $actor === null ? 'Buchungssystem' : $actor->name, 'kind' => 'booking_refund',
-            'amount_cents' => -$booking->price_cents, 'booking_date' => now()->toDateString(),
+            'amount_cents' => -$booking->price_cents, 'booking_date' => Clock::todayString(),
             'reference' => 'STORNO-'.$booking->id,
             'description' => 'Storno Buchung '.$booking->resource->name.': '.$booking->title,
             'metadata' => ['booking_id' => $booking->id, 'charge_transaction_id' => $booking->charge_transaction_id], 'created_at' => now(),

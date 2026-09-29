@@ -11,6 +11,7 @@ use App\Mail\DunningNoticeMail;
 use App\Models\Member;
 use App\Payments\DunningNotices;
 use App\Security\SafeCsv;
+use App\Support\Clock;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -50,7 +51,7 @@ class DunningController extends Controller
                 ]), ';', '"', '', "\r\n");
             }
             fclose($output);
-        }, 'offene-beitraege-'.now()->format('Y-m-d').'.csv', [
+        }, 'offene-beitraege-'.Clock::localNow()->format('Y-m-d').'.csv', [
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
@@ -64,7 +65,7 @@ class DunningController extends Controller
 
         return response($notices->pdf($members), 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="zahlungserinnerungen-'.now()->format('Y-m-d-His').'.pdf"',
+            'Content-Disposition' => 'attachment; filename="zahlungserinnerungen-'.Clock::localNow()->format('Y-m-d-His').'.pdf"',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
         ]);

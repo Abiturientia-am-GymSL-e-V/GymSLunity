@@ -6,6 +6,7 @@ namespace App\Finance;
 
 use App\Models\FinanceInvoice;
 use App\Models\User;
+use App\Support\Clock;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -79,7 +80,7 @@ final class FinanceReturnDebit
                 'recipient_country' => $buyer['country'],
                 'recipient_email' => $buyer['email'],
                 'buyer_reference' => $original->buyer_reference,
-                'issue_date' => now()->toDateString(),
+                'issue_date' => Clock::todayString(),
                 'service_date' => $row->booking_date,
                 'due_date' => $data['due_date'],
                 'currency' => 'EUR',

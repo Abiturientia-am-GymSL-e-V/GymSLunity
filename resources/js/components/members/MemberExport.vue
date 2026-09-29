@@ -8,6 +8,7 @@ import { saveBlob, xsrfToken } from '@/lib/download';
 import { address } from '@/lib/formOfAddress';
 import type { MemberColumn } from './columns';
 import type { MemberField, MemberFilters } from '@/types/members';
+import { localDateString } from '@/lib/format';
 
 const props = defineProps<{
     filters: MemberFilters;
@@ -113,10 +114,7 @@ async function download(requestedFormat = format.value) {
             setTimeout(() => URL.revokeObjectURL(url), 60000);
             return;
         }
-        saveBlob(
-            blob,
-            `mitglieder-${new Date().toISOString().slice(0, 10)}.${requestedFormat}`,
-        );
+        saveBlob(blob, `mitglieder-${localDateString()}.${requestedFormat}`);
     } catch (cause) {
         if (preview && !preview.closed) preview.close();
         error.value =

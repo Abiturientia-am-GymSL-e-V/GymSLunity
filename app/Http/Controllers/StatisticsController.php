@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Configuration\ClubSettings;
 use App\Members\MemberReportWriter;
 use App\Statistics\StatisticsReport;
+use App\Support\Clock;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -95,7 +96,7 @@ class StatisticsController extends Controller
     /** @return array{CarbonImmutable, CarbonImmutable, CarbonImmutable} */
     private function dates(Request $request): array
     {
-        $today = CarbonImmutable::today();
+        $today = Clock::today();
         $defaults = [
             'from' => $today->subMonths(11)->startOfMonth()->toDateString(),
             'to' => $today->toDateString(),
@@ -108,8 +109,8 @@ class StatisticsController extends Controller
         ]);
         $data = $request->validate([
             'from' => ['required', 'date_format:Y-m-d', 'before_or_equal:to'],
-            'to' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
-            'as_of' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'to' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.Clock::todayString()],
+            'as_of' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.Clock::todayString()],
         ]);
         $from = CarbonImmutable::createFromFormat('!Y-m-d', $data['from']);
         $to = CarbonImmutable::createFromFormat('!Y-m-d', $data['to']);

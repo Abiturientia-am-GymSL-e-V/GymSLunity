@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Members\UpdateMember;
 use App\Models\ClubSetting;
 use App\Models\Member;
+use App\Support\Clock;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +25,7 @@ class MembershipApplicationController extends Controller
 
         return Inertia::render('members/Applications', [
             'totalMembers' => fn () => Member::query()->count(),
-            'today' => now()->toDateString(),
+            'today' => Clock::todayString(),
             'applications' => DB::table('membership_applications as applications')
                 ->join('members', 'members.id', '=', 'applications.member_id')
                 ->whereNull('applications.approved_at')->orderBy('applications.submitted_at')->orderBy('applications.id')

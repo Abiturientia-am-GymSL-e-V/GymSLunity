@@ -9,6 +9,7 @@ use App\Configuration\ClubSettings;
 use App\Models\FinanceInvoice;
 use App\Models\FinanceMandate;
 use App\Models\ResourceBooking;
+use App\Support\Clock;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -39,7 +40,9 @@ class StoreFinanceInvoiceRequest extends FormRequest
             'recipient_country' => ['required', 'string', 'size:2', 'regex:/\A[A-Z]{2}\z/'],
             'recipient_email' => ['required', 'email:rfc', 'max:255'],
             'buyer_reference' => ['required', 'string', 'max:100'],
-            'issue_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:today'],
+            // Invoice numbers count per year of the issue date; backdating into
+            // closed years would insert numbers into an already finished series.
+            'issue_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.Clock::today()->subYear()->startOfYear()->toDateString(), 'before_or_equal:'.Clock::todayString()],
             'service_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:2000-01-01'],
             'due_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:issue_date'],
             'currency' => ['required', Rule::in(['EUR'])],

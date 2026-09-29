@@ -14,6 +14,7 @@ use App\Http\Requests\Forms\StoreFinanceMandateRequest;
 use App\Mail\FinanceMandateMail;
 use App\Members\MemberReportWriter;
 use App\Models\FinanceMandate;
+use App\Support\Clock;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,7 +49,7 @@ class FinanceMandateController extends Controller
 
         return Inertia::render('forms/SepaMandates', [
             'activeTab' => $tab, 'mandates' => $mandates, 'search' => $search, 'filters' => $normalizedFilters,
-            'creationKey' => (string) Str::uuid(), 'today' => now()->toDateString(),
+            'creationKey' => (string) Str::uuid(), 'today' => Clock::todayString(),
             'defaultCountry' => $club['country'] ?? 'DE',
             'clubReady' => $this->clubSettings->mandateReady(),
         ]);
@@ -73,7 +74,7 @@ class FinanceMandateController extends Controller
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="mandatsbuch-'.now()->format('Y-m-d-His').'.pdf"',
+            'Content-Disposition' => 'attachment; filename="mandatsbuch-'.Clock::localNow()->format('Y-m-d-His').'.pdf"',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
         ]);
@@ -120,7 +121,7 @@ class FinanceMandateController extends Controller
 
     public function markSigned(Request $request, FinanceMandate $mandate, FinanceMandates $mandates): RedirectResponse
     {
-        $data = $request->validate(['signed_by_name' => ['required', 'string', 'max:255'], 'signed_at' => ['required', 'date_format:Y-m-d', 'before_or_equal:today']]);
+        $data = $request->validate(['signed_by_name' => ['required', 'string', 'max:255'], 'signed_at' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.Clock::todayString()]]);
         $mandates->markPaperSigned($mandate, $request->user(), $data['signed_by_name'], $data['signed_at']);
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Das Mandat wurde als unterschrieben gekennzeichnet und ist jetzt verwendbar.']);
 

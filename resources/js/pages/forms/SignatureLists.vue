@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import type { MemberField } from '@/types/members';
 import { saveBlob, xsrfToken } from '@/lib/download';
+import { localDateString } from '@/lib/format';
 
 type Member = {
     member_number: number;
@@ -288,7 +289,7 @@ async function generate() {
         }
         saveBlob(
             await response.blob(),
-            `Unterschriftsliste_${new Date().toISOString().slice(0, 10)}.pdf`,
+            `Unterschriftsliste_${localDateString()}.pdf`,
         );
     } finally {
         processing.value = false;

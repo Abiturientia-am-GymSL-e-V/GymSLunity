@@ -6,6 +6,7 @@ import PaymentsPage from '@/components/payments/PaymentsPage.vue';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import type { PaymentMember } from '@/types/payments';
+import { localDateString } from '@/lib/format';
 
 defineProps<{ members: PaymentMember[] }>();
 defineOptions({
@@ -16,21 +17,26 @@ const manualForm = useForm({
     member_number: '',
     direction: 'payment' as 'payment' | 'charge',
     amount: '',
-    booking_date: new Date().toISOString().slice(0, 10),
+    booking_date: localDateString(),
     description: '',
     reference: '',
+    // Books a double click only once; renewed after every booking.
+    creation_key: crypto.randomUUID(),
 });
+
+function submit() {
+    manualForm.post('/beitraege/manuell-buchen', {
+        preserveScroll: true,
+        onSuccess: () => (manualForm.creation_key = crypto.randomUUID()),
+    });
+}
 </script>
 
 <template>
     <PaymentsPage active="manual">
         <form
             class="max-w-3xl space-y-5 rounded-xl border bg-card p-5"
-            @submit.prevent="
-                manualForm.post('/beitraege/manuell-buchen', {
-                    preserveScroll: true,
-                })
-            "
+            @submit.prevent="submit"
         >
             <div>
                 <h2 class="font-semibold">Zahlung manuell verbuchen</h2>

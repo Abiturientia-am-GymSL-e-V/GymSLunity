@@ -17,6 +17,7 @@ use App\Members\MemberReportWriter;
 use App\Models\FinanceInvoice;
 use App\Models\FinanceMandate;
 use App\Models\ResourceBooking;
+use App\Support\Clock;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -104,7 +105,7 @@ class FinanceInvoiceController extends Controller
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="rechnungsbuch-'.now()->format('Y-m-d-His').'.pdf"',
+            'Content-Disposition' => 'attachment; filename="rechnungsbuch-'.Clock::localNow()->format('Y-m-d-His').'.pdf"',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
         ]);
@@ -147,7 +148,7 @@ class FinanceInvoiceController extends Controller
 
         return Inertia::render('finance/CreateInvoice', [
             'creationKey' => (string) Str::uuid(),
-            'today' => now()->toDateString(),
+            'today' => Clock::todayString(),
             'defaultDueDate' => now()->addDays(14)->toDateString(),
             'defaultCountry' => $club['country'] ?? 'DE',
             'paymentReadiness' => [
@@ -237,16 +238,23 @@ class FinanceInvoiceController extends Controller
 
     public function markPaid(Request $request, FinanceInvoice $invoice): RedirectResponse
     {
-        if ($invoice->document_type !== 'invoice' || $invoice->status !== 'open') {
-            return back();
-        }
-        $invoice->update([
-            'status' => 'paid',
-            'paid_at' => now(),
-            'paid_by' => $request->user()->id,
-            'paid_by_name' => $request->user()->name,
-        ]);
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Rechnung '.$invoice->invoice_number.' wurde als bezahlt markiert.']);
+        $marked = DB::transaction(function () use ($request, $invoice): bool {
+            $locked = FinanceInvoice::query()->whereKey($invoice->id)->lockForUpdate()->firstOrFail();
+            if ($locked->document_type !== 'invoice' || $locked->status !== 'open') {
+                return false;
+            }
+            $locked->update([
+                'status' => 'paid',
+                'paid_at' => now(),
+                'paid_by' => $request->user()->id,
+                'paid_by_name' => $request->user()->name,
+            ]);
+
+            return true;
+        });
+        Inertia::flash('toast', $marked
+            ? ['type' => 'success', 'message' => 'Rechnung '.$invoice->invoice_number.' wurde als bezahlt markiert.']
+            : ['type' => 'error', 'message' => 'Rechnung '.$invoice->invoice_number.' ist nicht mehr offen und wurde nicht verändert.']);
 
         return back();
     }

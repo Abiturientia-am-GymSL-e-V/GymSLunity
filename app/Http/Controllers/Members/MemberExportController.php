@@ -13,6 +13,7 @@ use App\Members\MemberReportValue;
 use App\Members\MemberReportWriter;
 use App\Models\Member;
 use App\Security\SafeCsv;
+use App\Support\Clock;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
@@ -72,7 +73,7 @@ class MemberExportController extends Controller
                 fwrite($output, ']');
             }
             fclose($output);
-        }, 'mitglieder-'.now()->format('Y-m-d-His').($csv ? '.csv' : '.json'), [
+        }, 'mitglieder-'.Clock::localNow()->format('Y-m-d-His').($csv ? '.csv' : '.json'), [
             'Content-Type' => $csv ? 'text/csv; charset=UTF-8' : 'application/json; charset=UTF-8',
             'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
         ]);
@@ -108,7 +109,7 @@ class MemberExportController extends Controller
             }
             $bytes = MemberReportWriter::pdf($html, true);
 
-            return response($bytes, 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'attachment; filename="mitglieder-'.now()->format('Y-m-d-His').'.pdf"', 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
+            return response($bytes, 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'attachment; filename="mitglieder-'.Clock::localNow()->format('Y-m-d-His').'.pdf"', 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
         }
 
         return response()->streamDownload(function () use ($format, $headers, $rows, $title, $settings): void {
@@ -117,7 +118,7 @@ class MemberExportController extends Controller
             } else {
                 MemberReportWriter::word($headers, $rows, $title, $settings->logoPath());
             }
-        }, 'mitglieder-'.now()->format('Y-m-d-His').'.'.$format, [
+        }, 'mitglieder-'.Clock::localNow()->format('Y-m-d-His').'.'.$format, [
             'Content-Type' => $format === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
         ]);

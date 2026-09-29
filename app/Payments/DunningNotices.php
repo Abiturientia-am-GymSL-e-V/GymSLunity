@@ -8,6 +8,7 @@ use App\Configuration\ClubSettings;
 use App\Members\MemberReportWriter;
 use App\Models\Contribution;
 use App\Models\Member;
+use App\Support\Clock;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\ValidationException;
@@ -51,7 +52,7 @@ final class DunningNotices
             'members' => $members,
             'club' => $club,
             'logo' => $settings->logoDataUri(),
-            'createdAt' => today(),
+            'createdAt' => Clock::today(),
             'giroCodes' => $giroCodes,
             'print' => $print,
         ])->render();
@@ -83,7 +84,7 @@ final class DunningNotices
         return array_values($this->members()->map(function (Member $member): array {
             $contributions = $member->contributionAccount->contributions;
             $openCents = $contributions->sum(fn (Contribution $item): int => $item->remainingCents());
-            $overdue = $contributions->filter(fn (Contribution $item): bool => $item->due_date->isBefore(today()));
+            $overdue = $contributions->filter(fn (Contribution $item): bool => $item->due_date->isBefore(Clock::today()));
 
             return [
                 'member_number' => $member->member_number,

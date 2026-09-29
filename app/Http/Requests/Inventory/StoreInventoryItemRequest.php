@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Inventory;
 
 use App\Inventory\InventoryOptions;
+use App\Support\Clock;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -30,7 +31,7 @@ class StoreInventoryItemRequest extends FormRequest
             'location' => ['required', 'string', 'max:255'],
             'responsible_person' => ['nullable', 'string', 'max:255'],
             'acquisition_type' => ['required', Rule::in(array_keys(InventoryOptions::acquisitionTypes()))],
-            'acquisition_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'acquisition_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.Clock::todayString()],
             'acquisition_cost' => ['required', 'decimal:0,2', 'min:0', 'max:9999999.99'],
             'document_reference' => ['nullable', 'string', 'max:255'],
             'document' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],

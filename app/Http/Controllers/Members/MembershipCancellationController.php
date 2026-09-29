@@ -10,6 +10,7 @@ use App\Mail\MembershipCancellationConfirmedMail;
 use App\Members\UpdateMember;
 use App\Models\ClubSetting;
 use App\Models\Member;
+use App\Support\Clock;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +29,7 @@ class MembershipCancellationController extends Controller
 
         return Inertia::render('members/Cancellations', [
             'totalMembers' => fn () => Member::query()->count(),
-            'today' => now()->toDateString(),
+            'today' => Clock::todayString(),
             'cancellations' => DB::table('membership_cancellations as cancellations')
                 ->join('members', 'members.id', '=', 'cancellations.member_id')
                 ->whereNull('cancellations.confirmed_at')
@@ -49,7 +50,7 @@ class MembershipCancellationController extends Controller
         Gate::authorize('update', $member);
         $values = $request->validate([
             'lock_version' => ['required', 'integer', 'min:0'],
-            'exit_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'exit_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.Clock::todayString()],
         ]);
 
         $result = DB::transaction(function () use ($request, $member, $update, $values): array {

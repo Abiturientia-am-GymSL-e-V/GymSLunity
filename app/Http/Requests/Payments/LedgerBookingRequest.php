@@ -18,6 +18,7 @@ class LedgerBookingRequest extends FormRequest
             'booking_date' => ['required', 'date_format:Y-m-d'],
             'description' => ['required', 'string', 'max:255'],
             'reference' => ['nullable', 'string', 'max:255'],
+            'creation_key' => ['required', 'uuid'],
         ];
     }
 }
