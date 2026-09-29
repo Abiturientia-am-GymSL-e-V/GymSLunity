@@ -14,6 +14,8 @@ GymSLunity ist eine webbasierte Komplettlösung für die tägliche Vereinsverwal
 
 Das Projekt ist aus den praktischen Anforderungen eines Schulvereins entstanden und wird von Schülerinnen und Schülern getragen. Ziel ist eine offene, selbst betreibbare Alternative zu kostenpflichtigen SaaS-Angeboten, die Vereine verstehen, anpassen und gemeinsam weiterentwickeln können.
 
+GymSLunity befindet sich in der **Beta-Phase**. Die Funktionen sind vollständig nutzbar, sollten vor dem produktiven Einsatz aber mit eigenen Testdaten geprüft werden. Änderungen je Version stehen in [docs/releases/](docs/releases/).
+
 ## Funktionsbereiche
 
 - **Mitgliederverwaltung:** Mitglieds- und Kontaktdaten, konfigurierbare Zusatzfelder, Suche, Filter, Massenbearbeitung, CSV-Import, Export, Dokumente und Änderungshistorie.
