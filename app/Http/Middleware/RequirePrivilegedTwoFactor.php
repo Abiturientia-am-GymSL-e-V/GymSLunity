@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Demo\DemoAccounts;
 use App\Support\FormOfAddress;
 use Closure;
 use Illuminate\Http\Request;
@@ -34,7 +35,8 @@ class RequirePrivilegedTwoFactor
             return to_route('login')->withErrors(['email' => 'Privilegierte Konten müssen sich vollständig neu anmelden.']);
         }
 
-        if ($user->hasRequiredSecondFactor() || $this->isSetupRoute($request)) {
+        // Visitors of the public demo share these accounts and cannot share a second factor.
+        if ($user->hasRequiredSecondFactor() || $this->isSetupRoute($request) || DemoAccounts::isDemoUser($user)) {
             return $next($request);
         }
 

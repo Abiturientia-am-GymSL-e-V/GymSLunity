@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { usePasskeyVerify } from '@laravel/passkeys/vue';
-import { Form, Head } from '@inertiajs/vue3';
+import { Form, Head, usePage } from '@inertiajs/vue3';
 import { KeyRound } from '@lucide/vue';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
@@ -25,6 +25,8 @@ defineProps<{
     canResetPassword: boolean;
 }>();
 
+const demo = usePage().props.demo;
+
 const {
     verify: verifyPasskey,
     isLoading: passkeyLoading,
@@ -43,6 +45,29 @@ const {
 
     <StatusAlert v-if="status" type="success" class="mb-4">
         {{ status }}
+    </StatusAlert>
+
+    <StatusAlert
+        v-if="demo"
+        type="info"
+        title="Zugangsdaten der Demo"
+        class="mb-6"
+    >
+        <p>
+            Alle Konten verwenden das Passwort
+            <code class="font-mono font-medium break-all select-all">{{
+                demo.password
+            }}</code
+            >.
+        </p>
+        <dl class="mt-3 space-y-2">
+            <div v-for="account in demo.accounts" :key="account.email">
+                <dt class="font-mono font-medium break-all select-all">
+                    {{ account.email }}
+                </dt>
+                <dd>{{ account.roles }}</dd>
+            </div>
+        </dl>
     </StatusAlert>
 
     <Form
