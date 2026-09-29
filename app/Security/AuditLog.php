@@ -33,6 +33,7 @@ final class AuditLog
         'selfservice_passkey_login' => 'Portal-Anmeldung mit Passkey',
         'selfservice_passkey_deleted' => 'Portal-Passkey gelöscht',
         'roles_changed' => 'Rollen geändert',
+        'user_invitation_sent' => 'Zugangsmail für Benutzerkonto versendet',
         'data_export' => 'Datenexport',
         'document_access' => 'Dokument abgerufen',
         'session_revoked' => 'Sitzung beendet',
