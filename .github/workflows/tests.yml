@@ -50,4 +50,3 @@ jobs:
     uses: ./.github/workflows/demo-deploy.yml
     with:
       target: next
-    secrets: inherit

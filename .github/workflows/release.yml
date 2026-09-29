@@ -99,4 +99,3 @@ jobs:
     uses: ./.github/workflows/demo-deploy.yml
     with:
       target: release
-    secrets: inherit
