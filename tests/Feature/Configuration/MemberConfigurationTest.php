@@ -13,11 +13,13 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Concerns\WithSchoolMemberFields;
 use Tests\TestCase;
 
 class MemberConfigurationTest extends TestCase
 {
     use RefreshDatabase;
+    use WithSchoolMemberFields;
 
     private function admin(): User
     {

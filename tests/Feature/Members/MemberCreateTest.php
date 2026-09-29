@@ -10,11 +10,13 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Concerns\WithSchoolMemberFields;
 use Tests\TestCase;
 
 class MemberCreateTest extends TestCase
 {
     use RefreshDatabase;
+    use WithSchoolMemberFields;
 
     public function test_editor_can_open_form_and_create_member(): void
     {
