@@ -104,7 +104,7 @@ class InstallApplication extends Command
             $missing[] = 'PHP 8.3 oder neuer';
         }
 
-        foreach (['ctype', 'curl', 'dom', 'fileinfo', 'filter', 'hash', 'mbstring', 'openssl', 'pcre', 'pdo', 'session', 'tokenizer', 'xml', 'zip'] as $extension) {
+        foreach (['ctype', 'curl', 'dom', 'fileinfo', 'filter', 'gd', 'hash', 'iconv', 'mbstring', 'openssl', 'pcre', 'pdo', 'session', 'tokenizer', 'xml', 'zip'] as $extension) {
             if (! extension_loaded($extension)) {
                 $missing[] = 'PHP-Erweiterung '.$extension;
             }

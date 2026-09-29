@@ -27,8 +27,9 @@ server {
     ssl_certificate /etc/letsencrypt/live/verein.example.org/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/verein.example.org/privkey.pem;
 
-    # Erst aktivieren, wenn die Domain dauerhaft ausschließlich HTTPS nutzt.
-    # add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    # HSTS setzt GymSLunity in Produktion selbst (SECURITY_HSTS_MAX_AGE in der
+    # .env, 0 hebt es auf). Hier nicht zusätzlich setzen, sonst wird der Header
+    # doppelt gesendet.
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
