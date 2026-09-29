@@ -12,11 +12,13 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Tests\Concerns\WithSchoolMemberFields;
 use Tests\TestCase;
 
 class MemberCardTest extends TestCase
 {
     use RefreshDatabase;
+    use WithSchoolMemberFields;
 
     public function test_card_contains_all_current_fields_archived_values_history_and_document_references(): void
     {

@@ -37,8 +37,15 @@ return new class extends Migration
             $table->timestamps();
         });
         $legacy = ['graduation', 'graduation_year', 'is_former_student'];
+        // The school specific fields only become custom fields when an
+        // existing installation has members whose values must be kept. New
+        // clubs add such fields themselves under member field configuration.
+        $keepLegacy = DB::table('members')->exists();
         $fields = File::json(database_path('data/member-fields-v1.json'), JSON_THROW_ON_ERROR);
         foreach ($fields as $field) {
+            if (! $keepLegacy && in_array($field['key'], $legacy, true)) {
+                continue;
+            }
             if ($field['key'] === 'membership_type') {
                 $choices = array_unique(['Aktiv/ordentliches Mitglied', 'Fördermitglied', ...DB::table('members')->distinct()->pluck('membership_type')->all()]);
                 $field['options'] = array_map(fn ($value) => ['value' => $value, 'label' => $value, 'active' => true], array_values($choices));

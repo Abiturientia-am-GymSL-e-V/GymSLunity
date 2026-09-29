@@ -9,11 +9,13 @@ use App\Models\User;
 use Database\Seeders\DemoMembersSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Concerns\WithSchoolMemberFields;
 use Tests\TestCase;
 
 class MemberIndexTest extends TestCase
 {
     use RefreshDatabase;
+    use WithSchoolMemberFields;
 
     private function signIn(array $roles = ['mv']): User
     {

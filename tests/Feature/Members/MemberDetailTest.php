@@ -17,11 +17,13 @@ use Illuminate\Support\Facades\Event;
 use Inertia\Testing\AssertableInertia as Assert;
 use LogicException;
 use RuntimeException;
+use Tests\Concerns\WithSchoolMemberFields;
 use Tests\TestCase;
 
 class MemberDetailTest extends TestCase
 {
     use RefreshDatabase;
+    use WithSchoolMemberFields;
 
     private function signIn(array $roles = ['mv']): User
     {
