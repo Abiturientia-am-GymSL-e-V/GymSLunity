@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Configuration;
 
 use App\Http\Controllers\Controller;
+use App\System\UpdateCheck;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class SystemController extends Controller
 {
-    public function __invoke(): Response
+    public function __invoke(UpdateCheck $updates): Response
     {
         $cache = (string) config('cache.default');
         $session = (string) config('session.driver');
@@ -21,6 +23,8 @@ class SystemController extends Controller
         $production = app()->isProduction();
 
         return Inertia::render('configuration/System', [
+            // Loaded after the page so a slow GitHub API never delays it.
+            'version' => Inertia::defer(fn (): array => $updates->status()),
             'runtime' => [
                 'productName' => (string) config('app.name'),
                 'environment' => app()->environment(),
@@ -83,5 +87,13 @@ class SystemController extends Controller
                 ],
             ],
         ]);
+    }
+
+    /** Discards the cached release information and checks again. */
+    public function checkForUpdates(UpdateCheck $updates): RedirectResponse
+    {
+        $updates->forget();
+
+        return back();
     }
 }
