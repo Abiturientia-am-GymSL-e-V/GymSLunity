@@ -8,6 +8,7 @@ use App\Http\Middleware\EnsureActiveUser;
 use App\Http\Middleware\EnsureSoftwareModuleEnabled;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\ProtectDemo;
 use App\Http\Middleware\RequirePrivilegedTwoFactor;
 use App\Http\Middleware\RequireRecentPassword;
 use App\Http\Middleware\SecurityHeaders;
@@ -33,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             EnsureActiveUser::class,
+            ProtectDemo::class,
             EnforceSessionInactivity::class,
             RequirePrivilegedTwoFactor::class,
             HandleAppearance::class,

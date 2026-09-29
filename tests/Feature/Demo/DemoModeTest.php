@@ -35,6 +35,7 @@ class DemoModeTest extends TestCase
         config(['demo.enabled' => true, 'demo.password' => 'Geteiltes-Passwort']);
 
         $this->get(route('login'))->assertInertia(fn (Assert $page) => $page
+            ->where('canResetPassword', false)
             ->where('demo.password', 'Geteiltes-Passwort')
             ->where('demo.resetAt', '00:00')
             ->has('demo.accounts', count(DemoAccounts::USERS))

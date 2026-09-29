@@ -144,11 +144,15 @@ Nur für eine öffentliche Demo-Instanz ohne echte Vereinsdaten. Im Demo-Modus z
 
 Die Demo verschickt keine E-Mails, auch wenn unter **Konfiguration → E-Mail-Versand** ein Server eingetragen ist. Alle Nachrichten landen im öffentlichen Demo-Postfach unter `/demo/postfach`, das der Banner verlinkt. Dort stehen auch die Anmeldelinks für das Demo-Mitglied im Mitgliederbereich. Das Postfach behält die letzten 500 Nachrichten und wird mit der Demo zurückgesetzt.
 
-| Variable        | Vorlage              | Bedeutung                                                                               |
-| --------------- | -------------------- | --------------------------------------------------------------------------------------- |
-| `DEMO_MODE`     | `false`              | `true` aktiviert den Demo-Modus. **Niemals auf einer Instanz mit echten Daten setzen.** |
-| `DEMO_PASSWORD` | `Demo-Passwort-2026` | Gemeinsames Passwort aller Demo-Konten. Es steht öffentlich auf der Anmeldeseite.       |
-| `DEMO_RESET_AT` | `00:00`              | Uhrzeit der nächtlichen Zurücksetzung in der Zeitzone aus `APP_DISPLAY_TIMEZONE`.       |
+| Variable           | Vorlage              | Bedeutung                                                                                                                           |
+| ------------------ | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `DEMO_MODE`        | `false`              | `true` aktiviert den Demo-Modus. **Niemals auf einer Instanz mit echten Daten setzen.**                                             |
+| `DEMO_PASSWORD`    | `Demo-Passwort-2026` | Gemeinsames Passwort aller Demo-Konten. Es steht öffentlich auf der Anmeldeseite.                                                   |
+| `DEMO_RESET_AT`    | `00:00`              | Uhrzeit der nächtlichen Zurücksetzung in der Zeitzone aus `APP_DISPLAY_TIMEZONE`.                                                   |
+| `DEMO_IMPRINT_URL` | –                    | Impressum des Demo-Betreibers. `/impressum` leitet im Demo-Modus dorthin weiter statt auf das Impressum des fiktiven Mustervereins. |
+| `DEMO_PRIVACY_URL` | –                    | Datenschutzerklärung des Demo-Betreibers, entsprechend für `/datenschutz`.                                                          |
+
+Damit ein Besucher die Demo nicht für andere unbrauchbar machen kann, sind im Demo-Modus gesperrt: Passwort-Zurücksetzen (die Links stünden im öffentlichen Postfach), Änderungen an Profil, Passwort, zweitem Faktor, Passkeys und Sitzungen der eigenen Anmeldung, Änderungen an den Demo-Konten in der Benutzerverwaltung, Backups und deren Wiederherstellung sowie die öffentlich sichtbaren Vereinsdaten, das Logo und die Startseite. Die Sitzungsliste der Demo-Konten zeigt nur die eigene Sitzung, und Quittungen sowie im Mitgliederbereich unterschriebene Dokumente enthalten keine IP-Adresse. Alle Seiten senden `X-Robots-Tag: noindex, nofollow`.
 
 ## Entwicklung
 
