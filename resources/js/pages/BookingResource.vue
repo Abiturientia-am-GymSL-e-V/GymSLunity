@@ -22,7 +22,7 @@ defineOptions({
 
 <template>
     <Head :title="'Belegung · ' + resource.name" />
-    <div class="mx-auto w-full max-w-[1500px] space-y-6 p-4 sm:p-6">
+    <div class="mx-auto w-full max-w-[1200px] space-y-6 p-4 sm:p-6">
         <header>
             <Button as-child variant="ghost" size="sm">
                 <Link href="/buchungen/ressourcen"

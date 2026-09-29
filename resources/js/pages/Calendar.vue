@@ -278,7 +278,7 @@ const addCalendar = () => manageDialog.value?.add();
 
 <template>
     <Head title="Kalender" />
-    <div class="mx-auto w-full max-w-[1500px] space-y-5 p-4 sm:p-6">
+    <div class="mx-auto w-full max-w-[1200px] space-y-6 p-4 sm:p-6">
         <header class="flex flex-wrap items-start justify-between gap-4">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight">

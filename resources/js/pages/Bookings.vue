@@ -71,7 +71,7 @@ function decide(booking: ResourceBooking, decision: 'approve' | 'reject') {
 
 <template>
     <Head title="Buchungen" />
-    <div class="mx-auto w-full max-w-[1500px] space-y-6 p-4 sm:p-6">
+    <div class="mx-auto w-full max-w-[1200px] space-y-6 p-4 sm:p-6">
         <header>
             <h1 class="text-2xl font-semibold tracking-tight">Buchungen</h1>
             <p class="mt-1 text-sm text-muted-foreground">
