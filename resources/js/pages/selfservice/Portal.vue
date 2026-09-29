@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { formatDate, formatMoney } from '@/lib/format';
 import { formatIban } from '@/lib/formatIban';
 import { renew as renewCalendarLinkRoute } from '@/routes/selfservice/calendar-link';
+import { receipt as transactionReceipt } from '@/routes/selfservice/transactions';
 import {
     Dialog,
     DialogContent,
@@ -415,6 +416,12 @@ function subscriptionLink(value: string) {
                         {{ formatDate(entry.booking_date)
                         }}<template v-if="entry.reference">
                             · {{ entry.reference }}</template
+                        >
+                        ·
+                        <a
+                            :href="transactionReceipt.url(entry.id)"
+                            class="underline underline-offset-2 hover:text-foreground"
+                            >Beleg herunterladen</a
                         >
                     </p>
                 </li>
