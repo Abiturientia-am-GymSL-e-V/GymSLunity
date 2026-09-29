@@ -55,6 +55,30 @@ class BookingSystemTest extends TestCase
         $this->assertNull($booking->charge_transaction_id);
     }
 
+    public function test_resource_form_payload_without_duration_pricing_ignores_the_unused_price_tiers(): void
+    {
+        $this->actingAs(User::factory()->create(['roles' => ['admin']]));
+        $emptyTier = ['from_value' => 0, 'from_unit' => 'hours', 'unit_value' => 1, 'unit' => 'hours', 'price' => ''];
+        $payload = fn (array $values): array => [
+            'name' => 'Beamer', 'description' => '', 'location' => '', 'parent_id' => '', 'inventory_item_id' => '',
+            'access_rules' => [], 'auto_approve_rules' => [], 'price' => '',
+            'pricing_rules' => [$emptyTier], 'is_active' => true, ...$values,
+        ];
+
+        $this->post(route('bookings.resources.store'), $payload(['price_mode' => 'free']))->assertSessionHasNoErrors();
+        $this->post(route('bookings.resources.store'), $payload(['name' => 'Bus', 'price_mode' => 'once', 'price' => '25.50']))
+            ->assertSessionHasNoErrors();
+
+        $free = BookingResource::query()->where('name', 'Beamer')->sole();
+        $this->assertSame('free', $free->price_mode);
+        $this->assertSame(0, $free->price_cents);
+        $this->assertSame([], $free->pricing_rules);
+        $this->assertSame(2550, BookingResource::query()->where('name', 'Bus')->sole()->price_cents);
+
+        $this->post(route('bookings.resources.store'), $payload(['name' => 'Halle', 'price_mode' => 'duration']))
+            ->assertSessionHasErrors('pricing_rules.0.price');
+    }
+
     public function test_resource_hierarchy_and_auto_approval_are_validated(): void
     {
         $this->actingAs(User::factory()->create(['roles' => ['admin']]));

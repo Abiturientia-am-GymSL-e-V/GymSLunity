@@ -61,7 +61,7 @@ class BookingResourceRequest extends FormRequest
             'auto_approve_rules.*.value' => ['required', 'string', 'max:255'],
             'price_mode' => ['required', Rule::in(['free', 'once', 'duration', 'hour', 'day'])],
             'price' => ['required_if:price_mode,once', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999.99'],
-            'pricing_rules' => ['required_if:price_mode,duration,hour,day', 'array', 'max:20'],
+            'pricing_rules' => ['exclude_unless:price_mode,duration,hour,day', 'required', 'array', 'max:20'],
             'pricing_rules.*.from_value' => ['required', 'integer', 'min:0', 'max:525600'],
             'pricing_rules.*.from_unit' => ['required', Rule::in(['minutes', 'hours', 'days'])],
             'pricing_rules.*.unit_value' => ['required', 'integer', 'min:1', 'max:525600'],

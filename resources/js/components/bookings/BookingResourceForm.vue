@@ -169,6 +169,13 @@ function removeAccessRule(index: number) {
             (item) => ruleKey(item) !== ruleKey(removed),
         );
 }
+function pricingRuleError(index: number) {
+    const errors = form.errors as Record<string, string | undefined>;
+
+    return ['from_value', 'from_unit', 'unit_value', 'unit', 'price']
+        .map((key) => errors['pricing_rules.' + index + '.' + key])
+        .find(Boolean);
+}
 function useInventoryItem() {
     const item = props.inventoryItems.find(
         (entry) => String(entry.id) === form.inventory_item_id,
@@ -472,6 +479,10 @@ function submit() {
                             @click="form.pricing_rules.splice(index, 1)"
                             ><Trash2 class="size-4"
                         /></Button>
+                        <InputError
+                            class="sm:col-span-2 xl:col-span-6"
+                            :message="pricingRuleError(index)"
+                        />
                     </div>
                     <Button
                         type="button"
