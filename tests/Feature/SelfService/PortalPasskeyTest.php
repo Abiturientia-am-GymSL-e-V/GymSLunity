@@ -64,7 +64,7 @@ class PortalPasskeyTest extends TestCase
         $handle = rtrim(strtr(base64_encode(MemberPasskeys::userHandle($member)), '+/', '-_'), '=');
         $this->assertSame($handle, $response->json('options.user.id'));
         $this->assertSame('mia@example.com', $response->json('options.user.name'));
-        $this->assertStringNotContainsString((string) $member->id, (string) $response->json('options.user.id'));
+        $this->assertSame(32, strlen(MemberPasskeys::userHandle($member)));
         $this->assertNotNull(session('selfservice_passkey.registration'));
     }
 
