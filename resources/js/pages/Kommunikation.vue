@@ -32,20 +32,25 @@ import type {
     Campaign,
     CommunicationTab,
     Delivery,
-    RecipientFilterOptions,
     RecipientFilters,
-    RecipientPreviewRow,
+    RecipientPreviewPage,
     RecipientSummary,
 } from '@/types/communication';
-import type { MemberField } from '@/types/members';
+import {
+    recipientFilterEntries,
+    recipientPseudoFields,
+    toBuilderFilters,
+    toRecipientFilters,
+} from '@/lib/recipientFilters';
+import type { MemberFilter, MemberFilterField } from '@/types/members';
 
 const props = defineProps<{
     activeTab: CommunicationTab;
     filters: RecipientFilters;
-    filterOptions: RecipientFilterOptions;
-    customFilters: MemberField[];
+    filterFields: MemberFilterField[];
+    template: { id: number; subject: string; body: string } | null;
     summary: RecipientSummary;
-    preview: RecipientPreviewRow[];
+    preview: RecipientPreviewPage;
     placeholders: { token: string; label: string; group: string }[];
     mailConfiguration: {
         driver: string;
@@ -87,23 +92,18 @@ const pageCopy: Record<CommunicationTab, { title: string; subtitle: string }> =
             subtitle: 'Versand- und Exportvorgänge nachvollziehen.',
         },
     };
-const filterDraft = reactive<RecipientFilters>({
-    ...props.filters,
-    custom: { ...props.filters.custom },
-});
-const currentQuery = computed(() => {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(filterDraft)) {
-        if (key === 'custom') {
-            for (const [customKey, customValue] of Object.entries(
-                value as Record<string, string>,
-            ))
-                if (customValue)
-                    params.set(`custom[${customKey}]`, customValue);
-        } else if (value) params.set(key, String(value));
-    }
-    return params.toString();
-});
+const filterFieldsWithStatus = computed(() => [
+    ...recipientPseudoFields,
+    ...props.filterFields,
+]);
+const search = ref(props.filters.q);
+const filterChips = ref<MemberFilter[]>(toBuilderFilters(props.filters));
+const draftFilters = computed<RecipientFilters>(() =>
+    toRecipientFilters(search.value, filterChips.value),
+);
+const currentQuery = computed(() =>
+    new URLSearchParams(recipientFilterEntries(props.filters)).toString(),
+);
 const tabUrl = (path: string) =>
     `${path}${currentQuery.value ? `?${currentQuery.value}` : ''}`;
 const activePath = computed(
@@ -112,34 +112,24 @@ const activePath = computed(
         '/kommunikation/serienmails',
 );
 const applyFilters = () =>
-    router.get(activePath.value, filterDraft, {
-        preserveState: true,
-        preserveScroll: true,
-        replace: true,
-    });
+    router.get(
+        `${activePath.value}?${new URLSearchParams(recipientFilterEntries(draftFilters.value))}`,
+        {},
+        { preserveState: true, preserveScroll: true, replace: true },
+    );
 const resetFilters = () => {
-    Object.assign(filterDraft, {
-        q: '',
-        status: 'active',
-        membership: '',
-        department_role: '',
-        club_role: '',
-        gender: '',
-        payment_method: '',
-        city: '',
-        honorary: '',
-        email_status: '',
-        address_status: '',
-        joined_from: '',
-        joined_to: '',
-        custom: {},
-    });
+    search.value = '';
+    filterChips.value = [
+        { id: 1, key: '__status', value: 'active', valueTo: '' },
+    ];
     applyFilters();
 };
 watch(
     () => props.filters,
-    (filters) =>
-        Object.assign(filterDraft, filters, { custom: { ...filters.custom } }),
+    (filters) => {
+        search.value = filters.q;
+        filterChips.value = toBuilderFilters(filters);
+    },
 );
 
 type MailForm = {
@@ -149,8 +139,8 @@ type MailForm = {
     attachments: File[];
 };
 const mailForm = useForm<MailForm>({
-    subject: props.defaults.subject,
-    body: props.defaults.body,
+    subject: props.template?.subject ?? props.defaults.subject,
+    body: props.template?.body ?? props.defaults.body,
     confirmed: false,
     attachments: [],
 });
@@ -162,8 +152,8 @@ const serverErrors = computed(
     () => (page.props.errors ?? {}) as Record<string, string>,
 );
 const letter = reactive({
-    subject: props.defaults.subject,
-    body: props.defaults.body,
+    subject: props.template?.subject ?? props.defaults.subject,
+    body: props.template?.body ?? props.defaults.body,
     format: 'pdf',
     confirmed: false,
 });
@@ -242,11 +232,13 @@ const number = new Intl.NumberFormat('de-DE');
 const hasFilters = computed(
     () =>
         props.filters.status !== 'active' ||
-        Object.entries(props.filters).some(
-            ([key, value]) =>
-                key !== 'status' && key !== 'custom' && value !== '',
-        ) ||
-        Object.keys(props.filters.custom).length > 0,
+        props.filters.q !== '' ||
+        props.filters.email_status !== '' ||
+        props.filters.address_status !== '' ||
+        props.filters.fields.length > 0,
+);
+const letterFilterEntries = computed(() =>
+    recipientFilterEntries(props.filters),
 );
 </script>
 
@@ -283,9 +275,9 @@ const hasFilters = computed(
 
         <template v-if="activeTab !== 'history'">
             <RecipientFilter
-                :draft="filterDraft"
-                :filter-options="filterOptions"
-                :custom-filters="customFilters"
+                v-model:search="search"
+                v-model:filters="filterChips"
+                :fields="filterFieldsWithStatus"
                 :has-filters="hasFilters"
                 @apply="applyFilters"
                 @reset="resetFilters"
@@ -458,24 +450,13 @@ const hasFilters = computed(
                                 type="hidden"
                                 name="_token"
                                 :value="csrfToken"
-                            /><template
-                                v-for="(value, key) in filters"
-                                :key="key"
-                                ><template v-if="key === 'custom'"
-                                    ><input
-                                        v-for="(
-                                            customValue, customKey
-                                        ) in value"
-                                        :key="customKey"
-                                        type="hidden"
-                                        :name="`custom[${customKey}]`"
-                                        :value="customValue" /></template
-                                ><input
-                                    v-else
-                                    type="hidden"
-                                    :name="key"
-                                    :value="value" /></template
-                            ><InputError :message="serverErrors.recipients" />
+                            /><input
+                                v-for="[name, value] in letterFilterEntries"
+                                :key="name"
+                                type="hidden"
+                                :name="name"
+                                :value="value"
+                            /><InputError :message="serverErrors.recipients" />
                             <div class="grid gap-2">
                                 <Label for="letter-subject">Betreff</Label
                                 ><Input

@@ -1,28 +1,17 @@
 export type CommunicationTab = 'mail' | 'letters' | 'history';
 
+export type RecipientFieldFilter = {
+    key: string;
+    value: string;
+    value_to: string;
+};
+
 export type RecipientFilters = {
     q: string;
     status: string;
-    membership: string;
-    department_role: string;
-    club_role: string;
-    gender: string;
-    payment_method: string;
-    city: string;
-    honorary: string;
     email_status: string;
     address_status: string;
-    joined_from: string;
-    joined_to: string;
-    custom: Record<string, string>;
-};
-
-export type RecipientFilterOptions = {
-    memberships: string[];
-    departmentRoles: string[];
-    clubRoles: string[];
-    paymentMethods: string[];
-    cities: string[];
+    fields: RecipientFieldFilter[];
 };
 
 export type RecipientSummary = {
@@ -31,6 +20,15 @@ export type RecipientSummary = {
     without_email: number;
     complete_address: number;
     incomplete_address: number;
+};
+
+export type RecipientPreviewPage = {
+    data: RecipientPreviewRow[];
+    total: number;
+    current_page: number;
+    last_page: number;
+    prev_page_url: string | null;
+    next_page_url: string | null;
 };
 
 export type RecipientPreviewRow = {

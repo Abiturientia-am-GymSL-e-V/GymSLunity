@@ -148,3 +148,19 @@ export type MemberHistory = {
     prev_page_url: string | null;
     next_page_url: string | null;
 };
+
+/** A field offered in the member filter builder; "status" is a fixed choice list. */
+export type MemberFilterField = Pick<
+    MemberField,
+    'key' | 'label' | 'options'
+> & {
+    type: MemberField['type'] | 'status';
+};
+
+/** One filter chosen in the member filter builder; valueTo is used for ranges. */
+export type MemberFilter = {
+    id: number;
+    key: string;
+    value: string;
+    valueTo: string;
+};

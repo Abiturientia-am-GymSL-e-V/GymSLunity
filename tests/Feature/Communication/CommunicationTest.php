@@ -79,10 +79,27 @@ class CommunicationTest extends TestCase
             ->where('summary.total', 1)
             ->where('summary.with_email', 1)
             ->where('summary.complete_address', 1)
-            ->has('preview', 1)
-            ->where('preview.0.member_number', $matching->member_number)
-            ->where('preview.0.name', 'Anna Adler')
-            ->where('filters.custom.custom_graduation_year', '2010'));
+            ->has('preview.data', 1)
+            ->where('preview.data.0.member_number', $matching->member_number)
+            ->where('preview.data.0.name', 'Anna Adler')
+            // Older single parameters are converted into field filters.
+            ->where('filters.fields', fn ($fields): bool => collect($fields)->contains(
+                fn (array $field): bool => $field['key'] === 'custom_graduation_year' && $field['value'] === '2010',
+            )));
+
+        $this->get(route('communication.mail', [
+            'status' => 'all',
+            'fields' => [
+                ['key' => 'membership_type', 'value' => 'Fördermitglied'],
+                ['key' => 'joined_at', 'value' => '2026-01-01', 'value_to' => '2026-12-31'],
+                ['key' => 'city', 'value' => 'erl'],
+                ['key' => 'department_role', 'value' => '__any__'],
+            ],
+        ]))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('summary.total', 1)
+            ->where('preview.data.0.member_number', $matching->member_number));
+        $this->get(route('communication.mail', ['fields' => [['key' => 'iban', 'value' => 'DE']]]))
+            ->assertSessionHasErrors('fields.0.key');
 
         $this->get(route('communication.mail', ['status' => 'contacts']))
             ->assertInertia(fn (Assert $page) => $page->where('summary.total', 1));
@@ -90,6 +107,44 @@ class CommunicationTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->where('summary.total', 1));
         $this->get(route('communication.mail', ['status' => 'former']))
             ->assertInertia(fn (Assert $page) => $page->where('summary.total', 1));
+    }
+
+    public function test_recipient_preview_is_paginated(): void
+    {
+        Member::factory()->count(30)->create();
+
+        $this->get(route('communication.mail'))->assertInertia(fn (Assert $page) => $page
+            ->where('summary.total', 30)
+            ->has('preview.data', 25)
+            ->where('preview.last_page', 2));
+        $this->get(route('communication.mail', ['preview_page' => 2]))
+            ->assertInertia(fn (Assert $page) => $page->has('preview.data', 5));
+    }
+
+    public function test_campaign_can_be_reused_as_template_and_reported_as_pdf(): void
+    {
+        Mail::fake();
+        Member::factory()->create(['email' => 'anna@example.org', 'city' => 'Berlin']);
+        Member::factory()->create(['email' => 'bert@example.org', 'city' => 'Hamburg']);
+        $this->post(route('communication.mail.send'), [
+            'status' => 'active',
+            'fields' => [['key' => 'city', 'value' => 'Berlin']],
+            'subject' => 'Einladung',
+            'body' => '<p>Hallo {{mitglied.name}}</p>',
+            'confirmed' => '1',
+        ])->assertRedirect();
+        $campaign = CommunicationCampaign::query()->sole();
+
+        $this->get(route('communication.letters', ['campaign_template' => $campaign->id]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('template.subject', 'Einladung')
+                ->where('template.body', '<p>Hallo {{mitglied.name}}</p>')
+                ->where('filters.fields.0.key', 'city')
+                ->where('summary.total', 1));
+
+        $response = $this->get(route('communication.report', $campaign));
+        $response->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF-', $response->getContent());
     }
 
     public function test_serial_mail_is_personalized_sent_individually_and_audited(): void

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Members\MemberFieldFilter;
 use App\Models\MemberFieldDefinition;
 use App\Security\SecureUploadInspector;
 use Closure;
@@ -61,6 +62,11 @@ class CommunicationRequest extends FormRequest
                 'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv,image/png,image/jpeg,image/webp',
             ],
             'campaign' => ['nullable', 'integer', 'min:1', 'exists:communication_campaigns,id'],
+            'campaign_template' => ['nullable', 'integer', 'min:1'],
+            'fields' => ['nullable', 'array', 'max:30'],
+            'fields.*.key' => ['required', 'string', Rule::in(array_column(MemberFieldFilter::fields(), 'key'))],
+            'fields.*.value' => ['nullable', 'string', 'max:255'],
+            'fields.*.value_to' => ['nullable', 'string', 'max:255'],
         ];
         foreach ($custom as $field) {
             $rules['custom.'.$field->key] = ['nullable', ...match ($field->type) {
@@ -97,29 +103,69 @@ class CommunicationRequest extends FormRequest
         }];
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * Recipient filters: status, search, contact data quality and a list of
+     * field filters. The older single parameters (membership, city, custom,
+     * …) are converted into field filters, so saved campaigns keep working.
+     *
+     * @return array{q: string, status: string, email_status: string, address_status: string, fields: list<array{key: string, value: string, value_to: string}>}
+     */
     public function filters(): array
     {
-        $data = $this->validated();
+        return self::normalizeFilters($this->validated());
+    }
+
+    /**
+     * Also used for the stored filters of an earlier campaign; keys of
+     * fields that no longer exist are dropped.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{q: string, status: string, email_status: string, address_status: string, fields: list<array{key: string, value: string, value_to: string}>}
+     */
+    public static function normalizeFilters(array $data): array
+    {
+        $text = fn (mixed $value): string => is_scalar($value) ? trim((string) $value) : '';
+        $fields = [];
+        $add = function (string $key, string $value, string $to = '') use (&$fields): void {
+            if ($value !== '' || $to !== '') {
+                $fields[] = ['key' => $key, 'value' => $value, 'value_to' => $to];
+            }
+        };
+        $add('membership_type', $text($data['membership'] ?? ''));
+        foreach (['department_role', 'club_role', 'gender', 'payment_method', 'city'] as $key) {
+            $add($key, $text($data[$key] ?? ''));
+        }
+        $add('is_honorary', match ($data['honorary'] ?? '') {
+            'yes' => '1', 'no' => '0', default => '',
+        });
+        $add('joined_at', $text($data['joined_from'] ?? ''), $text($data['joined_to'] ?? ''));
+        foreach (is_array($data['custom'] ?? null) ? $data['custom'] : [] as $key => $value) {
+            // Exact values of number and date fields become a one-value range.
+            $add((string) $key, $text($value), $text($value));
+        }
+        foreach (is_array($data['fields'] ?? null) ? $data['fields'] : [] as $field) {
+            if (is_array($field)) {
+                $add($text($field['key'] ?? ''), $text($field['value'] ?? ''), $text($field['value_to'] ?? ''));
+            }
+        }
+        $known = collect(MemberFieldFilter::fields())->keyBy('key');
+        $fields = array_values(array_map(function (array $field) use ($known): array {
+            // A one-value range only makes sense for dates and numbers.
+            if (! in_array($known[$field['key']]['type'] ?? '', ['date', 'number', 'decimal'], true)) {
+                $field['value_to'] = '';
+            }
+
+            return $field;
+        }, array_filter($fields, fn (array $field): bool => $known->has($field['key']))));
+
+        $choose = fn (mixed $value, array $allowed, string $default): string => in_array($value, $allowed, true) ? $value : $default;
 
         return [
-            'q' => trim($data['q'] ?? ''),
-            'status' => $data['status'] ?? 'active',
-            'membership' => $data['membership'] ?? '',
-            'department_role' => $data['department_role'] ?? '',
-            'club_role' => $data['club_role'] ?? '',
-            'gender' => $data['gender'] ?? '',
-            'payment_method' => $data['payment_method'] ?? '',
-            'city' => $data['city'] ?? '',
-            'honorary' => $data['honorary'] ?? '',
-            'email_status' => $data['email_status'] ?? '',
-            'address_status' => $data['address_status'] ?? '',
-            'joined_from' => $data['joined_from'] ?? '',
-            'joined_to' => $data['joined_to'] ?? '',
-            'custom' => array_map(
-                fn ($value): string => (string) $value,
-                array_filter($data['custom'] ?? [], fn ($value): bool => $value !== null && $value !== ''),
-            ),
+            'q' => mb_substr($text($data['q'] ?? ''), 0, 120),
+            'status' => $choose($data['status'] ?? null, ['active', 'contacts', 'former', 'future', 'all'], 'active'),
+            'email_status' => $choose($data['email_status'] ?? null, ['with', 'without'], ''),
+            'address_status' => $choose($data['address_status'] ?? null, ['complete', 'incomplete'], ''),
+            'fields' => array_slice($fields, 0, 30),
         ];
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Communication;
 
 use App\Members\MemberDirectory;
+use App\Members\MemberFieldFilter;
 use App\Models\Member;
 use App\Support\Clock;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,13 +19,14 @@ final class CommunicationRecipients
     {
         $query = MemberDirectory::query([
             'q' => $filters['q'],
-            'membership' => $filters['membership'],
-            'department_role' => $filters['department_role'],
-            'club_role' => $filters['club_role'],
-            'custom' => $filters['custom'],
+            'membership' => '',
+            'department_role' => '',
+            'club_role' => '',
+            'custom' => [],
             'sort' => 'name',
             'direction' => 'asc',
         ]);
+        MemberFieldFilter::apply($query, $filters['fields'] ?? []);
         $today = Clock::today()->toDateString();
 
         match ($filters['status']) {
@@ -39,19 +41,6 @@ final class CommunicationRecipients
             default => null,
         };
 
-        foreach (['payment_method', 'city'] as $column) {
-            if ($filters[$column] !== '') {
-                $query->where($column, $filters[$column]);
-            }
-        }
-        if ($filters['gender'] === '__none__') {
-            $query->where(fn (Builder $builder) => $builder->whereNull('gender')->orWhere('gender', ''));
-        } elseif ($filters['gender'] !== '') {
-            $query->where('gender', $filters['gender']);
-        }
-        if ($filters['honorary'] !== '') {
-            $query->where('is_honorary', $filters['honorary'] === 'yes');
-        }
         if ($filters['email_status'] === 'with') {
             self::present($query, 'email');
         } elseif ($filters['email_status'] === 'without') {
@@ -67,12 +56,6 @@ final class CommunicationRecipients
                     $builder->orWhereNull($column)->orWhere($column, '');
                 }
             });
-        }
-        if ($filters['joined_from'] !== '') {
-            $query->whereDate('joined_at', '>=', $filters['joined_from']);
-        }
-        if ($filters['joined_to'] !== '') {
-            $query->whereDate('joined_at', '<=', $filters['joined_to']);
         }
 
         return $query;

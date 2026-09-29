@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { Archive, Mail } from '@lucide/vue';
+import { Archive, Copy, FileDown, Mail } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Card,
     CardContent,
@@ -17,6 +18,9 @@ defineProps<{
     selectedCampaign: Campaign | null;
     deliveries: Delivery[];
 }>();
+/** Opens the matching editor with subject, text and recipient filters. */
+const templateUrl = (campaign: Campaign) =>
+    `/kommunikation/${campaign.kind === 'mail' ? 'serienmails' : 'serienbriefe'}?campaign_template=${campaign.id}`;
 </script>
 
 <template>
@@ -130,7 +134,19 @@ defineProps<{
                             .join(', ')
                     }}
                 </template></CardDescription
-            ></CardHeader
+            >
+            <div class="flex flex-wrap gap-2 pt-2">
+                <Button as-child variant="outline" size="sm"
+                    ><Link :href="templateUrl(selectedCampaign)"
+                        ><Copy class="size-4" />Als Vorlage verwenden</Link
+                    ></Button
+                ><Button as-child variant="outline" size="sm"
+                    ><a
+                        :href="`/kommunikation/verlauf/${selectedCampaign.id}/bericht.pdf`"
+                        ><FileDown class="size-4" />PDF-Bericht</a
+                    ></Button
+                >
+            </div></CardHeader
         ><CardContent class="overflow-x-auto p-0"
             ><table class="w-full min-w-[720px] text-sm">
                 <thead
