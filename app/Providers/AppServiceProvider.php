@@ -59,6 +59,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('view-inventory', fn (User $user): bool => $user->is_active && count(array_intersect($user->roles ?? [], ['admin', 'vereinsverwaltung'])) > 0);
         Gate::define('view-calendar', fn (User $user): bool => $user->is_active && count(array_intersect($user->roles ?? [], ['admin', 'vereinsverwaltung', 'mv'])) > 0);
         Gate::define('view-bookings', fn (User $user): bool => $user->is_active && count(array_intersect($user->roles ?? [], ['admin', 'vereinsverwaltung', 'mv'])) > 0);
+        Gate::define('view-audit', fn (User $user): bool => $user->is_active && count(array_intersect($user->roles ?? [], ['admin', 'auditor', 'kp'])) > 0);
         Gate::define('view-communication', fn (User $user): bool => $user->is_active && count(array_intersect($user->roles ?? [], ['admin', 'vereinsverwaltung', 'mv'])) > 0);
     }
 

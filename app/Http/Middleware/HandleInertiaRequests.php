@@ -73,6 +73,7 @@ class HandleInertiaRequests extends Middleware
                 'viewCalendar' => fn () => ($request->user()?->can('view-calendar') ?? false) && $moduleValues()['calendar'],
                 'viewBookings' => fn () => ($request->user()?->can('view-bookings') ?? false) && $moduleValues()['bookings'],
                 'viewCommunication' => fn () => ($request->user()?->can('view-communication') ?? false) && $moduleValues()['communication'],
+                'viewAudit' => fn () => $request->user()?->can('view-audit') ?? false,
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];

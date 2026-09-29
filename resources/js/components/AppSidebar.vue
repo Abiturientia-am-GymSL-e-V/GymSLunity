@@ -16,6 +16,7 @@ import {
     Info,
     CalendarDays,
     CalendarRange,
+    ScrollText,
 } from '@lucide/vue';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
@@ -42,6 +43,7 @@ import {
     payments,
     statistics,
 } from '@/routes';
+import { index as auditIndex } from '@/routes/audit';
 import { index as members } from '@/routes/members';
 import { edit as clubSettings } from '@/routes/configuration/club';
 import type { NavItem } from '@/types';
@@ -92,6 +94,15 @@ const mainNavItems = computed<NavItem[]>(() => [
                   title: 'Kommunikation',
                   href: kommunikation(),
                   icon: MessageSquareText,
+              },
+          ]
+        : []),
+    ...(page.props.can.viewAudit
+        ? [
+              {
+                  title: 'Auditlog',
+                  href: auditIndex(),
+                  icon: ScrollText,
               },
           ]
         : []),

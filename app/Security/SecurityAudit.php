@@ -28,8 +28,10 @@ final class SecurityAudit
                 return;
             }
 
+            $actor = $user ?? $request?->user();
             SecurityAuditEvent::query()->create([
-                'user_id' => $user?->getKey() ?? $request?->user()?->getKey(),
+                'user_id' => $actor?->getKey(),
+                'actor_name' => $actor instanceof User ? $actor->name : null,
                 'event' => substr($event, 0, 80),
                 'outcome' => substr($outcome, 0, 20),
                 'subject_type' => $subjectType ? substr($subjectType, 0, 80) : null,

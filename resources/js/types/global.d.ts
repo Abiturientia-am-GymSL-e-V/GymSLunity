@@ -22,6 +22,7 @@ declare module '@inertiajs/core' {
             auth: Auth;
             can: {
                 viewMembers: boolean;
+                viewAudit: boolean;
                 createMembers: boolean;
                 manageConfiguration: boolean;
                 viewPayments: boolean;
