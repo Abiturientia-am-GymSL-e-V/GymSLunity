@@ -1,6 +1,6 @@
 # GymSLunity installieren und betreiben
 
-Diese Anleitung führt Schritt für Schritt durch eine Einzelserver-Installation mit Nginx, PHP-FPM und MariaDB (alternativ SQLite). Die Befehle sind für **Debian 13** geschrieben. Unter **Ubuntu 24.04** ist PHP 8.3 der Standard: ersetze dort in allen Befehlen und in der Nginx-Konfiguration `8.4` durch `8.3`.
+Diese Anleitung führt Schritt für Schritt durch eine Einzelserver-Installation mit Nginx, PHP-FPM und MariaDB (alternativ SQLite). Die Befehle sind für **Debian 13** geschrieben, das PHP 8.4 mitbringt. Unter **Ubuntu 24.04** ist PHP 8.3 der Standard, das nicht ausreicht. Dort PHP 8.4 vorher aus dem PPA `ondrej/php` einrichten (siehe Schritt 2).
 
 In den Beispielen werden folgende Werte verwendet. Ersetze sie überall durch deine eigenen:
 
@@ -17,7 +17,7 @@ Alle Einstellungen in der `.env` sind in [konfiguration.md](konfiguration.md) be
 ## 1. Voraussetzungen
 
 - Linux-Server mit Root- oder sudo-Zugang und einer Domain, deren DNS-Eintrag auf den Server zeigt
-- PHP 8.3 oder neuer mit den Erweiterungen `ctype`, `curl`, `dom`, `fileinfo`, `filter`, `gd`, `hash`, `iconv`, `mbstring`, `openssl`, `pcre`, `pdo`, `session`, `tokenizer`, `xml`, `zip` und einem PDO-Treiber (`pdo_mysql` oder `pdo_sqlite`)
+- PHP 8.4.1 oder neuer mit den Erweiterungen `ctype`, `curl`, `dom`, `fileinfo`, `filter`, `gd`, `hash`, `iconv`, `mbstring`, `openssl`, `pcre`, `pdo`, `session`, `tokenizer`, `xml`, `zip` und einem PDO-Treiber (`pdo_mysql` oder `pdo_sqlite`)
 - MariaDB/MySQL oder SQLite
 - Nginx (oder ein anderer Webserver, der nur `public/` ausliefert)
 - nur bei Installation per Git: Composer 2 sowie Node.js 24 und npm
@@ -26,6 +26,13 @@ Alle Einstellungen in der `.env` sind in [konfiguration.md](konfiguration.md) be
 Der Webserver darf ausschließlich das Verzeichnis `public/` ausliefern. `.env`, Quelltext, `vendor/`, `storage/` und Backups dürfen nicht direkt erreichbar sein.
 
 ## 2. Serverpakete installieren
+
+Nur unter Ubuntu 24.04 zuerst PHP 8.4 verfügbar machen:
+
+```bash
+sudo apt install -y software-properties-common
+sudo add-apt-repository -y ppa:ondrej/php
+```
 
 ```bash
 sudo apt update

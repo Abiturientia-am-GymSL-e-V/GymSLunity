@@ -98,11 +98,9 @@ class InstallApplication extends Command
 
     private function checkRequirements(): bool
     {
+        // The PHP version is enforced by Composer's platform check before
+        // this command can even boot.
         $missing = [];
-
-        if (version_compare(PHP_VERSION, '8.3.0', '<')) {
-            $missing[] = 'PHP 8.3 oder neuer';
-        }
 
         foreach (['ctype', 'curl', 'dom', 'fileinfo', 'filter', 'gd', 'hash', 'iconv', 'mbstring', 'openssl', 'pcre', 'pdo', 'session', 'tokenizer', 'xml', 'zip'] as $extension) {
             if (! extension_loaded($extension)) {
