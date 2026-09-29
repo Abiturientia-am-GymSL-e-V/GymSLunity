@@ -1,4 +1,5 @@
 # GymSLunity - Vereinsverwaltung
+
 <div align="center">
 <img src="public/images/gymslunity-logo.png" alt="Logo" width="400">
 
