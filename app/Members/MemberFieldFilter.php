@@ -81,10 +81,19 @@ final class MemberFieldFilter
     private static function range(Builder $query, string $column, string $from, string $to, bool $date): void
     {
         if ($from !== '') {
-            $date ? $query->whereDate($column, '>=', $from) : $query->where($column, '>=', (float) $from);
+            $date ? $query->whereDate($column, '>=', $from) : $query->where($column, '>=', self::number($from));
         }
         if ($to !== '') {
-            $date ? $query->whereDate($column, '<=', $to) : $query->where($column, '<=', (float) $to);
+            $date ? $query->whereDate($column, '<=', $to) : $query->where($column, '<=', self::number($to));
         }
+    }
+
+    /**
+     * Whole numbers are bound as integers: PDO passes floats to SQLite as
+     * text, which never compares as greater than a JSON number.
+     */
+    private static function number(string $value): int|float
+    {
+        return preg_match('/^-?\d+$/', $value) === 1 ? (int) $value : (float) $value;
     }
 }
