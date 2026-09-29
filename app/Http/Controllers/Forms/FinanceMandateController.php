@@ -206,8 +206,8 @@ class FinanceMandateController extends Controller
                         ->orWhere('debtor_email', 'like', $term);
                 });
             })
-            ->when(! empty($filters['from']), fn (Builder $query) => $query->whereDate('created_at', '>=', $filters['from']))
-            ->when(! empty($filters['to']), fn (Builder $query) => $query->whereDate('created_at', '<=', $filters['to']))
+            ->when(! empty($filters['from']), fn (Builder $query) => $query->where('created_at', '>=', Clock::dayStartUtc($filters['from'])))
+            ->when(! empty($filters['to']), fn (Builder $query) => $query->where('created_at', '<', Clock::nextDayStartUtc($filters['to'])))
             ->when(! empty($filters['status']) && $filters['status'] !== 'all', fn (Builder $query) => $query->where('status', $filters['status']))
             ->when(! empty($filters['mandate_type']) && $filters['mandate_type'] !== 'all', fn (Builder $query) => $query->where('mandate_type', $filters['mandate_type']));
     }

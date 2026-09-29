@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Security;
 
+use App\Support\Clock;
 use App\Members\MemberFields;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
@@ -84,10 +85,10 @@ final class AuditLog
             $query->where('area', $filters['area']);
         }
         if (($filters['from'] ?? '') !== '') {
-            $query->whereDate('occurred_at', '>=', $filters['from']);
+            $query->where('occurred_at', '>=', Clock::dayStartUtc($filters['from']));
         }
         if (($filters['to'] ?? '') !== '') {
-            $query->whereDate('occurred_at', '<=', $filters['to']);
+            $query->where('occurred_at', '<', Clock::nextDayStartUtc($filters['to']));
         }
         $search = trim($filters['search'] ?? '');
         if ($search !== '') {
