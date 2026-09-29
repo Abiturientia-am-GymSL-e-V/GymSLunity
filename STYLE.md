@@ -29,7 +29,7 @@ Normale Verwaltungsseiten verwenden grundsätzlich diesen äußeren Rahmen:
 </div>
 ```
 
-- `max-w-[1200px]` ist der Standard für Verwaltungsseiten. Nur inhaltlich begründete Arbeitsflächen wie ein großer Kalender dürfen breiter sein.
+- `max-w-[1200px]` ist der Standard für Verwaltungsseiten. Das gilt auch für Kalender- und Buchungsansichten, damit der Abstand zwischen Sidebar und Seiteninhalt auf breiten Bildschirmen überall gleich bleibt. Breite Kalender oder Tabellen scrollen bei Bedarf innerhalb ihrer Karte horizontal.
 - Der Seitenabstand beträgt `p-4 sm:p-6`, der vertikale Abstand der Hauptbereiche `space-y-6`.
 - Mehrteilige Seiten verwenden den vorhandenen Bereichs- oder Tab-Navigator direkt unter dem Seitenkopf.
 - Breadcrumbs werden über die Layout-Metadaten bereitgestellt und nicht innerhalb der Seite dupliziert.
