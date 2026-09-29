@@ -81,11 +81,15 @@ const mails: { subject: TemplateKey; text: TemplateKey; label: string }[] = [
                     <h2 class="font-semibold">Rechtliche Seiten</h2>
                     <p class="mt-1 text-sm text-muted-foreground">
                         Die Texte erscheinen über die Links in der öffentlichen
-                        Fußleiste.
+                        Fußleiste. Zeilen, deren Platzhalter leer sind, werden
+                        ausgeblendet; die Angaben dazu stehen in den
+                        Vereinsdaten unter „Rechtliches“.
+                    </p>
+                    <p class="mt-2 text-sm text-muted-foreground">
                         {{
                             $address(
-                                'Bitte prüfe die Standardtexte auf die Anforderungen deines Vereins.',
-                                'Bitte prüfen Sie die Standardtexte auf die Anforderungen Ihres Vereins.',
+                                'Die Standardtexte sind ein unverbindlicher Ausgangspunkt und keine Rechtsberatung. Bitte prüfe sie für deinen Verein, insbesondere eingesetzte Dienstleister, die Speicherdauer der Server-Protokolle und freiwillige Angaben. Die Verantwortung für die Texte liegt beim Verein.',
+                                'Die Standardtexte sind ein unverbindlicher Ausgangspunkt und keine Rechtsberatung. Bitte prüfen Sie sie für Ihren Verein, insbesondere eingesetzte Dienstleister, die Speicherdauer der Server-Protokolle und freiwillige Angaben. Die Verantwortung für die Texte liegt beim Verein.',
                             )
                         }}
                     </p>
