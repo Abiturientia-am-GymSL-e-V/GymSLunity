@@ -62,6 +62,7 @@ use App\Http\Controllers\SelfService\BookingController as SelfServiceBookingCont
 use App\Http\Controllers\SelfService\CancellationController as SelfServiceCancellationController;
 use App\Http\Controllers\SelfService\DocumentController as SelfServiceDocumentController;
 use App\Http\Controllers\SelfService\FormController as SelfServiceFormController;
+use App\Http\Controllers\SelfService\PasskeyController as SelfServicePasskeyController;
 use App\Http\Controllers\SelfService\PortalController;
 use App\Http\Controllers\SelfService\ProfileController as SelfServiceProfileController;
 use App\Http\Controllers\SelfService\TransactionReceiptController as SelfServiceTransactionReceiptController;
@@ -303,6 +304,11 @@ Route::middleware(EnsureSelfService::class)->prefix('selfservice')->group(functi
         ->middleware('throttle:10,1')
         ->name('selfservice.email.confirm');
     Route::post('abmelden', [AccessController::class, 'logout']);
+    Route::get('passkey-anmeldung/optionen', [SelfServicePasskeyController::class, 'loginOptions'])->middleware('throttle:30,1')->name('selfservice.passkeys.login-options');
+    Route::post('passkey-anmeldung', [SelfServicePasskeyController::class, 'login'])->middleware('throttle:10,1')->name('selfservice.passkeys.login');
+    Route::get('passkeys/optionen', [SelfServicePasskeyController::class, 'registrationOptions'])->middleware('throttle:10,1')->name('selfservice.passkeys.options');
+    Route::post('passkeys', [SelfServicePasskeyController::class, 'store'])->middleware('throttle:10,1')->name('selfservice.passkeys.store');
+    Route::delete('passkeys/{memberPasskey}', [SelfServicePasskeyController::class, 'destroy'])->whereNumber('memberPasskey')->middleware('throttle:10,1')->name('selfservice.passkeys.destroy');
     Route::get('/', PortalController::class);
     Route::post('kalender-link/erneuern', [PortalController::class, 'renewCalendarLink'])->middleware('throttle:5,1')->name('selfservice.calendar-link.renew');
     Route::patch('profil', [SelfServiceProfileController::class, 'update'])->middleware('throttle:20,1');

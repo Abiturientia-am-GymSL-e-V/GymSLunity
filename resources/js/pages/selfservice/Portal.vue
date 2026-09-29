@@ -10,6 +10,8 @@ import { computed, ref } from 'vue';
 import { toast } from 'vue-sonner';
 import MemberFieldControl from '@/components/members/MemberFieldControl.vue';
 import Frame from '@/components/selfservice/Frame.vue';
+import PortalPasskeys from '@/components/selfservice/PortalPasskeys.vue';
+import type { PortalPasskey } from '@/components/selfservice/PortalPasskeys.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -69,6 +71,7 @@ const props = defineProps<{
         transactions: ContributionEntry[];
         giroCode: GiroCode | null;
     } | null;
+    passkeys: PortalPasskey[];
 }>();
 
 const profileFields = computed(() =>
@@ -427,6 +430,8 @@ function subscriptionLink(value: string) {
                 </li>
             </ol>
         </section>
+
+        <PortalPasskeys :passkeys="passkeys" />
 
         <section v-if="calendarEnabled" class="space-y-4 rounded-xl border p-5">
             <div>
