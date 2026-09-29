@@ -3,6 +3,25 @@
 declare(strict_types=1);
 
 $basePath = dirname(__DIR__);
+
+// A finished installation whose .env went missing must not be taken over
+// through the web installer.
+if (is_file($basePath.'/storage/app/installed')) {
+    http_response_code(503);
+    header('Content-Type: text/plain; charset=UTF-8');
+    echo "GymSLunity ist bereits installiert, aber die Datei .env fehlt.\nBitte .env aus der Sicherung wiederherstellen.\n";
+    exit;
+}
+
+// The setup code proves access to the server's file system, so nobody else
+// can complete the installation between upload and first visit.
+$setupTokenFile = $basePath.'/storage/app/setup-token';
+if (! is_file($setupTokenFile) && is_dir(dirname($setupTokenFile)) && is_writable(dirname($setupTokenFile))) {
+    file_put_contents($setupTokenFile, bin2hex(random_bytes(12)).PHP_EOL, LOCK_EX);
+    @chmod($setupTokenFile, 0600);
+}
+$setupToken = is_file($setupTokenFile) ? trim((string) file_get_contents($setupTokenFile)) : '';
+
 $secure = ($_SERVER['HTTPS'] ?? '') !== '' && ($_SERVER['HTTPS'] ?? '') !== 'off';
 
 session_name('gymslunity_installer');
@@ -29,6 +48,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (! hash_equals((string) $_SESSION['installer_token'], $token)) {
         $errors[] = 'Die Installationssitzung ist abgelaufen. Bitte lade die Seite neu.';
+    }
+    if ($setupToken === '') {
+        $errors[] = 'Das Verzeichnis storage/app ist für PHP nicht beschreibbar, daher konnte kein Einrichtungscode erzeugt werden.';
+    } elseif (! hash_equals($setupToken, trim((string) ($_POST['setup_token'] ?? '')))) {
+        $errors[] = 'Der Einrichtungscode ist falsch.';
     }
     if (filter_var($appUrl, FILTER_VALIDATE_URL) === false || ! in_array(parse_url($appUrl, PHP_URL_SCHEME), ['http', 'https'], true)) {
         $errors[] = 'Bitte gib eine vollständige Anwendungs-URL an.';
@@ -138,6 +162,10 @@ $escape = static fn (string $value): string => htmlspecialchars($value, ENT_QUOT
     <form method="post" action="/install">
         <input type="hidden" name="_token" value="<?= $escape((string) $_SESSION['installer_token']) ?>">
         <div class="grid">
+            <label class="full">Einrichtungscode
+                <input name="setup_token" required autocomplete="off" spellcheck="false">
+                <small>Steht in der Datei <code>storage/app/setup-token</code> auf dem Server (z. B. per SSH mit <code>cat storage/app/setup-token</code> oder per FTP).</small>
+            </label>
             <label class="full">Öffentliche URL
                 <input name="app_url" type="url" required value="<?= $escape((string) ($_POST['app_url'] ?? $defaultUrl)) ?>">
                 <small>Für Passkeys ist außerhalb von localhost HTTPS erforderlich.</small>

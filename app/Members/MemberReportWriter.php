@@ -19,22 +19,35 @@ final class MemberReportWriter
 {
     public static function pdf(string $html, bool $landscape = false): string
     {
+        $pdf = self::dompdf(defaultFont: 'DejaVu Sans');
+        $pdf->setPaper('A4', $landscape ? 'landscape' : 'portrait');
+        $pdf->loadHtml($html, 'UTF-8');
+        $pdf->render();
+
+        return $pdf->output();
+    }
+
+    /**
+     * The one place that configures Dompdf: no remote resources, no PHP or
+     * JavaScript, and local file access confined to the PDF cache directory.
+     */
+    public static function dompdf(bool $pdfA = false, ?string $defaultFont = null): Dompdf
+    {
         $directory = storage_path('framework/cache/pdf');
         File::ensureDirectoryExists($directory, 0770);
         $options = new Options;
         $options->set('isRemoteEnabled', false);
         $options->set('isPhpEnabled', false);
         $options->set('isJavascriptEnabled', false);
-        $options->set('defaultFont', 'DejaVu Sans');
+        $options->set('isPdfAEnabled', $pdfA);
+        if ($defaultFont !== null) {
+            $options->set('defaultFont', $defaultFont);
+        }
         $options->set('tempDir', $directory);
         $options->set('fontCache', $directory);
         $options->set('chroot', $directory);
-        $pdf = new Dompdf($options);
-        $pdf->setPaper('A4', $landscape ? 'landscape' : 'portrait');
-        $pdf->loadHtml($html, 'UTF-8');
-        $pdf->render();
 
-        return $pdf->output();
+        return new Dompdf($options);
     }
 
     /** @param list<string> $headers

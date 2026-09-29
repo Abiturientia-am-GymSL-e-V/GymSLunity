@@ -241,7 +241,10 @@ defineExpose({ open, add: addCalendar });
                         >Speichern</Button
                     >
                 </form>
-                <section class="space-y-3 rounded-lg border p-4">
+                <section
+                    v-if="managed.type !== 'birthdays'"
+                    class="space-y-3 rounded-lg border p-4"
+                >
                     <div>
                         <h3 class="font-medium">Öffentlicher Abo-Link</h3>
                         <p class="text-sm text-muted-foreground">

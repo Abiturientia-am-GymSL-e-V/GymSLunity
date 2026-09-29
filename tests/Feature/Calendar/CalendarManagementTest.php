@@ -180,10 +180,50 @@ class CalendarManagementTest extends TestCase
         $this->get(route('calendar.feed.public', $calendar->public_token))->assertOk()
             ->assertHeader('content-type', 'text/calendar; charset=utf-8')->assertSee('SUMMARY:Sommerfest', false);
 
-        $member = Member::factory()->create(['membership_type' => 'Aktiv/ordentliches Mitglied']);
+        $settings = ClubSetting::current();
+        $settings->update(['data' => [...$settings->data, 'selfservice_enabled' => true]]);
+        $member = Member::factory()->create(['membership_type' => 'Aktiv/ordentliches Mitglied', 'joined_at' => '2020-01-01']);
         $token = bin2hex(random_bytes(24));
         DB::table('member_calendar_tokens')->insert(['member_id' => $member->id, 'token' => $token, 'created_at' => now(), 'updated_at' => now()]);
         $this->get(route('calendar.feed.member', $token))->assertOk()->assertSee('X-WR-CALNAME:Meine Vereinskalender', false)->assertSee('SUMMARY:Sommerfest', false);
+    }
+
+    public function test_birthday_calendar_is_never_published(): void
+    {
+        $this->signIn();
+        $birthdays = ClubCalendar::query()->where('type', 'birthdays')->sole();
+
+        $this->post(route('calendar.public-link.store', $birthdays))->assertRedirect();
+        $this->assertNull($birthdays->fresh()->public_token);
+
+        $birthdays->update(['public_token' => bin2hex(random_bytes(24))]);
+        $this->get(route('calendar.feed.public', $birthdays->public_token))->assertNotFound();
+    }
+
+    public function test_member_feed_stops_for_former_members_disabled_portal_and_renewed_links(): void
+    {
+        $settings = ClubSetting::current();
+        $settings->update(['data' => [...$settings->data, 'selfservice_enabled' => true]]);
+        $calendar = ClubCalendar::query()->where('type', 'general')->sole();
+        $calendar->rules()->create(['field_key' => 'club_role', 'value' => 'Vorstand']);
+        $member = Member::factory()->create(['club_role' => 'Vorstand', 'joined_at' => '2020-01-01']);
+        $token = bin2hex(random_bytes(24));
+        DB::table('member_calendar_tokens')->insert(['member_id' => $member->id, 'token' => $token, 'created_at' => now(), 'updated_at' => now()]);
+        $this->get(route('calendar.feed.member', $token))->assertOk();
+
+        $member->update(['left_at' => now()->subDay()->toDateString()]);
+        $this->get(route('calendar.feed.member', $token))->assertNotFound();
+        $member->update(['left_at' => null]);
+
+        $settings->update(['data' => [...$settings->fresh()->data, 'selfservice_enabled' => false]]);
+        $this->get(route('calendar.feed.member', $token))->assertNotFound();
+        $settings->update(['data' => [...$settings->fresh()->data, 'selfservice_enabled' => true]]);
+
+        $session = ['selfservice' => ['email' => strtolower($member->email), 'member_id' => $member->id, 'until' => time() + 1800]];
+        $this->withSession($session)->post(route('selfservice.calendar-link.renew'))->assertRedirect();
+        $this->get(route('calendar.feed.member', $token))->assertNotFound();
+        $this->withSession($session)->get('/selfservice')->assertOk();
+        $this->assertNotSame($token, DB::table('member_calendar_tokens')->where('member_id', $member->id)->value('token'));
     }
 
     public function test_matching_members_receive_a_personal_combined_link_in_portal(): void

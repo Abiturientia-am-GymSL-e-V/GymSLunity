@@ -97,6 +97,11 @@ class CalendarController extends Controller
 
     public function enablePublicLink(ClubCalendar $calendar): RedirectResponse
     {
+        if ($calendar->type === 'birthdays') {
+            Inertia::flash('toast', ['type' => 'error', 'message' => 'Der Geburtstagskalender enthält personenbezogene Daten und kann nicht öffentlich abonniert werden.']);
+
+            return back();
+        }
         $calendar->update(['public_token' => bin2hex(random_bytes(24))]);
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Ein neuer öffentlicher Abo-Link wurde erzeugt.']);
 

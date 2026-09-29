@@ -135,6 +135,13 @@ class FormModulesTest extends TestCase
         ])->assertSessionHasNoErrors();
         $this->assertSame('signed', $mandate->fresh()->status);
         $this->assertSame('digital', $mandate->fresh()->signature_method);
+        $this->get(route('forms.mandates.sign', $token))->assertOk();
+        $this->travel(25)->hours();
+        $this->flushSession();
+        auth()->guard('web')->logout();
+        $this->get(route('forms.mandates.sign', $token))->assertNotFound();
+        $this->travelBack();
+        $this->actingAs($this->actor);
         $this->assertStringContainsString('Status: <strong>Unterzeichnet</strong>', $this->mandateHtml($mandate->fresh()));
         $this->get(route('finance.invoices.create'))->assertInertia(fn (Assert $page) => $page
             ->has('financeMandates', 1)->where('financeMandates.0.id', $mandate->id));

@@ -168,8 +168,13 @@ class FinanceMandateController extends Controller
     private function resolveToken(string $token): FinanceMandate
     {
         abort_unless(strlen($token) === 64, 404);
+        $mandate = FinanceMandate::query()->where('signing_token_hash', hash('sha256', $token))->firstOrFail();
+        // After signing or revocation the link only shows the confirmation
+        // for a day; afterwards it no longer reveals the mandate data.
+        $closedAt = $mandate->revoked_at ?? $mandate->signed_at;
+        abort_if($mandate->status !== 'pending' && $closedAt !== null && $closedAt->lt(now()->subDay()), 404);
 
-        return FinanceMandate::query()->where('signing_token_hash', hash('sha256', $token))->firstOrFail();
+        return $mandate;
     }
 
     /** @return array<string, mixed> */

@@ -23,6 +23,8 @@ class InstallController extends Controller
             return to_route('login');
         }
 
+        $this->setupToken();
+
         return view('install');
     }
 
@@ -39,7 +41,14 @@ class InstallController extends Controller
             'email' => ['required', 'email:rfc', 'max:255'],
             'password' => ['required', 'string', 'max:72', 'confirmed', Password::default()],
             'accept' => ['accepted'],
+            'setup_token' => ['required', 'string'],
         ]);
+        $validator->after(function ($validator) use ($request): void {
+            $expected = $this->setupToken();
+            if ($expected === null || ! hash_equals($expected, trim((string) $request->input('setup_token')))) {
+                $validator->errors()->add('setup_token', 'Der Einrichtungscode ist falsch.');
+            }
+        });
 
         if ($validator->fails()) {
             return back()->withErrors($validator)->withInput($request->except(['password', 'password_confirmation']));
@@ -81,6 +90,7 @@ class InstallController extends Controller
                 'installed_at' => now()->toIso8601String(),
                 'version' => trim((string) @file_get_contents(base_path('VERSION'))),
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL, LOCK_EX);
+            @unlink(storage_path('app/setup-token'));
             Artisan::call('optimize:clear');
         } catch (Throwable $exception) {
             report($exception);
@@ -93,6 +103,19 @@ class InstallController extends Controller
         }
 
         return to_route('login')->with('status', 'Installation abgeschlossen. Anmeldung mit dem Administratorkonto; anschließend Passkey oder TOTP einrichten.');
+    }
+
+    /** Code from storage/app/setup-token, created on first use. */
+    private function setupToken(): ?string
+    {
+        $file = storage_path('app/setup-token');
+        if (! is_file($file) && is_writable(dirname($file))) {
+            file_put_contents($file, bin2hex(random_bytes(12)).PHP_EOL, LOCK_EX);
+            @chmod($file, 0600);
+        }
+        $token = is_file($file) ? trim((string) file_get_contents($file)) : '';
+
+        return $token === '' ? null : $token;
     }
 
     private function isInstalled(): bool

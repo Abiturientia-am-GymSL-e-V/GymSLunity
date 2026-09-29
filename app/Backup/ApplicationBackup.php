@@ -19,6 +19,10 @@ use ZipArchive;
 
 class ApplicationBackup
 {
+    private const MANIFEST_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR;
+
+    public function __construct(private readonly BackupSignature $signature = new BackupSignature) {}
+
     public function create(bool $databaseOnly = false, ?string $destinationDirectory = null): string
     {
         $root = $destinationDirectory ?? $this->backupRoot();
@@ -56,7 +60,7 @@ class ApplicationBackup
             if (! is_string($databaseChecksum)) {
                 throw new RuntimeException('Für den Datenbankexport konnte keine Prüfsumme erstellt werden.');
             }
-            File::put($temporary.'/manifest.json', json_encode([
+            $manifest = [
                 'format' => 'gymslunity-application-backup',
                 'format_version' => 1,
                 'backup_type' => $databaseOnly ? 'database' : 'full',
@@ -66,7 +70,9 @@ class ApplicationBackup
                 'database_driver' => DB::getDriverName(),
                 'includes' => $includes,
                 'checksums' => [basename($databaseFile) => $databaseChecksum],
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR).PHP_EOL);
+            ];
+            $manifest['signature'] = $this->signature->sign(json_encode($manifest, self::MANIFEST_FLAGS));
+            File::put($temporary.'/manifest.json', json_encode($manifest, JSON_PRETTY_PRINT | self::MANIFEST_FLAGS).PHP_EOL);
             if (! touch($partial)) {
                 throw new RuntimeException('Die temporäre Backup-Datei konnte nicht angelegt werden.');
             }
@@ -271,6 +277,7 @@ class ApplicationBackup
                 $binary,
                 '--defaults-extra-file='.$credentials,
                 '--default-character-set=utf8mb4',
+                ...($this->supportsSandbox($binary) ? ['--sandbox'] : []),
                 $connection['database'],
             ]);
             $process->setInput($input)->setTimeout(1200)->run();
@@ -282,6 +289,15 @@ class ApplicationBackup
             File::delete($credentials);
             DB::purge();
         }
+    }
+
+    /** Sandbox mode disables client commands such as \! and source. */
+    private function supportsSandbox(string $binary): bool
+    {
+        $process = new Process([$binary, '--help']);
+        $process->setTimeout(10)->run();
+
+        return str_contains($process->getOutput(), '--sandbox');
     }
 
     private function importSqlite(string $databaseFile): void
@@ -321,6 +337,11 @@ class ApplicationBackup
                 || ($manifest['format_version'] ?? null) !== 1
                 || ! in_array($manifest['backup_type'] ?? null, ['database', 'full'], true)) {
                 throw new RuntimeException('Das Backup-Format oder seine Version wird nicht unterstützt.');
+            }
+            $signature = $manifest['signature'] ?? null;
+            unset($manifest['signature']);
+            if (! $this->signature->verify(json_encode($manifest, self::MANIFEST_FLAGS), $signature)) {
+                throw new RuntimeException('Das Backup stammt nicht von dieser Installation oder wurde verändert.');
             }
             $archiveDriver = $manifest['database_driver'] ?? null;
             $currentDriver = DB::getDriverName();

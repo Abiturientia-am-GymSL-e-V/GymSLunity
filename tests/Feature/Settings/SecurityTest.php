@@ -49,7 +49,8 @@ class SecurityTest extends TestCase
             'confirmPassword' => true,
         ]);
 
-        $response = $this->actingAs($user)
+        // be() skips the fresh confirmation that actingAs() simulates.
+        $response = $this->be($user)
             ->get(route('security.edit'));
 
         $response->assertRedirect(route('password.confirm'));

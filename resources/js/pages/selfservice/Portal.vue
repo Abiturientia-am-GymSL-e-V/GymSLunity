@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     CalendarRange,
     CircleAlert,
@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatDate, formatMoney } from '@/lib/format';
 import { formatIban } from '@/lib/formatIban';
+import { renew as renewCalendarLinkRoute } from '@/routes/selfservice/calendar-link';
 import {
     Dialog,
     DialogContent,
@@ -179,6 +180,9 @@ function copyCalendarLink(value: string) {
     void window.navigator.clipboard
         .writeText(value)
         .then(() => toast.success('Kalenderlink kopiert.'));
+}
+function renewCalendarLink() {
+    router.post(renewCalendarLinkRoute(), {}, { preserveScroll: true });
 }
 function subscriptionLink(value: string) {
     return value.replace(/^https?:/, 'webcal:');
@@ -462,11 +466,20 @@ function subscriptionLink(value: string) {
                     >
                         Link kopieren
                     </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        @click="renewCalendarLink"
+                    >
+                        Link erneuern
+                    </Button>
                 </div>
                 <p class="text-xs text-muted-foreground">
                     Der Link ist persönlich. Bitte
                     {{ $address('gib', 'geben Sie') }} ihn nicht an andere
-                    Personen weiter.
+                    Personen weiter. Falls der Link bekannt geworden ist,
+                    {{ $address('kannst du', 'können Sie') }} ihn erneuern; der
+                    alte Link funktioniert danach nicht mehr.
                 </p>
             </template>
         </section>

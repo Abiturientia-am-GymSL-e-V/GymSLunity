@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Documents\SignatureImage;
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\RequireRecentPassword;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
 use App\Models\ClubSetting;
@@ -41,6 +42,15 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
+        // A changed address receives password reset links, so a hijacked
+        // session must not be able to change it without the password.
+        $newEmail = mb_strtolower((string) $request->validated('email'));
+        if ($newEmail !== mb_strtolower((string) $request->user()->email) && ! RequireRecentPassword::recentlyConfirmed($request)) {
+            $request->session()->put('url.intended', route('profile.edit'));
+
+            return to_route('password.confirm');
+        }
+
         DB::transaction(function () use ($request): void {
             ClubSetting::query()->whereKey(1)->lockForUpdate()->firstOrFail();
             $user = User::query()->whereKey($request->user()->getKey())->lockForUpdate()->firstOrFail();
