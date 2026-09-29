@@ -13,7 +13,48 @@ permissions:
   contents: write
 
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check tag, VERSION and release notes
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "Tag $GITHUB_REF_NAME passt nicht zu VERSION ($version)." >&2
+            exit 1
+          fi
+          test -s "docs/releases/$GITHUB_REF_NAME.md" || {
+            echo "Release-Notizen docs/releases/$GITHUB_REF_NAME.md fehlen." >&2
+            exit 1
+          }
+
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_sqlite
+          tools: composer:v2
+          coverage: none
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Run CI checks
+        run: |
+          composer setup
+          cp .env.testing.example .env.testing
+          php artisan key:generate --env=testing
+          composer ci:check
+
   release:
+    needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -34,22 +75,17 @@ jobs:
       - name: Build release archive
         run: scripts/build-release.sh
 
-      - name: Publish GitHub prerelease
+      - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Versions with a suffix such as -beta.1 are published as prereleases.
+          prerelease=()
+          case "$GITHUB_REF_NAME" in *-*) prerelease=(--prerelease) ;; esac
           gh release create "$GITHUB_REF_NAME" \
             "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz" \
             "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz.sha256" \
             --verify-tag \
-            --prerelease \
+            "${prerelease[@]}" \
             --title "GymSLunity ${GITHUB_REF_NAME}" \
-            --notes-file - <<'NOTES'
-          Erstes öffentliches Alpha-Release von GymSLunity.
-
-          Enthalten sind unter anderem Mitgliederverwaltung, Beiträge und Zahlungen, Spenden, Quittungen, Kommunikation, Auswertungen, Inventar, Selfservice sowie rollenbasierte Sicherheitsfunktionen. Privilegierte Konten müssen TOTP oder einen Passkey einrichten.
-
-          Das tar.gz-Archiv enthält bereits PHP-Abhängigkeiten und gebaute Frontend-Dateien. Nach dem Entpacken und Einrichten des Webservers kann die Installation über /install im Browser abgeschlossen werden. Alternativ sind Installation und Updates per Git möglich; die vollständigen Schritte stehen in README.md und docs/installation.md.
-
-          Dieses Release ist eine Alpha-Version und sollte vor produktivem Einsatz mit eigenen Testdaten geprüft werden.
-          NOTES
+            --notes-file "docs/releases/${GITHUB_REF_NAME}.md"
