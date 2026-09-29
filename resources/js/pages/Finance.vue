@@ -8,6 +8,7 @@ import {
     Mail,
     Printer,
     Search,
+    Undo2,
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import InvoiceNav from '@/components/finance/InvoiceNav.vue';
@@ -29,7 +30,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
-import { formatDate, formatMoney } from '@/lib/format';
+import { formatDate, formatMoney, localDateString } from '@/lib/format';
+import { firstError } from '@/lib/formErrors';
 
 type Invoice = {
     id: number;
@@ -47,6 +49,10 @@ type Invoice = {
     status: 'open' | 'paid' | 'cancelled';
     paid_at: string | null;
     cancellation_reason: string | null;
+    refund_due: boolean;
+    refunded_at: string | null;
+    refunded_by_name: string | null;
+    refund_reference: string | null;
     partially_cancelled: boolean;
     cancellable_items: Array<{
         index: number;
@@ -74,6 +80,7 @@ const props = defineProps<{
         count: number;
         open_count: number;
         open_cents: number;
+        refund_pending_cents: number;
         paid_cents: number;
     };
 }>();
@@ -152,7 +159,12 @@ const unitLabels: Record<string, string> = {
     DAY: 'Tag(e)',
 };
 const statusLabel = (invoice: Invoice) => {
-    if (invoice.document_type === 'cancellation') return 'Stornorechnung';
+    if (invoice.document_type === 'cancellation') {
+        if (invoice.refund_due) return 'Stornorechnung · Erstattung offen';
+        return invoice.refunded_at
+            ? `Stornorechnung · erstattet am ${formatDate(invoice.refunded_at)}`
+            : 'Stornorechnung';
+    }
     if (invoice.status === 'cancelled')
         return invoice.paid_at ? 'Storniert · zuvor bezahlt' : 'Storniert';
     if (invoice.partially_cancelled)
@@ -162,6 +174,8 @@ const statusLabel = (invoice: Invoice) => {
     return invoice.status === 'paid' ? 'Bezahlt' : 'Offen';
 };
 const statusClass = (invoice: Invoice) => {
+    if (invoice.refund_due)
+        return 'border-warning/30 bg-warning/10 text-warning-foreground';
     if (invoice.status === 'cancelled')
         return 'border-destructive/30 bg-destructive/10 text-destructive';
     if (invoice.partially_cancelled)
@@ -182,6 +196,29 @@ const markPaid = (invoice: Invoice) =>
         {},
         { preserveScroll: true },
     );
+const refundDialogOpen = ref(false);
+const refundingInvoice = ref<Invoice | null>(null);
+const refundForm = useForm({ refunded_at: '', refund_reference: '' });
+const openRefund = (invoice: Invoice) => {
+    refundingInvoice.value = invoice;
+    refundForm.reset();
+    refundForm.refunded_at = localDateString();
+    refundForm.clearErrors();
+    refundDialogOpen.value = true;
+};
+const recordRefund = () => {
+    if (!refundingInvoice.value) return;
+    refundForm.patch(
+        `/buchhaltung/rechnungen/${refundingInvoice.value.id}/erstattet`,
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                refundDialogOpen.value = false;
+                refundingInvoice.value = null;
+            },
+        },
+    );
+};
 const cancellationDialogOpen = ref(false);
 const cancellingInvoice = ref<Invoice | null>(null);
 const cancellationForm = useForm({
@@ -258,6 +295,14 @@ const cancelInvoice = () => {
                 <p class="text-sm text-muted-foreground">Offener Betrag</p>
                 <p class="mt-1 text-2xl font-semibold">
                     {{ formatMoney(summary.open_cents) }}
+                </p>
+                <p
+                    v-if="summary.refund_pending_cents > 0"
+                    class="mt-1 text-xs text-muted-foreground"
+                >
+                    enthält
+                    {{ formatMoney(-summary.refund_pending_cents) }} offene
+                    Erstattungen
                 </p>
             </section>
             <section class="rounded-xl border bg-card p-4">
@@ -434,6 +479,17 @@ const cancelInvoice = () => {
                                 >
                                     {{ invoice.cancellation_reason }}
                                 </span>
+                                <span
+                                    v-if="invoice.refunded_at"
+                                    class="mt-1 block max-w-52 text-xs text-muted-foreground"
+                                >
+                                    Erstattung erfasst von
+                                    {{ invoice.refunded_by_name
+                                    }}<template v-if="invoice.refund_reference">
+                                        ·
+                                        {{ invoice.refund_reference }}</template
+                                    >
+                                </span>
                             </td>
                             <td class="px-4 py-3">
                                 <div class="flex justify-end gap-1">
@@ -488,6 +544,17 @@ const cancelInvoice = () => {
                                         ><CheckCircle2 class="size-4" /><span
                                             class="sr-only"
                                             >Als bezahlt markieren</span
+                                        ></Button
+                                    >
+                                    <Button
+                                        v-if="invoice.refund_due"
+                                        variant="ghost"
+                                        size="icon"
+                                        title="Erstattung erfassen"
+                                        @click="openRefund(invoice)"
+                                        ><Undo2 class="size-4" /><span
+                                            class="sr-only"
+                                            >Erstattung erfassen</span
                                         ></Button
                                     >
                                     <Button
@@ -552,8 +619,9 @@ const cancelInvoice = () => {
                         type="warning"
                         title="Zahlung bereits erfasst"
                     >
-                        Die Stornierung verbucht keine automatische Erstattung.
-                        Prüfe und veranlasse die Rückzahlung separat.
+                        Die Stornierung zahlt nichts automatisch zurück. Nach
+                        der Rückzahlung die Erstattung an der Stornorechnung
+                        erfassen.
                     </StatusAlert>
                     <div class="space-y-2">
                         <div class="flex items-center justify-between gap-4">
@@ -650,6 +718,66 @@ const cancelInvoice = () => {
                         >
                             <Spinner v-if="cancellationForm.processing" />
                             Stornorechnung erstellen
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+        <Dialog v-model:open="refundDialogOpen">
+            <DialogContent class="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Erstattung erfassen</DialogTitle>
+                    <DialogDescription>
+                        {{ refundingInvoice?.invoice_number }}:
+                        {{
+                            formatMoney(
+                                refundingInvoice?.total_cents ?? 0,
+                                refundingInvoice?.currency,
+                            )
+                        }}
+                        wurden an
+                        {{ refundingInvoice?.recipient_name }} zurückgezahlt.
+                    </DialogDescription>
+                </DialogHeader>
+                <form class="space-y-4" @submit.prevent="recordRefund">
+                    <div class="space-y-2">
+                        <Label for="refunded-at">Erstattet am</Label>
+                        <Input
+                            id="refunded-at"
+                            v-model="refundForm.refunded_at"
+                            type="date"
+                            class="date-safe"
+                            required
+                        />
+                        <InputError :message="refundForm.errors.refunded_at" />
+                    </div>
+                    <div class="space-y-2">
+                        <Label for="refund-reference"
+                            >Referenz (optional)</Label
+                        >
+                        <Input
+                            id="refund-reference"
+                            v-model="refundForm.refund_reference"
+                            placeholder="z. B. Überweisung vom Vereinskonto"
+                        />
+                        <InputError
+                            :message="refundForm.errors.refund_reference"
+                        />
+                    </div>
+                    <InputError
+                        :message="firstError(refundForm.errors, 'refund')"
+                    />
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            @click="refundDialogOpen = false"
+                        >
+                            Abbrechen
+                        </Button>
+                        <Button type="submit" :disabled="refundForm.processing">
+                            <Spinner v-if="refundForm.processing" />
+                            Erstattung erfassen
                         </Button>
                     </DialogFooter>
                 </form>

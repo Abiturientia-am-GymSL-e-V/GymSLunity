@@ -38,6 +38,10 @@ use LogicException;
  * @property string|null $cancellation_reason
  * @property array<string, mixed> $snapshot
  * @property int|null $cancellations_sum_total_cents
+ * @property CarbonImmutable|null $refunded_at
+ * @property int|null $refunded_by
+ * @property string|null $refunded_by_name
+ * @property string|null $refund_reference
  */
 class FinanceInvoice extends Model
 {
@@ -56,6 +60,7 @@ class FinanceInvoice extends Model
             'cancelled_at' => 'immutable_datetime',
             'sepa_exported_at' => 'immutable_datetime',
             'sepa_collection_date' => 'immutable_date:Y-m-d',
+            'refunded_at' => 'immutable_date:Y-m-d',
             'snapshot' => 'array',
             'subtotal_cents' => 'integer',
             'tax_cents' => 'integer',
@@ -66,6 +71,14 @@ class FinanceInvoice extends Model
     protected static function booted(): void
     {
         static::deleting(fn () => throw new LogicException('Ausgestellte Rechnungen dürfen nicht gelöscht werden.'));
+    }
+
+    /** A cancellation of an already paid invoice owes a refund until one is recorded. */
+    public function refundDue(): bool
+    {
+        return $this->document_type === 'cancellation'
+            && ($this->snapshot['original_status'] ?? null) === 'paid'
+            && $this->refunded_at === null;
     }
 
     public function pdf(): string
