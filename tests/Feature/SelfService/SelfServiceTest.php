@@ -15,6 +15,7 @@ use App\Models\User;
 use App\PublicSite\PublicPageTemplates;
 use App\Security\MemberDocumentStore;
 use App\SelfService\FormTemplates;
+use App\Support\Clock;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -468,7 +469,7 @@ class SelfServiceTest extends TestCase
 
         $member->refresh();
         $this->assertNull($member->left_at);
-        $this->assertSame(now()->toDateString(), $member->joined_at->toDateString());
+        $this->assertSame(Clock::todayString(), $member->joined_at->toDateString());
         $this->assertSame('Fördermitglied', $member->membership_type);
         $this->assertDatabaseCount('members', 1);
         $this->assertDatabaseCount('member_documents', 1);
@@ -491,7 +492,7 @@ class SelfServiceTest extends TestCase
         $account->update(['balance_cents' => 12345]);
         $account->transactions()->create([
             'actor_name' => 'Verwaltung', 'kind' => 'charge', 'amount_cents' => 12345,
-            'booking_date' => now()->toDateString(), 'description' => 'Jahresbeitrag',
+            'booking_date' => Clock::todayString(), 'description' => 'Jahresbeitrag',
             'reference' => 'B-2026-1', 'created_at' => now(),
         ]);
 
@@ -512,11 +513,11 @@ class SelfServiceTest extends TestCase
         $b = Member::factory()->create([
             'payment_method' => 'SEPA-Lastschrift',
             'mandate_reference' => 'M-SCOPED',
-            'mandate_signed_at' => now()->toDateString(),
+            'mandate_signed_at' => Clock::todayString(),
         ]);
         DB::table('member_documents')->insert([
             'member_id' => $b->id, 'kind' => 'sepa', 'mandate_reference' => 'M-SCOPED',
-            'mandate_signed_at' => now()->toDateString(), 'contents' => '%PDF-1.4 private',
+            'mandate_signed_at' => Clock::todayString(), 'contents' => '%PDF-1.4 private',
             'created_at' => now(), 'updated_at' => now(),
         ]);
         $this->signIn($a)->get('/selfservice/dokumente/sepa?member_id='.$b->id)->assertNotFound();
@@ -895,7 +896,7 @@ class SelfServiceTest extends TestCase
         $admin = User::factory()->create(['roles' => ['mv']]);
         $this->actingAs($admin)->get('/mitglieder/antraege')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->where('totalMembers', 1)
-            ->where('today', now()->toDateString())
+            ->where('today', Clock::todayString())
             ->where('applications.total', 1));
         $joinedAt = now()->subYears(2)->toDateString();
         $this->post('/mitglieder/'.$member->member_number.'/beitritt-freigeben', [

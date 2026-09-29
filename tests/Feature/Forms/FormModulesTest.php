@@ -9,6 +9,7 @@ use App\Models\ClubSetting;
 use App\Models\FinanceMandate;
 use App\Models\Member;
 use App\Models\User;
+use App\Support\Clock;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
@@ -56,7 +57,7 @@ class FormModulesTest extends TestCase
             'left_at' => null, 'deceased_at' => null,
         ]);
         Member::factory()->create([
-            'first_name' => 'Fiona', 'last_name' => 'Zukunft', 'joined_at' => now()->addDay(),
+            'first_name' => 'Fiona', 'last_name' => 'Zukunft', 'joined_at' => Clock::today()->addDay(),
         ]);
 
         $this->get(route('forms.signature-lists.index'))->assertInertia(fn (Assert $page) => $page
@@ -93,7 +94,7 @@ class FormModulesTest extends TestCase
             }));
 
         $this->post(route('forms.signature-lists.document'), [
-            'title' => 'Mitgliederversammlung', 'event_date' => now()->toDateString(),
+            'title' => 'Mitgliederversammlung', 'event_date' => Clock::todayString(),
             'member_numbers' => [$first->member_number],
             'columns' => ['member_number', 'first_name', 'last_name', 'signature'],
         ])->assertOk()->assertHeader('Content-Type', 'application/pdf')->assertSee('%PDF-', false);
@@ -212,11 +213,12 @@ class FormModulesTest extends TestCase
         ])->assertSessionHasNoErrors();
         $signed = FinanceMandate::query()->latest('id')->firstOrFail();
         $this->post(route('forms.mandates.signed', $signed), [
-            'signed_by_name' => 'Max Einmalig', 'signed_at' => now()->toDateString(),
+            'signed_by_name' => 'Max Einmalig', 'signed_at' => Clock::todayString(),
         ])->assertSessionHasNoErrors();
 
         $filters = [
             'search' => 'Ada',
+            // The mandate book filters UTC timestamps by date.
             'from' => now()->toDateString(),
             'to' => now()->toDateString(),
             'status' => 'pending',
@@ -245,7 +247,7 @@ class FormModulesTest extends TestCase
         ])->assertSessionHasNoErrors();
         $mandate = FinanceMandate::query()->sole();
         $this->post(route('forms.mandates.signed', $mandate), [
-            'signed_by_name' => 'Max Papier', 'signed_at' => now()->toDateString(),
+            'signed_by_name' => 'Max Papier', 'signed_at' => Clock::todayString(),
         ])->assertSessionHasNoErrors();
         $this->assertDatabaseHas('finance_mandates', ['id' => $mandate->id, 'status' => 'signed', 'signature_method' => 'paper']);
 

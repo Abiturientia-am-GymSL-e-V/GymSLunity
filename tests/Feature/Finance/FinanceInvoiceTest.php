@@ -9,6 +9,7 @@ use App\Models\ClubSetting;
 use App\Models\FinanceInvoice;
 use App\Models\FinanceMandate;
 use App\Models\User;
+use App\Support\Clock;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Crypt;
@@ -60,7 +61,7 @@ class FinanceInvoiceTest extends TestCase
             'recipient_country' => 'DE',
             'recipient_email' => 'ada@example.test',
             'buyer_reference' => 'KUNDE-42',
-            'issue_date' => now()->toDateString(),
+            'issue_date' => Clock::todayString(),
             'service_date' => now()->subDay()->toDateString(),
             'due_date' => now()->addDays(14)->toDateString(),
             'currency' => 'EUR',
@@ -231,8 +232,8 @@ class FinanceInvoiceTest extends TestCase
 
         $filters = [
             'search' => 'Ada',
-            'from' => now()->toDateString(),
-            'to' => now()->toDateString(),
+            'from' => Clock::todayString(),
+            'to' => Clock::todayString(),
             'status' => 'paid',
             'document_type' => 'invoice',
         ];
@@ -312,7 +313,7 @@ class FinanceInvoiceTest extends TestCase
         $settings->update(['data' => [...$settings->data, 'creditor_id' => 'DE98ZZZ09999999999']]);
         $mandate = $this->mandate();
 
-        $firstCollectionDate = now()->toDateString();
+        $firstCollectionDate = Clock::todayString();
         $secondCollectionDate = now()->addDays(5)->toDateString();
         $payment = [
             'payment_method' => 'sepa_direct_debit',
@@ -384,7 +385,7 @@ class FinanceInvoiceTest extends TestCase
             'giroCode' => null,
         ])->render();
         $this->assertStringContainsString('Einzug ab', $pdfHtml);
-        $this->assertStringContainsString('ab dem '.now()->format('d.m.Y'), $pdfHtml);
+        $this->assertStringContainsString('ab dem '.Clock::today()->format('d.m.Y'), $pdfHtml);
         $this->assertStringContainsString('Einzug ab '.$firstCollectionDate.'.', $first->xrechnung());
     }
 
@@ -401,14 +402,14 @@ class FinanceInvoiceTest extends TestCase
             'mandate_signed_at' => now()->subMonth()->toDateString(),
             'mandate_type' => 'one_off',
             'finance_mandate_id' => $mandate->id,
-            'due_date' => now()->toDateString(),
+            'due_date' => Clock::todayString(),
         ];
         $this->post('/buchhaltung/rechnungen', $sepa)->assertSessionHasNoErrors();
         $invoice = FinanceInvoice::query()->sole();
 
         $xml = $this->post(route('finance.invoices.sepa.export'), [
             'ids' => [$invoice->id],
-            'collection_date' => now()->toDateString(),
+            'collection_date' => Clock::todayString(),
         ])->assertOk()->getContent();
         $this->assertStringContainsString('<SeqTp>OOFF</SeqTp>', $xml);
         $invoice->refresh();
@@ -437,7 +438,7 @@ class FinanceInvoiceTest extends TestCase
 
         $secondXml = $this->post(route('finance.invoices.sepa.export'), [
             'ids' => [$invoice->id],
-            'collection_date' => now()->toDateString(),
+            'collection_date' => Clock::todayString(),
         ])->assertOk()->getContent();
         $this->assertStringContainsString('<SeqTp>OOFF</SeqTp>', $secondXml);
 
@@ -451,7 +452,7 @@ class FinanceInvoiceTest extends TestCase
     public function test_bank_import_matches_invoice_number_and_books_exact_payment(): void
     {
         $data = $this->data();
-        $data['due_date'] = now()->toDateString();
+        $data['due_date'] = Clock::todayString();
         $this->post('/buchhaltung/rechnungen', $data)->assertSessionHasNoErrors();
         $invoice = FinanceInvoice::query()->sole();
         $csv = "Buchungsdatum;Betrag;Verwendungszweck\n".
@@ -495,12 +496,12 @@ class FinanceInvoiceTest extends TestCase
             'mandate_signed_at' => now()->subMonth()->toDateString(),
             'mandate_type' => 'recurring',
             'finance_mandate_id' => $mandate->id,
-            'due_date' => now()->toDateString(),
+            'due_date' => Clock::todayString(),
         ])->assertSessionHasNoErrors();
         $invoice = FinanceInvoice::query()->sole();
         $this->post(route('finance.invoices.sepa.export'), [
             'ids' => [$invoice->id],
-            'collection_date' => now()->toDateString(),
+            'collection_date' => Clock::todayString(),
         ])->assertOk();
         $exportUuid = $invoice->fresh()->sepa_export_uuid;
         $csv = "Buchungsdatum;Betrag;Referenz;Verwendungszweck\n".
@@ -548,7 +549,7 @@ class FinanceInvoiceTest extends TestCase
 
         $xml = $this->post(route('finance.invoices.sepa.export'), [
             'ids' => [$invoice->id],
-            'collection_date' => now()->toDateString(),
+            'collection_date' => Clock::todayString(),
         ])->assertOk()->getContent();
         $this->assertStringContainsString('<SeqTp>RCUR</SeqTp>', $xml);
     }
@@ -700,17 +701,17 @@ class FinanceInvoiceTest extends TestCase
             ->where('summary.refund_pending_cents', 3082));
 
         $cancellation = FinanceInvoice::query()->where('document_type', 'cancellation')->sole();
-        $this->patch("/buchhaltung/rechnungen/{$original->id}/erstattet", ['refunded_at' => now()->toDateString()])
+        $this->patch("/buchhaltung/rechnungen/{$original->id}/erstattet", ['refunded_at' => Clock::todayString()])
             ->assertSessionHasErrors('refund');
         $this->patch("/buchhaltung/rechnungen/{$cancellation->id}/erstattet", [
-            'refunded_at' => now()->toDateString(), 'refund_reference' => 'Überweisung 42',
+            'refunded_at' => Clock::todayString(), 'refund_reference' => 'Überweisung 42',
         ])->assertSessionHasNoErrors();
         $this->assertSame('Überweisung 42', $cancellation->fresh()->refund_reference);
         $this->get('/buchhaltung/rechnungen')->assertInertia(fn (Assert $page) => $page
             ->where('summary.paid_cents', 0)
             ->where('summary.open_cents', 0)
             ->where('summary.refund_pending_cents', 0));
-        $this->patch("/buchhaltung/rechnungen/{$cancellation->id}/erstattet", ['refunded_at' => now()->toDateString()])
+        $this->patch("/buchhaltung/rechnungen/{$cancellation->id}/erstattet", ['refunded_at' => Clock::todayString()])
             ->assertSessionHasErrors('refund');
     }
 
