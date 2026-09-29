@@ -7,9 +7,12 @@ updates:
       day: monday
       time: "05:00"
       timezone: Europe/Berlin
+    # Minor and patch updates arrive as one PR; major updates get their own
+    # PR so a breaking change does not block the rest.
     groups:
       php-dependencies:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
     cooldown:
       default-days: 7
   - package-ecosystem: npm
@@ -19,9 +22,12 @@ updates:
       day: monday
       time: "05:30"
       timezone: Europe/Berlin
+    # Minor and patch updates arrive as one PR; major updates get their own
+    # PR so a breaking change does not block the rest.
     groups:
       frontend-dependencies:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
     cooldown:
       default-days: 7
   - package-ecosystem: github-actions
