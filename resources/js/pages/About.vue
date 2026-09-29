@@ -118,18 +118,32 @@ const featureAreas = [
                 alt="GymSLunity"
                 class="h-auto max-h-48 max-w-full object-contain"
             />
-            <a
-                href="https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Aktuelle GymSLunity-Version auf GitHub ansehen"
-            >
-                <img
-                    alt="Aktuelle GymSLunity-Version"
-                    src="https://img.shields.io/github/v/release/Abiturientia-am-GymSL-e-V/GymSLunity"
-                    class="max-w-full"
-                />
-            </a>
+            <div class="flex flex-wrap justify-center gap-2">
+                <a
+                    href="https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="GymSLunity-Releases auf GitHub ansehen"
+                >
+                    <img
+                        alt="Aktuelle GymSLunity-Version"
+                        src="https://img.shields.io/github/v/release/Abiturientia-am-GymSL-e-V/GymSLunity?include_prereleases"
+                        class="max-w-full"
+                    />
+                </a>
+                <a
+                    href="https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/blob/main/LICENSE"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Lizenz EUPL-1.2 auf GitHub ansehen"
+                >
+                    <img
+                        alt="Lizenz: EUPL-1.2"
+                        src="https://img.shields.io/badge/License-EUPL--1.2-yellow.svg"
+                        class="max-w-full"
+                    />
+                </a>
+            </div>
         </section>
 
         <nav
