@@ -29,10 +29,11 @@ readonly php_packages=(
     "php$php_version-fpm" "php$php_version-cli" "php$php_version-opcache"
     "php$php_version-sqlite3" "php$php_version-mbstring" "php$php_version-xml"
     "php$php_version-curl" "php$php_version-zip" "php$php_version-gd"
+    "php$php_version-intl"
 )
 readonly php_extensions=(
-    ctype curl dom fileinfo filter gd hash iconv mbstring openssl pcre pdo
-    pdo_sqlite session tokenizer xml zip
+    ctype curl dom fileinfo filter gd hash iconv intl mbstring openssl pcre
+    pdo pdo_sqlite session tokenizer xml zip
 )
 
 script_dir=""
@@ -291,9 +292,9 @@ on_exit() {
     if $installing && ! $completed; then
         trap - INT TERM
         printf '\n%sDie Installation ist fehlgeschlagen (Status %s). Änderungen werden rückgängig gemacht:%s\n' \
-            "$c_red" "$status" "$c_off" >&2
+            "$c_red" "$status" "$c_off"
         undo_journal true
-        printf '%sRollback abgeschlossen. Das System ist im Zustand vor der Installation.%s\n' "$c_yellow" "$c_off" >&2
+        printf '%sRollback abgeschlossen. Das System ist im Zustand vor der Installation.%s\n' "$c_yellow" "$c_off"
         warn "Aktualisierte Paketlisten und als Abhängigkeit installierte Pakete bleiben; 'apt autoremove' räumt Letztere auf."
     fi
     exit "$status"
@@ -637,8 +638,22 @@ install_packages() {
         fi
         if ((${#php[@]})); then
             package_available "php$php_version-fpm" || add_php_repository
+            # Installing a newer PHP switches the "php" command to it via
+            # update-alternatives. Keep whatever was the default before.
+            local alternative previous=()
+            for alternative in php phar phar.phar; do
+                previous+=("$(readlink -f "/etc/alternatives/$alternative" 2> /dev/null || true)")
+            done
             record pkg apt-get remove -y "${php[@]}"
             DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends "${php[@]}"
+            local i=0
+            for alternative in php phar phar.phar; do
+                if [[ -n ${previous[i]} && -e ${previous[i]} && "$(readlink -f "/etc/alternatives/$alternative")" != "${previous[i]}" ]]; then
+                    update-alternatives --quiet --set "$alternative" "${previous[i]}"
+                    info "Der Befehl $alternative bleibt bei ${previous[i]}."
+                fi
+                i=$((i + 1))
+            done
         fi
     fi
 

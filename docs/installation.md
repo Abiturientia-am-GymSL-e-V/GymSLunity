@@ -17,7 +17,7 @@ Alle Einstellungen in der `.env` sind in [konfiguration.md](konfiguration.md) be
 ## 1. Voraussetzungen
 
 - Linux-Server mit Root- oder sudo-Zugang und einer Domain, deren DNS-Eintrag auf den Server zeigt
-- PHP 8.4.1 oder neuer mit den Erweiterungen `ctype`, `curl`, `dom`, `fileinfo`, `filter`, `gd`, `hash`, `iconv`, `mbstring`, `openssl`, `pcre`, `pdo`, `session`, `tokenizer`, `xml`, `zip` und einem PDO-Treiber (`pdo_mysql` oder `pdo_sqlite`)
+- PHP 8.4.1 oder neuer mit den Erweiterungen `ctype`, `curl`, `dom`, `fileinfo`, `filter`, `gd`, `hash`, `iconv`, `intl`, `mbstring`, `openssl`, `pcre`, `pdo`, `session`, `tokenizer`, `xml`, `zip` und einem PDO-Treiber (`pdo_mysql` oder `pdo_sqlite`)
 - MariaDB/MySQL oder SQLite
 - Nginx (oder ein anderer Webserver, der nur `public/` ausliefert)
 - nur bei Installation per Git: Composer 2 sowie Node.js 24 und npm
@@ -38,7 +38,7 @@ sudo add-apt-repository -y ppa:ondrej/php
 sudo apt update
 sudo apt install -y nginx mariadb-server certbot unzip curl \
     php8.4-fpm php8.4-cli php8.4-mysql php8.4-sqlite3 php8.4-mbstring \
-    php8.4-xml php8.4-curl php8.4-zip php8.4-gd
+    php8.4-xml php8.4-curl php8.4-zip php8.4-gd php8.4-intl
 ```
 
 Für SQLite statt MariaDB kann `mariadb-server` entfallen. `mariadb-server` bringt auch `mariadb-dump` mit, das für Backups benötigt wird.
@@ -55,7 +55,7 @@ Prüfen:
 
 ```bash
 php -v
-php -m | grep -E -i 'gd|mbstring|pdo_mysql|pdo_sqlite|zip'
+php -m | grep -E -i 'gd|intl|mbstring|pdo_mysql|pdo_sqlite|zip'
 ```
 
 ## 3. GymSLunity herunterladen

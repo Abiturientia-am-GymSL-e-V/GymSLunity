@@ -18,6 +18,10 @@ jobs:
   install:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    defaults:
+      run:
+        # Unlike the default, "bash" adds pipefail (install … | tee).
+        shell: bash
     env:
       DEMO_RELEASE_DOMAIN: demo.example.test
       DEMO_TLS: proxy

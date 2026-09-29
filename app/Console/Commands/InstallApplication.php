@@ -102,7 +102,7 @@ class InstallApplication extends Command
         // this command can even boot.
         $missing = [];
 
-        foreach (['ctype', 'curl', 'dom', 'fileinfo', 'filter', 'gd', 'hash', 'iconv', 'mbstring', 'openssl', 'pcre', 'pdo', 'session', 'tokenizer', 'xml', 'zip'] as $extension) {
+        foreach (['ctype', 'curl', 'dom', 'fileinfo', 'filter', 'gd', 'hash', 'iconv', 'intl', 'mbstring', 'openssl', 'pcre', 'pdo', 'session', 'tokenizer', 'xml', 'zip'] as $extension) {
             if (! extension_loaded($extension)) {
                 $missing[] = 'PHP-Erweiterung '.$extension;
             }
