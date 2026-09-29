@@ -18,6 +18,7 @@ use App\Models\ContributionAccount;
 use App\Models\Member;
 use App\Models\MemberChange;
 use App\Security\MemberDocumentStore;
+use App\SelfService\EmailAddressFilter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -68,6 +69,7 @@ class MemberController extends Controller
             'sections' => MemberFields::sections($member),
             'configurationVersion' => $this->clubSettings->fieldsVersion(),
             'canEdit' => $request->user()?->can('update', $member) ?? false,
+            'emailFilterViolation' => app(EmailAddressFilter::class)->requiresChange($member),
             'returnTo' => $returnTo,
             'documents' => fn () => DB::table('member_documents')->where('member_id', $member->getKey())
                 ->where('kind', 'application')->get(['id', 'kind', 'submitted_online', 'created_at'])

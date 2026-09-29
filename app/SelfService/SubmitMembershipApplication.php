@@ -21,6 +21,7 @@ final class SubmitMembershipApplication
         private readonly MemberMandates $mandates,
         private readonly PortalOptions $options,
         private readonly PortalRules $rules,
+        private readonly EmailAddressFilter $emailFilter,
     ) {}
 
     /** @return array{member: Member, applicationPdf: string} */
@@ -48,6 +49,7 @@ final class SubmitMembershipApplication
                 'left_at' => null,
             ];
             if (! $current) {
+                $this->emailFilter->assertAllowed($email, 'accepted');
                 if (Member::query()->whereRaw('LOWER(email) = ?', [$email])->exists()) {
                     throw ValidationException::withMessages(['accepted' => FormOfAddress::choose('Zu dieser Adresse gibt es bereits einen Datensatz. Bitte fordere einen Mitgliederzugang an.', 'Zu dieser Adresse gibt es bereits einen Datensatz. Bitte fordern Sie einen Mitgliederzugang an.')]);
                 }

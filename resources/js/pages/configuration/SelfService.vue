@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import ConfigurationNav from '@/components/configuration/ConfigurationNav.vue';
+import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,6 +16,8 @@ const props = defineProps<{
         guardian_text: string;
         receipt_notes: string;
         receipt_donation_notes: string;
+        email_filter_mode: 'off' | 'allow' | 'block';
+        email_filter_patterns: string;
     };
     version: number;
     defaults: Record<string, string>;
@@ -28,6 +32,16 @@ defineOptions({
     },
 });
 const form = useForm({ ...props.settings, version: props.version });
+const otherErrors = computed(() =>
+    Object.entries(form.errors)
+        .filter(([key]) => !key.startsWith('email_filter'))
+        .map(([, message]) => message),
+);
+const filterErrors = computed(() =>
+    Object.entries(form.errors)
+        .filter(([key]) => key.startsWith('email_filter_patterns'))
+        .map(([, message]) => message),
+);
 const templates = [
     { key: 'application_text' as const, label: 'Mitgliedsantrag' },
     { key: 'sepa_text' as const, label: 'SEPA-Mandat' },
@@ -110,6 +124,87 @@ const templates = [
             </section>
             <section class="rounded-xl border bg-card">
                 <div class="border-b px-5 py-4">
+                    <h2 class="font-semibold">E-Mail-Adressfilter</h2>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                        Legt fest, welche Adressen Mitglieder und Kontakte beim
+                        Online-Beitritt und bei einer Adressänderung im
+                        Mitgliederbereich verwenden dürfen.
+                    </p>
+                </div>
+                <div class="space-y-5 p-5">
+                    <div class="space-y-2">
+                        <Label for="email-filter-mode">Modus</Label>
+                        <select
+                            id="email-filter-mode"
+                            v-model="form.email_filter_mode"
+                            class="h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm"
+                        >
+                            <option value="off">Deaktiviert</option>
+                            <option value="allow">
+                                Allowlist: nur passende Adressen zulassen
+                            </option>
+                            <option value="block">
+                                Blocklist: passende Adressen abweisen
+                            </option>
+                        </select>
+                        <InputError :message="form.errors.email_filter_mode" />
+                    </div>
+                    <div class="space-y-2">
+                        <Label for="email-filter-patterns">Einträge</Label>
+                        <Textarea
+                            id="email-filter-patterns"
+                            v-model="form.email_filter_patterns"
+                            rows="6"
+                            class="font-mono"
+                            :disabled="form.email_filter_mode === 'off'"
+                            aria-describedby="email-filter-help"
+                            placeholder="*@gymsl.de"
+                        />
+                        <InputError
+                            v-for="message in filterErrors"
+                            :key="message"
+                            :message="message"
+                        />
+                        <div
+                            id="email-filter-help"
+                            class="space-y-1 text-sm text-muted-foreground"
+                        >
+                            <p>
+                                Ein Eintrag pro Zeile, Leerzeilen werden
+                                ignoriert. Groß- und Kleinschreibung spielt
+                                keine Rolle. <code>*</code> steht für beliebige
+                                Zeichen außer <code>@</code>.
+                            </p>
+                            <ul class="list-disc space-y-1 pl-5">
+                                <li>
+                                    <code>*@gymsl.de</code> – alle Adressen der
+                                    Domain gymsl.de
+                                </li>
+                                <li>
+                                    <code>*@*.gymsl.de</code> – alle
+                                    Unterdomains, nicht aber gymsl.de selbst
+                                </li>
+                                <li>
+                                    <code>m.mustermann@*</code> – dieser Name
+                                    bei jeder Domain
+                                </li>
+                            </ul>
+                            <p>
+                                Die Verwaltung kann beim Anlegen, Bearbeiten und
+                                CSV-Import jede Adresse speichern. Ist eine
+                                gespeicherte Adresse nach den aktuellen Regeln
+                                nicht zugelassen, wird das Mitglied bei der
+                                Anmeldung zur Änderung aufgefordert; bis zur
+                                Bestätigung der neuen Adresse ist der
+                                Mitgliederbereich eingeschränkt. Konten von
+                                Verwaltungsbenutzern sind nicht betroffen.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section class="rounded-xl border bg-card">
+                <div class="border-b px-5 py-4">
                     <h2 class="font-semibold">Formulartexte</h2>
                     <p class="mt-1 text-sm text-muted-foreground">
                         Die Texte werden vor der Unterschrift angezeigt und
@@ -165,7 +260,7 @@ const templates = [
                 </div>
             </section>
             <p
-                v-for="error in form.errors"
+                v-for="error in otherErrors"
                 :key="error"
                 role="alert"
                 class="text-sm text-destructive"

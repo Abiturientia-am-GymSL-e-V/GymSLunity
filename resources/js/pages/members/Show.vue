@@ -43,6 +43,7 @@ const props = defineProps<{
     mandates: MemberMandate[];
     history: MemberHistory;
     canEdit: boolean;
+    emailFilterViolation: boolean;
     returnTo: string;
     configurationVersion: number;
     contributionAccount: {
@@ -392,6 +393,16 @@ const adult = computed(() => {
                 @click="loadCurrent"
                 >Aktuellen Stand laden</Button
             >
+        </StatusAlert>
+        <StatusAlert
+            v-if="emailFilterViolation"
+            type="info"
+            title="E-Mail-Adresse außerhalb des Adressfilters"
+        >
+            Die hinterlegte Adresse ist nach dem E-Mail-Adressfilter der
+            Selfservice-Konfiguration nicht zugelassen. Das Mitglied wird bei
+            der nächsten Anmeldung im Mitgliederbereich aufgefordert, eine
+            andere Adresse zu hinterlegen.
         </StatusAlert>
         <StatusAlert
             v-if="revokesMandate"

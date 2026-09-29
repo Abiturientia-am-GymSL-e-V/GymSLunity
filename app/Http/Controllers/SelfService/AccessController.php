@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\SelfServiceAccessMail;
 use App\Models\Member;
 use App\SelfService\Access;
+use App\SelfService\EmailAddressFilter;
 use App\SelfService\ProfileChanges;
 use App\Support\FormOfAddress;
 use Illuminate\Http\RedirectResponse;
@@ -24,7 +25,7 @@ use Inertia\Response;
 
 class AccessController extends Controller
 {
-    public function __construct(private readonly ClubSettings $clubSettings) {}
+    public function __construct(private readonly ClubSettings $clubSettings, private readonly EmailAddressFilter $emailFilter) {}
 
     public function index(): Response
     {
@@ -54,6 +55,9 @@ class AccessController extends Controller
         }
         if ($purpose === 'join' && $email === '') {
             throw ValidationException::withMessages(['email' => FormOfAddress::choose('Bitte gib eine E-Mail-Adresse an.', 'Bitte geben Sie eine E-Mail-Adresse an.')]);
+        }
+        if ($purpose === 'join') {
+            $this->emailFilter->assertAllowed($email);
         }
         (new Timebox)->call(function () use ($values, $email, $purpose): void {
             $identifier = $email !== '' ? $email : 'member:'.($values['member_number'] ?? '');
@@ -114,6 +118,9 @@ class AccessController extends Controller
                 abort_unless($member && strtolower((string) $member->email) === $token->email && $member->deceased_at === null, 403);
             } else {
                 abort_unless($this->clubSettings->enabled('public_join_enabled'), 403);
+                if (! $this->emailFilter->allows($token->email)) {
+                    throw ValidationException::withMessages(['token' => FormOfAddress::choose('Diese E-Mail-Adresse ist für den Mitgliederbereich nicht mehr zugelassen. Bitte verwende eine andere Adresse.', 'Diese E-Mail-Adresse ist für den Mitgliederbereich nicht mehr zugelassen. Bitte verwenden Sie eine andere Adresse.')]);
+                }
                 if (Member::query()->whereRaw('LOWER(email) = ?', [$token->email])->exists()) {
                     throw ValidationException::withMessages(['token' => FormOfAddress::choose('Bitte fordere für diese Adresse einen neuen Mitgliederzugang an.', 'Bitte fordern Sie für diese Adresse einen neuen Mitgliederzugang an.')]);
                 }
@@ -155,6 +162,12 @@ class AccessController extends Controller
                 FormOfAddress::choose('Die E-Mail-Adresse wird inzwischen bereits verwendet. Bitte fordere im Mitgliederportal einen neuen Link an.', 'Die E-Mail-Adresse wird inzwischen bereits verwendet. Bitte fordern Sie im Mitgliederportal einen neuen Link an.'),
             );
 
+            abort_unless(
+                $this->emailFilter->allows($confirmation->email),
+                409,
+                FormOfAddress::choose('Diese E-Mail-Adresse ist für den Mitgliederbereich nicht mehr zugelassen. Bitte fordere im Mitgliederportal einen Link für eine andere Adresse an.', 'Diese E-Mail-Adresse ist für den Mitgliederbereich nicht mehr zugelassen. Bitte fordern Sie im Mitgliederportal einen Link für eine andere Adresse an.'),
+            );
+
             app(ProfileChanges::class)->save($member, ['email' => $confirmation->email]);
             DB::table('selfservice_tokens')->where('id', $confirmation->id)->delete();
 
@@ -184,6 +197,7 @@ class AccessController extends Controller
         if ($email === strtolower(trim((string) $member->email))) {
             throw ValidationException::withMessages(['email' => FormOfAddress::choose('Bitte gib eine andere E-Mail-Adresse ein.', 'Bitte geben Sie eine andere E-Mail-Adresse ein.')]);
         }
+        $this->emailFilter->assertAllowed($email);
         if (Member::query()->whereRaw('LOWER(email) = ?', [$email])->whereKeyNot($member->id)->exists()) {
             throw ValidationException::withMessages(['email' => 'Diese E-Mail-Adresse wird bereits verwendet.']);
         }
