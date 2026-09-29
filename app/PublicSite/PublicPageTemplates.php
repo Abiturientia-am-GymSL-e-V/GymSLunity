@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\PublicSite;
 
 use App\SelfService\FormTemplates;
+use App\Support\FormOfAddress;
 
 final class PublicPageTemplates
 {
@@ -96,10 +97,18 @@ TEXT,
             'join_mail_text' => "Hallo,\n\ndu möchtest Mitglied bei {{verein.name}} werden. Bestätige zunächst deine E-Mail-Adresse über die Schaltfläche in dieser E-Mail. Anschließend kannst du deinen Mitgliedsantrag ausfüllen.",
             'welcome_mail_subject' => 'Willkommen bei {{verein.name}}',
             'welcome_mail_text' => "Hallo,\n\nvielen Dank für deinen Mitgliedsantrag bei {{verein.name}}. Deinen digital eingereichten Antrag findest du als PDF im Anhang.\n\nWir melden uns, falls noch etwas zu klären ist.",
+            'member_welcome_mail_subject' => 'Willkommen im Mitgliederbereich von {{verein.name}}',
+            'member_welcome_mail_text' => FormOfAddress::choose(
+                "Hallo {{mitglied.name}},\n\nwillkommen bei {{verein.name}}! Im Mitgliederbereich kannst du deine Daten einsehen und aktualisieren, deine Dokumente abrufen und weitere Angebote des Vereins nutzen.\n\nSo meldest du dich an:\n1. Öffne den Mitgliederbereich über die Schaltfläche in dieser E-Mail.\n2. Gib deine unten genannte E-Mail-Adresse ein. Nutzen mehrere Personen dieselbe Adresse, gib zusätzlich deine Mitgliedsnummer an.\n3. Du erhältst einen einmaligen Anmeldelink per E-Mail. Ein Passwort brauchst du nicht.\n\nNach der Anmeldung kannst du einen Passkey einrichten und dich damit künftig ohne E-Mail-Link anmelden.",
+                "Guten Tag {{mitglied.name}},\n\nwillkommen bei {{verein.name}}! Im Mitgliederbereich können Sie Ihre Daten einsehen und aktualisieren, Ihre Dokumente abrufen und weitere Angebote des Vereins nutzen.\n\nSo melden Sie sich an:\n1. Öffnen Sie den Mitgliederbereich über die Schaltfläche in dieser E-Mail.\n2. Geben Sie Ihre unten genannte E-Mail-Adresse ein. Nutzen mehrere Personen dieselbe Adresse, geben Sie zusätzlich Ihre Mitgliedsnummer an.\n3. Sie erhalten einen einmaligen Anmeldelink per E-Mail. Ein Passwort brauchen Sie nicht.\n\nNach der Anmeldung können Sie einen Passkey einrichten und sich damit künftig ohne E-Mail-Link anmelden.",
+            ),
             'contribution_invoice_mail_subject' => 'Deine Beitragsrechnung von {{verein.name}}',
             'contribution_invoice_mail_text' => "Hallo,\n\nim Anhang erhältst du deine Beitragsrechnung von {{verein.name}} als PDF. Bitte beachte das dort angegebene Fälligkeitsdatum und den Zahlungsweg.\n\nBei Rückfragen wende dich bitte an den Vorstand.",
         ];
     }
+
+    /** Mail texts addressed to one member; they also accept {{mitglied.*}} placeholders. */
+    public const MEMBER_TEMPLATES = ['member_welcome_mail_subject', 'member_welcome_mail_text'];
 
     /** @return list<string> */
     public static function placeholders(): array

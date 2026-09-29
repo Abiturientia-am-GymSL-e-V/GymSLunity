@@ -21,6 +21,7 @@ class UpdateSelfServiceSettingsRequest extends FormRequest
         return [
             'version' => ['required', 'integer'], 'selfservice_enabled' => ['required', 'boolean'], 'public_join_enabled' => ['required', 'boolean'],
             'membership_activation' => ['required', Rule::in(['immediate', 'approval'])],
+            'welcome_mail_automatic' => ['required', 'boolean'],
             'application_text' => ['required', 'string', 'max:12000'], 'sepa_text' => ['required', 'string', 'max:12000'], 'guardian_text' => ['required', 'string', 'max:6000'],
             'receipt_notes' => ['required', 'string', 'max:12000'],
             'receipt_donation_notes' => ['required', 'string', 'max:12000'],

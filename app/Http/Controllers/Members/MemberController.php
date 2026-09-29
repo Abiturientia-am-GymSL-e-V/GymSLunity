@@ -14,6 +14,7 @@ use App\Members\MemberFields;
 use App\Members\MemberMandates;
 use App\Members\MemberNavigation;
 use App\Members\UpdateMember;
+use App\Members\WelcomeMails;
 use App\Models\ContributionAccount;
 use App\Models\Member;
 use App\Models\MemberChange;
@@ -44,7 +45,7 @@ class MemberController extends Controller
         ]);
     }
 
-    public function store(StoreMemberRequest $request, CreateMember $create): RedirectResponse
+    public function store(StoreMemberRequest $request, CreateMember $create, WelcomeMails $welcomeMails): RedirectResponse
     {
         $member = $create->handle(
             $request->user(),
@@ -53,6 +54,7 @@ class MemberController extends Controller
             $request->integer('configuration_version'),
             ['application' => $request->file('application_file'), 'sepa' => $request->file('sepa_file')],
         );
+        $welcomeMails->sendAutomaticallyLater($member);
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Mitglied wurde angelegt.']);
 
         return to_route('members.show', ['member' => $member->member_number]);
@@ -70,6 +72,10 @@ class MemberController extends Controller
             'configurationVersion' => $this->clubSettings->fieldsVersion(),
             'canEdit' => $request->user()?->can('update', $member) ?? false,
             'emailFilterViolation' => app(EmailAddressFilter::class)->requiresChange($member),
+            'welcomeMail' => fn () => [
+                'available' => app(WelcomeMails::class)->available(),
+                'last_sent' => WelcomeMails::lastSent($member),
+            ],
             'returnTo' => $returnTo,
             'documents' => fn () => DB::table('member_documents')->where('member_id', $member->getKey())
                 ->where('kind', 'application')->get(['id', 'kind', 'submitted_online', 'created_at'])

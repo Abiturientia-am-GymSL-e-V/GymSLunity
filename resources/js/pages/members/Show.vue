@@ -20,6 +20,7 @@ import {
 import { Label } from '@/components/ui/label';
 
 import { Spinner } from '@/components/ui/spinner';
+import { formatDateTime } from '@/lib/format';
 import { address } from '@/lib/formOfAddress';
 import { memberTimestamp, memberValue } from '@/lib/memberFormatting';
 import { onBeforeHistoryNavigation } from '@/lib/navigationGuard';
@@ -35,6 +36,7 @@ import type {
 } from '@/types/members';
 import MandateHistory from '@/components/members/MandateHistory.vue';
 import MemberDocuments from '@/components/members/MemberDocuments.vue';
+import SendWelcomeMails from '@/components/members/SendWelcomeMails.vue';
 
 const props = defineProps<{
     member: MemberDetail;
@@ -44,6 +46,10 @@ const props = defineProps<{
     history: MemberHistory;
     canEdit: boolean;
     emailFilterViolation: boolean;
+    welcomeMail: {
+        available: boolean;
+        last_sent: { sent_at: string; recipient_email: string | null } | null;
+    };
     returnTo: string;
     configurationVersion: number;
     contributionAccount: {
@@ -404,6 +410,44 @@ const adult = computed(() => {
             der nächsten Anmeldung im Mitgliederbereich aufgefordert, eine
             andere Adresse zu hinterlegen.
         </StatusAlert>
+        <section
+            class="flex flex-col gap-3 rounded-xl border bg-card p-5 sm:flex-row sm:items-center sm:justify-between"
+            aria-labelledby="welcome-mail-heading"
+        >
+            <div class="min-w-0 space-y-1">
+                <h2 id="welcome-mail-heading" class="font-semibold">
+                    Willkommensmail
+                </h2>
+                <p class="text-sm break-words text-muted-foreground">
+                    <template v-if="welcomeMail.last_sent"
+                        >Zuletzt versendet am
+                        {{ formatDateTime(welcomeMail.last_sent.sent_at) }}
+                        an {{ welcomeMail.last_sent.recipient_email || '–'
+                        }}<template
+                            v-if="
+                                welcomeMail.last_sent.recipient_email &&
+                                member.email &&
+                                welcomeMail.last_sent.recipient_email.toLowerCase() !==
+                                    String(member.email).toLowerCase()
+                            "
+                        >
+                            (vorherige Adresse)</template
+                        >.</template
+                    ><template v-else
+                        >Noch keine Willkommensmail versendet.</template
+                    >
+                </p>
+            </div>
+            <SendWelcomeMails
+                v-if="canEdit && member.email"
+                :selected="[member.member_number]"
+                :available="welcomeMail.available"
+                :label="
+                    welcomeMail.last_sent ? 'Erneut senden' : 'Jetzt senden'
+                "
+                single
+            />
+        </section>
         <StatusAlert
             v-if="revokesMandate"
             type="warning"

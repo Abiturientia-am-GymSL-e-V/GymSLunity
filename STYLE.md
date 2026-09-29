@@ -232,6 +232,14 @@ Systemseitig erzeugte HTML-E-Mails verwenden verbindlich die anonyme Blade-Kompo
 - Inhalte beginnen und enden mit kontrollierten Absatzabständen. Der erste Absatz verwendet üblicherweise `margin-top:0`, der letzte `margin-bottom:0`.
 - Sekundär- und Hilfstexte verwenden inline `color:#53606d` und `font-size:14px`, sehr kompakte Rechtshinweise höchstens `font-size:13px`.
 - Primäre E-Mail-Aktionen verwenden das Muster der Zugangs-Mail: Inline-Link mit `padding:13px 20px`, `border-radius:8px`, `background:#17212b`, weißer Schrift und `font-weight:700`.
+- Hervorgehobene Hinweise in E-Mails verwenden die anonyme Blade-Komponente `resources/views/components/mail/alert.blade.php` und keine eigenen farbigen Blöcke. Sie entspricht den Typen von `StatusAlert`: `error` (rot, Standard) für handlungsnotwendige Probleme, etwa eine zu ändernde E-Mail-Adresse, `warning` und `info`. Ein Alert hat einen kurzen `title` und einen erklärenden Satz im Slot und steht vor dem eigentlichen Nachrichtentext:
+
+    ```blade
+    <x-mail.alert type="error" title="Bitte ändere deine E-Mail-Adresse">
+        Diese Adresse ist für den Mitgliederbereich nicht mehr zugelassen.
+    </x-mail.alert>
+    ```
+
 - Für die Client-Kompatibilität bleiben E-Mail-Struktur und Layout tabellenbasiert und alle wesentlichen Styles inline. Externe Stylesheets, JavaScript, Webfonts und Anwendungs-CSS-Tokens sind in E-Mails unzulässig. Die festen E-Mail-Farben sind eine bewusste Ausnahme von den Token-Regeln der Weboberfläche.
 - Dynamische Inhalte werden standardmäßig durch Blade escaped. Unescaped HTML ist nur für bereits serverseitig bereinigte Inhalte zulässig und muss im Template erkennbar begründet sein.
 - Fachliche Anhänge, Betreff, Absender und Versandlogik verbleiben in der jeweiligen `Mailable`; die Layout-Komponente enthält keine Geschäftslogik.

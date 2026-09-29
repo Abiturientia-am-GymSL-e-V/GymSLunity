@@ -49,7 +49,7 @@ class EmailAddressFilterTest extends TestCase
         return [
             'version' => ClubSetting::current()->version, 'selfservice_enabled' => true, 'public_join_enabled' => true,
             'membership_activation' => 'immediate', ...FormTemplates::defaults(),
-            'email_filter_mode' => 'off', 'email_filter_patterns' => '', ...$overrides,
+            'welcome_mail_automatic' => true, 'email_filter_mode' => 'off', 'email_filter_patterns' => '', ...$overrides,
         ];
     }
 

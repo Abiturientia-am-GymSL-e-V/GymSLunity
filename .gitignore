@@ -58,3 +58,6 @@ yarn-error.log
 /TODO.md
 /TODOS.md
 !/.env.testing.example
+
+# Persönliche Notizen
+/BRAINSTORMING.md

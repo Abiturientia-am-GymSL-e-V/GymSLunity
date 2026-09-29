@@ -27,6 +27,7 @@ class IndexMembersRequest extends FormRequest
             'membership' => ['nullable', 'string', 'max:80'],
             'department_role' => ['nullable', 'string', 'max:100'],
             'club_role' => ['nullable', 'string', 'max:100'],
+            'welcome' => ['nullable', Rule::in(['received', 'missing'])],
             'sort' => ['nullable', Rule::in(['member_number', 'name', 'city', 'birth_date', 'membership_type', 'joined_at', 'left_at', ...$custom->pluck('key')->all()])],
             'direction' => ['nullable', Rule::in(['asc', 'desc'])],
             'per_page' => ['nullable', 'integer', Rule::in([10, 25, 50, 100])],
@@ -47,14 +48,14 @@ class IndexMembersRequest extends FormRequest
         return $rules;
     }
 
-    /** @return array{q: string, membership: string, department_role: string, club_role: string, custom: array<string, string>, sort: string, direction: 'asc'|'desc', per_page: int} */
+    /** @return array{q: string, membership: string, department_role: string, club_role: string, welcome: string, custom: array<string, string>, sort: string, direction: 'asc'|'desc', per_page: int} */
     public function filters(): array
     {
         $data = $this->validated();
 
         return [
             'q' => trim($data['q'] ?? ''), 'membership' => $data['membership'] ?? '',
-            'department_role' => $data['department_role'] ?? '', 'club_role' => $data['club_role'] ?? '',
+            'department_role' => $data['department_role'] ?? '', 'club_role' => $data['club_role'] ?? '', 'welcome' => $data['welcome'] ?? '',
             'custom' => array_map(fn ($value): string => (string) $value, array_filter($data['custom'] ?? [], fn ($value): bool => $value !== null && $value !== '')),
             'sort' => $data['sort'] ?? 'name', 'direction' => ($data['direction'] ?? 'asc') === 'desc' ? 'desc' : 'asc', 'per_page' => (int) ($data['per_page'] ?? 25),
         ];

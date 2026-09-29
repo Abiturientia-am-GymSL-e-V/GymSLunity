@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Configuration;
 
+use App\Communication\CommunicationTemplate;
 use App\Configuration\ClubSettings;
 use App\Configuration\ConfigurationAudit;
 use App\Http\Controllers\Controller;
@@ -30,6 +31,11 @@ class PublicPageSettingsController extends Controller
             'settings' => array_replace($defaults, Arr::only($settings->data(), array_keys($defaults))),
             'defaults' => $defaults,
             'placeholders' => PublicPageTemplates::placeholders(),
+            // Only member-addressed mails know the recipient.
+            'memberPlaceholders' => array_values(array_filter(
+                array_column(app(CommunicationTemplate::class)->placeholders(), 'token'),
+                fn (string $token): bool => ! str_starts_with($token, '{{verein.'),
+            )),
             'version' => $settings->version(),
         ]);
     }

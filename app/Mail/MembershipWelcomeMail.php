@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Mail;
 
 use App\Configuration\ClubSettings;
+use App\Members\WelcomeMails;
 use App\PublicSite\PublicPageTemplates;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
@@ -22,6 +23,8 @@ class MembershipWelcomeMail extends Mailable
 
     private string $messageText;
 
+    private bool $announcesWelcomeMail;
+
     public function __construct(public readonly int $memberNumber, public readonly string $applicationPdf)
     {
         $settings = app(ClubSettings::class);
@@ -29,6 +32,7 @@ class MembershipWelcomeMail extends Mailable
         $this->logoUrl = $settings->logoUrl();
         $this->subjectLine = PublicPageTemplates::render('welcome_mail_subject', $this->club);
         $this->messageText = PublicPageTemplates::render('welcome_mail_text', $this->club);
+        $this->announcesWelcomeMail = app(WelcomeMails::class)->automatic();
     }
 
     public function envelope(): Envelope
@@ -43,6 +47,7 @@ class MembershipWelcomeMail extends Mailable
             'logoUrl' => $this->logoUrl,
             'subjectLine' => $this->subjectLine,
             'messageText' => $this->messageText,
+            'announcesWelcomeMail' => $this->announcesWelcomeMail,
         ]);
     }
 

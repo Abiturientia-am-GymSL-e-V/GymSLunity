@@ -43,7 +43,7 @@ export type RecipientPreviewRow = {
 
 export type Campaign = {
     id: number;
-    kind: 'mail' | 'letter';
+    kind: 'mail' | 'letter' | 'welcome';
     format: string | null;
     subject: string;
     recipient_count: number;
@@ -60,6 +60,6 @@ export type Delivery = {
     member_number: number;
     recipient_name: string;
     recipient_email: string | null;
-    status: 'pending' | 'sent' | 'failed' | 'generated';
+    status: 'pending' | 'sent' | 'failed' | 'generated' | 'skipped';
     error: string | null;
 };

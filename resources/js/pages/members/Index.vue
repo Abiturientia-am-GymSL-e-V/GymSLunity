@@ -27,6 +27,7 @@ import MemberFilter from '@/components/members/MemberFilter.vue';
 import MemberPageHeader from '@/components/members/MemberPageHeader.vue';
 import MembersNav from '@/components/members/MembersNav.vue';
 import MemberTable from '@/components/members/MemberTable.vue';
+import SendWelcomeMails from '@/components/members/SendWelcomeMails.vue';
 import StatusAlert from '@/components/StatusAlert.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -67,6 +68,7 @@ const props = defineProps<{
     fieldDefinitions: MemberField[];
     configurationVersion: number;
     canBulkEdit: boolean;
+    welcomeMailAvailable: boolean;
 }>();
 
 defineOptions({
@@ -96,6 +98,7 @@ const selectionFilterKey = computed(() =>
         props.filters.membership,
         props.filters.department_role,
         props.filters.club_role,
+        props.filters.welcome,
         props.filters.custom,
     ]),
 );
@@ -139,6 +142,11 @@ const filterLabels: Record<MemberFilterKey, string> = {
     membership: 'Mitgliedschaft',
     department_role: 'Abteilung',
     club_role: 'Hauptverein',
+    welcome: 'Willkommensmail',
+};
+const welcomeLabels: Record<string, string> = {
+    received: 'Erhalten',
+    missing: 'Noch nicht erhalten',
 };
 const activeFilters = computed(() => [
     ...(Object.keys(filterLabels) as MemberFilterKey[])
@@ -147,13 +155,15 @@ const activeFilters = computed(() => [
             key,
             label: filterLabels[key],
             value:
-                draft[key] === '__none__'
-                    ? 'Ohne Funktion'
-                    : draft[key] === '__any__'
-                      ? 'Mit Funktion'
-                      : fieldOptions(
-                            key === 'membership' ? 'membership_type' : key,
-                        )[draft[key]] || draft[key],
+                key === 'welcome'
+                    ? welcomeLabels[draft[key]] || draft[key]
+                    : draft[key] === '__none__'
+                      ? 'Ohne Funktion'
+                      : draft[key] === '__any__'
+                        ? 'Mit Funktion'
+                        : fieldOptions(
+                              key === 'membership' ? 'membership_type' : key,
+                          )[draft[key]] || draft[key],
         })),
     ...Object.entries(draft.custom)
         .filter(([, value]) => value !== '')
@@ -229,7 +239,9 @@ function filter(key: string, value: string) {
         const field = key.slice(7);
         if (value) draft.custom[field] = value;
         else delete draft.custom[field];
-    } else draft[key as MemberFilterKey] = value;
+    } else if (key === 'welcome')
+        draft.welcome = value as MemberFilters['welcome'];
+    else draft[key as Exclude<MemberFilterKey, 'welcome'>] = value;
     visit();
 }
 
@@ -445,6 +457,28 @@ const pages = computed(() => {
                     with-presence
                     @change="filter('club_role', $event)"
                 />
+                <div v-if="canBulkEdit" class="grid min-w-0 gap-2">
+                    <Label
+                        for="filter-welcome"
+                        class="text-xs text-muted-foreground"
+                        >Willkommensmail</Label
+                    >
+                    <select
+                        id="filter-welcome"
+                        class="h-9 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm"
+                        :value="draft.welcome"
+                        @change="
+                            filter(
+                                'welcome',
+                                ($event.target as HTMLSelectElement).value,
+                            )
+                        "
+                    >
+                        <option value="">Alle</option>
+                        <option value="missing">Noch nicht erhalten</option>
+                        <option value="received">Erhalten</option>
+                    </select>
+                </div>
                 <div
                     v-for="field in customFilters"
                     :key="field.key"
@@ -590,6 +624,12 @@ const pages = computed(() => {
                         :fields="fieldDefinitions"
                         :configuration-version="configurationVersion"
                         @updated="selection.numbers = []"
+                    />
+                    <SendWelcomeMails
+                        v-if="canBulkEdit"
+                        :selected="selection.numbers"
+                        :available="welcomeMailAvailable"
+                        @sent="selection.numbers = []"
                     />
                     <MemberExport
                         :filters="filters"

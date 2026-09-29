@@ -37,6 +37,7 @@ export type MemberFilters = {
     membership: string;
     department_role: string;
     club_role: string;
+    welcome: '' | 'received' | 'missing';
     sort: MemberSort;
     direction: 'asc' | 'desc';
     per_page: number;
@@ -46,7 +47,8 @@ export type MemberFilterKey =
     | 'q'
     | 'membership'
     | 'department_role'
-    | 'club_role';
+    | 'club_role'
+    | 'welcome';
 
 export type MemberFilterOptions = {
     memberships: string[];

@@ -28,9 +28,9 @@ class SelfServiceSettingsController extends Controller
 
         return Inertia::render('configuration/SelfService', [
             'settings' => array_replace(
-                ['selfservice_enabled' => false, 'public_join_enabled' => false, 'membership_activation' => 'immediate', 'email_filter_mode' => 'off', 'email_filter_patterns' => ''],
+                ['selfservice_enabled' => false, 'public_join_enabled' => false, 'membership_activation' => 'immediate', 'welcome_mail_automatic' => true, 'email_filter_mode' => 'off', 'email_filter_patterns' => ''],
                 FormTemplates::defaults(),
-                Arr::only($settings->data(), ['selfservice_enabled', 'public_join_enabled', 'membership_activation', 'email_filter_mode', 'email_filter_patterns', ...array_keys(FormTemplates::defaults())]),
+                Arr::only($settings->data(), ['selfservice_enabled', 'public_join_enabled', 'membership_activation', 'welcome_mail_automatic', 'email_filter_mode', 'email_filter_patterns', ...array_keys(FormTemplates::defaults())]),
             ),
             'version' => $settings->version(), 'defaults' => FormTemplates::defaults(), 'placeholders' => FormTemplates::placeholders(),
         ]);

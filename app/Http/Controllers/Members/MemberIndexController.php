@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Members\IndexMembersRequest;
 use App\Members\MemberDirectory;
 use App\Members\MemberFields;
+use App\Members\WelcomeMails;
 use App\Models\Member;
 use App\Models\MemberFieldDefinition;
 use Illuminate\Support\Arr;
@@ -54,6 +55,7 @@ class MemberIndexController extends Controller
             'fieldDefinitions' => fn () => MemberFields::directoryFields(),
             'configurationVersion' => fn () => $this->clubSettings->fieldsVersion(),
             'canBulkEdit' => $request->user()?->can('updateAny', Member::class) ?? false,
+            'welcomeMailAvailable' => fn () => app(WelcomeMails::class)->available(),
         ]);
     }
 

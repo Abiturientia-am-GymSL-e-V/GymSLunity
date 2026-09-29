@@ -44,6 +44,7 @@ use App\Http\Controllers\Members\MemberIndexController;
 use App\Http\Controllers\Members\MembershipApplicationController;
 use App\Http\Controllers\Members\MembershipCancellationController;
 use App\Http\Controllers\Members\PostalCodeController;
+use App\Http\Controllers\Members\WelcomeMailController;
 use App\Http\Controllers\Payments\BankImportController;
 use App\Http\Controllers\Payments\ContributionController;
 use App\Http\Controllers\Payments\DunningController;
@@ -248,6 +249,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('mitglieder/importieren/abschliessen', [MemberImportController::class, 'store'])->name('members.import.store');
     Route::post('mitglieder/export', MemberExportController::class)->middleware(['throttle:20,1', 'reconfirm', 'audit:data_export'])->name('members.export');
     Route::patch('mitglieder/massenbearbeitung', BulkUpdateMemberController::class)->middleware('throttle:10,1')->name('members.bulk-update');
+    Route::post('mitglieder/willkommensmail', WelcomeMailController::class)->middleware('throttle:10,1')->name('members.welcome-mail');
     Route::get('mitglieder/{member:member_number}/karteiblatt', MemberCardController::class)->middleware(['throttle:sensitive', 'audit:document_access'])->name('members.card');
     Route::get('mitglieder/{member:member_number}', [MemberController::class, 'show'])->middleware('audit:member_viewed')->name('members.show');
     Route::patch('mitglieder/{member:member_number}', [MemberController::class, 'update'])->name('members.update');

@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Members;
 
 use App\Http\Controllers\Controller;
 use App\Members\UpdateMember;
+use App\Members\WelcomeMails;
 use App\Models\ClubSetting;
 use App\Models\Member;
 use App\Support\Clock;
@@ -34,7 +35,7 @@ class MembershipApplicationController extends Controller
         ]);
     }
 
-    public function approve(Request $request, Member $member, UpdateMember $update): RedirectResponse
+    public function approve(Request $request, Member $member, UpdateMember $update, WelcomeMails $welcomeMails): RedirectResponse
     {
         Gate::authorize('update', $member);
         $values = $request->validate([
@@ -60,6 +61,7 @@ class MembershipApplicationController extends Controller
                 'approved_at' => now(), 'approved_by' => $request->user()->id, 'approved_by_name' => $request->user()->name,
             ]);
         }, attempts: 3);
+        $welcomeMails->sendAutomaticallyLater($member->refresh());
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Beitritt freigegeben und Eintrittsdatum gespeichert.']);
 
         return back();
