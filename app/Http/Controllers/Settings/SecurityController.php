@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Settings;
 
+use App\Demo\DemoAccounts;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\PasswordUpdateRequest;
 use App\Http\Requests\Settings\TwoFactorAuthenticationRequest;
@@ -120,6 +121,8 @@ class SecurityController extends Controller
 
         $rows = DB::table(config('session.table', 'sessions'))
             ->where('user_id', $request->user()->getAuthIdentifier())
+            // Visitors of the demo share accounts and must not see each other's addresses.
+            ->when(DemoAccounts::isDemoUser($request->user()), fn ($query) => $query->where('id', $request->session()->getId()))
             ->orderByDesc('last_activity')->get(['id', 'ip_address', 'user_agent', 'last_activity']);
         $sessions = [];
         foreach ($rows as $session) {

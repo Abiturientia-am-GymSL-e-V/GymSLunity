@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Forms;
 
 use App\Configuration\ClubSettings;
 use App\Configuration\MailConfigurator;
+use App\Demo\DemoAccounts;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Forms\ReceiptFilterRequest;
 use App\Http\Requests\Forms\StoreReceiptRequest;
@@ -83,7 +84,7 @@ class ReceiptController extends Controller
     public function store(StoreReceiptRequest $request, IssueReceipt $issue): RedirectResponse
     {
         $data = $request->validated();
-        $receipt = $issue->handle($data, $request->user(), $request->ip());
+        $receipt = $issue->handle($data, $request->user(), DemoAccounts::documentIp($request->ip()));
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Quittung '.$receipt->receipt_number.' ausgestellt. Original und Kopie stehen bereit.']);
 
         return redirect('/formulare/quittungen/'.$receipt->id);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\SelfService;
 
 use App\Configuration\ClubSettings;
+use App\Demo\DemoAccounts;
 use App\Members\MemberReportWriter;
 use App\Models\Member;
 use App\Security\MemberDocumentStore;
@@ -24,7 +25,7 @@ final class Documents
             'member' => $member, 'kind' => $kind, 'signature' => $signature,
             'guardian' => $guardian, 'guardianName' => $guardianName,
             'club' => $settings->data(), 'logo' => $settings->logoDataUri(), 'texts' => FormTemplates::rendered(),
-            'timestamp' => now()->setTimezone(config('app.display_timezone'))->format('d.m.Y H:i:s T'), 'ip' => $request->ip(),
+            'timestamp' => now()->setTimezone(config('app.display_timezone'))->format('d.m.Y H:i:s T'), 'ip' => DemoAccounts::documentIp($request->ip()),
         ])->render());
         $pdf->setPaper('A4');
         $pdf->render();

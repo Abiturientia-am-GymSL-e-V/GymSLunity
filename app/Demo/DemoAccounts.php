@@ -32,6 +32,12 @@ final class DemoAccounts
             && in_array(strtolower($user->email), array_column(self::USERS, 'email'), true);
     }
 
+    /** Documents that print the client IP must not show visitors' addresses to other visitors. */
+    public static function documentIp(?string $ip): ?string
+    {
+        return self::enabled() ? 'nicht gespeichert (Demo)' : $ip;
+    }
+
     /**
      * Credentials for the login page, or null outside the demo.
      *
