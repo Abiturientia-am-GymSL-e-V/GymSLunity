@@ -18,10 +18,6 @@ jobs:
   install:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    defaults:
-      run:
-        # "! command" does not fail a step under bash -e, use "fails command".
-        shell: bash --noprofile --norc -eo pipefail -c 'fails() { if "$@"; then echo "Unerwartet erfolgreich $*" >&2; exit 1; fi; }; source "$0"' {0}
     env:
       DEMO_RELEASE_DOMAIN: demo.example.test
       DEMO_TLS: proxy
@@ -36,6 +32,9 @@ jobs:
 
       - name: Prepare server
         run: |
+          # "! command" does not fail a step under bash -e, the checks use "fails command".
+          echo 'fails() { if "$@"; then echo "Unerwartet erfolgreich: $*" >&2; exit 1; fi; }' > "$RUNNER_TEMP/helpers.sh"
+          echo "BASH_ENV=$RUNNER_TEMP/helpers.sh" >> "$GITHUB_ENV"
           sudo apt-get update -qq
           sudo apt-get install -y -qq openssh-server
           sudo systemctl start ssh
