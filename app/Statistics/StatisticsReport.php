@@ -7,6 +7,7 @@ namespace App\Statistics;
 use App\Models\Contribution;
 use App\Models\Donation;
 use App\Models\Member;
+use App\Support\Clock;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 
@@ -143,7 +144,7 @@ final class StatisticsReport
         $assessed = (int) $contributions->sum('amount_cents');
         $paid = (int) $contributions->sum('paid_cents');
         $open = $contributions->sum(fn (Contribution $contribution): int => $contribution->remainingCents());
-        $today = CarbonImmutable::today();
+        $today = Clock::today();
         $overdue = $contributions->filter(fn (Contribution $contribution): bool => $contribution->remainingCents() > 0 && $contribution->due_date->lessThan($today));
         $donationTotal = (int) $donations->sum('amount_cents');
 

@@ -4,15 +4,20 @@ declare(strict_types=1);
 
 namespace App\Finance;
 
+use App\Banking\BankCsvReader;
 use App\Models\FinanceInvoice;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class FinanceBankCsvImport
 {
+    /** @var Collection<int, FinanceInvoice>|null */
+    private ?Collection $invoices = null;
+
     /** @return array{rows: int, imported: int, unmatched: int} */
     public function handle(UploadedFile $file, User $actor): array
     {
@@ -26,15 +31,15 @@ final class FinanceBankCsvImport
             throw ValidationException::withMessages(['csv' => 'Diese Datei wurde im Rechnungswesen bereits importiert.']);
         }
 
-        [$headers, $rows] = $this->rows($contents);
-        $normalized = array_map(fn (?string $header): string => $this->header($header ?? ''), $headers);
-        $amountIndex = $this->column($normalized, ['betrag', 'amount', 'umsatz']);
-        $dateIndex = $this->column($normalized, ['buchungsdatum', 'datum', 'bookingdate']);
+        $csv = BankCsvReader::fromString($contents);
+        $rows = $csv->rows;
+        $amountIndex = $csv->column(['betrag', 'amount', 'umsatz']);
+        $dateIndex = $csv->column(['buchungsdatum', 'datum', 'bookingdate']);
         if ($amountIndex === null || $dateIndex === null) {
             throw ValidationException::withMessages(['csv' => 'Benötigte Spalten: Buchungsdatum/Datum und Betrag. Optional: Verwendungszweck und Referenz.']);
         }
 
-        return DB::transaction(function () use ($file, $actor, $checksum, $rows, $normalized, $amountIndex, $dateIndex): array {
+        return DB::transaction(function () use ($file, $actor, $checksum, $rows, $csv, $amountIndex, $dateIndex): array {
             $importId = DB::table('finance_bank_imports')->insertGetId([
                 'actor_id' => $actor->id,
                 'actor_name' => $actor->name,
@@ -48,10 +53,10 @@ final class FinanceBankCsvImport
             $imported = 0;
             $unmatched = 0;
             foreach ($rows as $number => $row) {
-                $amount = $this->amount((string) $row[$amountIndex]);
-                $date = $this->date((string) $row[$dateIndex]);
-                $reference = $this->value($row, $normalized, ['referenz', 'reference', 'endtoendid', 'endtoendreferenz']);
-                $purpose = $this->value($row, $normalized, ['verwendungszweck', 'buchungstext', 'zweck', 'description']);
+                $amount = BankCsvReader::amount($row[$amountIndex]);
+                $date = BankCsvReader::date($row[$dateIndex]);
+                $reference = $csv->value($row, ['referenz', 'reference', 'endtoendid', 'endtoendreferenz']);
+                $purpose = $csv->value($row, ['verwendungszweck', 'buchungstext', 'zweck', 'description']);
                 $type = $amount < 0 ? 'return_debit' : 'payment';
                 $invoice = $this->invoice($reference.' '.$purpose);
                 $status = 'unmatched';
@@ -65,6 +70,8 @@ final class FinanceBankCsvImport
                 } elseif (! $invoice) {
                     $reason = 'Keine Rechnung automatisch erkannt';
                 } else {
+                    // Lock and re-read: an earlier row of this file may have paid it.
+                    $invoice = FinanceInvoice::query()->whereKey($invoice->id)->lockForUpdate()->firstOrFail();
                     $reason = $this->paymentProblem($invoice, $amount);
                     if ($reason === null) {
                         $this->markPaid($invoice, $date, $actor);
@@ -146,37 +153,6 @@ final class FinanceBankCsvImport
         }, attempts: 3);
     }
 
-    /** @return array{list<string|null>, list<list<string|null>>} */
-    private function rows(string $contents): array
-    {
-        $stream = fopen('php://temp', 'r+');
-        if ($stream === false) {
-            throw ValidationException::withMessages(['csv' => 'Die CSV-Datei konnte nicht gelesen werden.']);
-        }
-        fwrite($stream, preg_replace('/^\xEF\xBB\xBF/', '', $contents) ?? $contents);
-        rewind($stream);
-        $sample = fgets($stream) ?: '';
-        $delimiter = substr_count($sample, ';') >= substr_count($sample, ',') ? ';' : ',';
-        rewind($stream);
-        $headers = fgetcsv($stream, separator: $delimiter, escape: '');
-        if (! is_array($headers)) {
-            fclose($stream);
-            throw ValidationException::withMessages(['csv' => 'Die CSV-Datei hat keine Kopfzeile.']);
-        }
-        $rows = [];
-        while (($row = fgetcsv($stream, separator: $delimiter, escape: '')) !== false) {
-            if (count(array_filter($row, fn ($value): bool => trim((string) $value) !== '')) > 0) {
-                $rows[] = array_pad($row, count($headers), '');
-            }
-        }
-        fclose($stream);
-        if (count($rows) > 5000) {
-            throw ValidationException::withMessages(['csv' => 'Pro Import sind höchstens 5.000 Buchungen erlaubt.']);
-        }
-
-        return [$headers, $rows];
-    }
-
     private function paymentProblem(FinanceInvoice $invoice, int $amount): ?string
     {
         if ($invoice->document_type !== 'invoice' || $invoice->status !== 'open') {
@@ -208,77 +184,21 @@ final class FinanceBankCsvImport
 
     private function invoice(string $text): ?FinanceInvoice
     {
-        $normalized = mb_strtoupper($text);
-
-        $invoices = FinanceInvoice::query()
+        $invoices = $this->invoices ??= FinanceInvoice::query()
             ->where('document_type', 'invoice')
             ->orderByDesc('id')
             ->get(['id', 'invoice_number', 'document_type', 'status', 'total_cents', 'snapshot']);
-        $byNumber = $invoices->first(
-            fn (FinanceInvoice $invoice): bool => str_contains($normalized, mb_strtoupper($invoice->invoice_number)),
-        );
+        $byNumber = BankCsvReader::uniqueMatch($text, $invoices, fn (FinanceInvoice $invoice): array => [$invoice->invoice_number]);
         if ($byNumber) {
             return $byNumber;
         }
 
-        return $invoices->first(function (FinanceInvoice $invoice) use ($normalized): bool {
-            $reference = $invoice->snapshot['payment']['mandate_reference'] ?? null;
-
-            return is_string($reference) && $reference !== '' && str_contains($normalized, mb_strtoupper($reference));
-        });
-    }
-
-    private function header(string $value): string
-    {
-        return preg_replace('/[^a-z0-9]/', '', mb_strtolower(trim($value))) ?? '';
-    }
-
-    /** @param list<string> $headers
-     * @param  list<string>  $names
-     */
-    private function column(array $headers, array $names): ?int
-    {
-        foreach ($names as $name) {
-            $index = array_search($name, $headers, true);
-            if ($index !== false) {
-                return $index;
-            }
-        }
-
-        return null;
-    }
-
-    /** @param list<string|null> $row
-     * @param  list<string>  $headers
-     * @param  list<string>  $names
-     */
-    private function value(array $row, array $headers, array $names): string
-    {
-        $index = $this->column($headers, $names);
-
-        return $index === null ? '' : trim((string) ($row[$index] ?? ''));
-    }
-
-    private function amount(string $value): int
-    {
-        $value = preg_replace('/[^0-9,.-]/', '', $value) ?? '';
-        if (str_contains($value, ',') && str_contains($value, '.')) {
-            $value = str_replace('.', '', $value);
-        }
-        $value = str_replace(',', '.', $value);
-
-        return is_numeric($value) ? (int) round((float) $value * 100) : 0;
-    }
-
-    private function date(string $value): ?string
-    {
-        foreach (['!Y-m-d', '!d.m.Y', '!d/m/Y'] as $format) {
-            $date = \DateTimeImmutable::createFromFormat($format, trim($value));
-            if ($date && $date->format(substr($format, 1)) === trim($value)) {
-                return $date->format('Y-m-d');
-            }
-        }
-
-        return null;
+        // A recurring mandate reference is shared by many invoices; it only
+        // identifies the invoice when exactly one of them is still open.
+        return BankCsvReader::uniqueMatch(
+            $text,
+            $invoices->where('status', 'open'),
+            fn (FinanceInvoice $invoice): array => [is_string($invoice->snapshot['payment']['mandate_reference'] ?? null) ? $invoice->snapshot['payment']['mandate_reference'] : null],
+        );
     }
 }

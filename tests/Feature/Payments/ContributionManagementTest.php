@@ -15,12 +15,15 @@ use App\Models\User;
 use App\Payments\CreateContributions;
 use App\Payments\DunningNotices;
 use App\Payments\SepaDirectDebit;
+use App\Support\Clock;
+use App\Support\DocumentSequence;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -334,24 +337,32 @@ class ContributionManagementTest extends TestCase
         $member = Member::factory()->create(['membership_type' => 'Aktiv']);
         $this->post(route('payments.contributions.store'), $this->contributionData())->assertSessionHasNoErrors();
 
-        $this->post(route('payments.manual.store'), [
+        $payment = [
             'member_number' => $member->member_number,
             'amount' => '25.50',
             'booking_date' => '2026-10-02',
             'description' => 'Teilzahlung',
             'reference' => 'BANK-1',
             'direction' => 'payment',
-        ])->assertSessionHasNoErrors();
+            'creation_key' => (string) Str::uuid(),
+        ];
+        $this->post(route('payments.manual.store'), $payment)->assertSessionHasNoErrors();
+        // A double click resends the same key and must not book twice.
+        $this->post(route('payments.manual.store'), $payment)->assertSessionHasNoErrors();
         $this->assertSame(2550, Contribution::sole()->paid_cents);
         $this->assertSame(3450, ContributionAccount::where('member_id', $member->id)->sole()->balance_cents);
 
-        $this->post(route('payments.return-debits.store'), [
+        $fee = [
             'member_number' => $member->member_number,
             'amount' => '5.00',
             'booking_date' => '2026-10-03',
             'description' => 'Rücklastschriftgebühr',
             'reference' => 'RL-1',
-        ])->assertSessionHasNoErrors();
+            'creation_key' => (string) Str::uuid(),
+        ];
+        $this->post(route('payments.return-debits.store'), $fee)->assertSessionHasNoErrors();
+        $this->post(route('payments.return-debits.store'), $fee)->assertSessionHasNoErrors();
+        $this->assertSame(1, Contribution::query()->where('kind', 'return_debit_fee')->count());
         $this->assertDatabaseHas('contributions', ['kind' => 'return_debit_fee', 'amount_cents' => 500, 'status' => 'open']);
         $this->assertSame(3950, ContributionAccount::where('member_id', $member->id)->sole()->balance_cents);
 
@@ -362,6 +373,7 @@ class ContributionManagementTest extends TestCase
             'description' => 'Manuelle Nachforderung',
             'reference' => 'FORDERUNG-1',
             'direction' => 'charge',
+            'creation_key' => (string) Str::uuid(),
         ])->assertSessionHasNoErrors();
         $this->assertDatabaseHas('contributions', ['kind' => 'manual_charge', 'amount_cents' => 750, 'status' => 'open']);
         $this->assertSame(4700, ContributionAccount::where('member_id', $member->id)->sole()->balance_cents);
@@ -579,6 +591,54 @@ class ContributionManagementTest extends TestCase
         $duplicate = UploadedFile::fake()->createWithContent('nochmal.csv', $csv);
         $this->post(route('payments.bank-import'), ['csv' => $duplicate])->assertSessionHasErrors('csv');
         $this->assertDatabaseCount('payment_imports', 1);
+    }
+
+    public function test_invoice_numbers_follow_the_local_date_at_new_year(): void
+    {
+        // 23:30 UTC on New Year's Eve is already 00:30 on 1 January in Berlin.
+        $this->travelTo(CarbonImmutable::parse('2026-12-31 23:30:00', 'UTC'));
+        $this->assertSame('2027-01-01', Clock::todayString());
+        $this->signIn();
+        Member::factory()->count(2)->create();
+        $this->post(route('payments.contributions.store'), $this->contributionData(['due_date' => '2027-01-15']))->assertSessionHasNoErrors();
+        $ids = Contribution::query()->orderBy('id')->pluck('id')->all();
+
+        $this->post(route('payments.invoices.generate'), ['ids' => $ids])->assertSessionHasNoErrors();
+
+        $this->assertSame(['RE-2027-000001', 'RE-2027-000002'], Contribution::query()->orderBy('id')->pluck('invoice_number')->all());
+    }
+
+    public function test_document_sequences_start_each_year_and_never_repeat(): void
+    {
+        DB::transaction(function (): void {
+            $this->assertSame(1, DocumentSequence::next('receipt_sequences', ['year' => 2030]));
+            $this->assertSame(2, DocumentSequence::next('receipt_sequences', ['year' => 2030]));
+            $this->assertSame(1, DocumentSequence::next('receipt_sequences', ['year' => 2031]));
+            $this->assertSame(1, DocumentSequence::next('donation_sequences', ['kind' => 'money', 'year' => 2030]));
+            $this->assertSame(1, DocumentSequence::next('donation_sequences', ['kind' => 'goods', 'year' => 2030]));
+        });
+    }
+
+    public function test_bank_import_does_not_guess_members_from_bare_numbers_or_ambiguous_mandates(): void
+    {
+        $this->signIn();
+        $yearMember = Member::factory()->create(['member_number' => 2026]);
+        $prefixed = Member::factory()->create(['member_number' => 17]);
+        Member::factory()->create(['mandate_reference' => 'MANDAT-1']);
+        Member::factory()->create(['mandate_reference' => 'MANDAT-10']);
+        $csv = "Buchungsdatum;Betrag;Verwendungszweck\n"
+            ."02.10.2026;20,00;Beitrag 2026\n"
+            ."02.10.2026;1.500;Spende Mitglied 17\n"
+            ."02.10.2026;30,00;MANDAT-1 und MANDAT-10\n";
+
+        $this->post(route('payments.bank-import'), [
+            'csv' => UploadedFile::fake()->createWithContent('umsatz.csv', $csv),
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame(0, ContributionAccount::where('member_id', $yearMember->id)->value('balance_cents') ?? 0);
+        $this->assertSame(-150000, ContributionAccount::where('member_id', $prefixed->id)->sole()->balance_cents);
+        $this->assertDatabaseCount('contribution_transactions', 1);
+        $this->assertSame(2, DB::table('payment_import_rows')->where('status', 'unmatched')->count());
     }
 
     public function test_bank_import_uses_payment_reference_allows_manual_assignment_and_reopens_return_debit(): void

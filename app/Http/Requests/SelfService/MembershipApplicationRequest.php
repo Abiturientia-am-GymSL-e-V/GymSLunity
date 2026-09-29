@@ -8,6 +8,7 @@ use App\Documents\SignatureImage;
 use App\Rules\Iban;
 use App\SelfService\PortalOptions;
 use App\SelfService\PortalRules;
+use App\Support\Clock;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Validation\Rule;
@@ -34,7 +35,7 @@ class MembershipApplicationRequest extends SelfServiceFormRequest
         return [...parent::rules(),
             'first_name' => ['required', 'string', 'max:255'], 'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'], 'gender' => ['nullable', Rule::in(array_keys($options->gender()))],
-            'birth_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'birth_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.Clock::todayString()],
             'mobile_phone' => ['nullable', 'string', 'max:50'], 'street' => ['required', 'string', 'max:255'],
             'postal_code' => ['required', 'string', 'max:20'], 'city' => ['required', 'string', 'max:255'], 'country' => ['required', 'string', 'max:255'],
             'membership_type' => ['required', Rule::in(array_keys($options->membership()))],

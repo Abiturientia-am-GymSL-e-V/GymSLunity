@@ -6,6 +6,7 @@ namespace App\SelfService;
 
 use App\Models\ClubSetting;
 use App\Models\Member;
+use App\Support\Clock;
 use App\Support\FormOfAddress;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
@@ -49,7 +50,7 @@ final class SubmissionGuard
             ...Arr::only($values, ['account_holder_first_name', 'account_holder_last_name', 'account_holder_street', 'account_holder_postal_code', 'account_holder_city', 'account_holder_country']),
             'iban' => $values['iban'],
             'mandate_reference' => 'M'.$member->member_number.'-'.strtoupper(bin2hex(random_bytes(6))),
-            'mandate_signed_at' => now()->toDateString(),
+            'mandate_signed_at' => Clock::todayString(),
         ];
     }
 }

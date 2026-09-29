@@ -37,7 +37,9 @@ class DocumentController extends Controller
                 (bool) ($record['encrypted'] ?? false),
                 is_string($record['content_sha256'] ?? null) ? $record['content_sha256'] : null,
             );
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
+            // A damaged stored document needs the administrators' attention.
+            report($exception);
             abort(422, 'Das hinterlegte Dokument ist beschädigt oder nicht lesbar.');
         }
 

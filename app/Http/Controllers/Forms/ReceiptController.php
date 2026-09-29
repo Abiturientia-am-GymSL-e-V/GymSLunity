@@ -13,6 +13,7 @@ use App\Mail\ReceiptMail;
 use App\Members\MemberReportWriter;
 use App\Models\Receipt;
 use App\Receipts\IssueReceipt;
+use App\Support\Clock;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -50,7 +51,7 @@ class ReceiptController extends Controller
             'receipts' => $receipts, 'filters' => $normalizedFilters, 'creationKey' => (string) Str::uuid(),
             'club' => Arr::only($this->clubSettings->data(), ['name', 'street', 'postal_code', 'city', 'email']),
             'hasProfileSignature' => $request->user()->hasProfileSignature(),
-            'today' => now()->toDateString(),
+            'today' => Clock::todayString(),
         ]);
     }
 
@@ -73,7 +74,7 @@ class ReceiptController extends Controller
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="quittungsbuch-'.now()->format('Y-m-d-His').'.pdf"',
+            'Content-Disposition' => 'attachment; filename="quittungsbuch-'.Clock::localNow()->format('Y-m-d-His').'.pdf"',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
         ]);

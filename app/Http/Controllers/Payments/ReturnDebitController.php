@@ -10,6 +10,7 @@ use App\Models\Contribution;
 use App\Models\Member;
 use App\Payments\ContributionLedger;
 use App\Payments\Money;
+use App\Support\IdempotencyKey;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -20,7 +21,10 @@ class ReturnDebitController extends Controller
     {
         $data = $request->validated();
         $member = Member::query()->where('member_number', $data['member_number'])->firstOrFail();
-        DB::transaction(function () use ($ledger, $member, $request, $data): void {
+        $booked = DB::transaction(function () use ($ledger, $member, $request, $data): bool {
+            if (! IdempotencyKey::claim('return_debit_fee', $data['creation_key'])) {
+                return false;
+            }
             $account = $ledger->account($member);
             $contribution = Contribution::query()->create([
                 'account_id' => $account->id, 'created_by' => $request->user()->id, 'kind' => 'return_debit_fee',
@@ -29,8 +33,12 @@ class ReturnDebitController extends Controller
                 'payment_method' => $member->payment_method, 'tax_deductible' => false, 'status' => 'open',
             ]);
             $ledger->charge($contribution, $request->user(), 'return_debit_fee', ['reference' => $data['reference'] ?? null]);
+
+            return true;
         }, attempts: 3);
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Rücklastschriftgebühr wurde belastet.']);
+        Inertia::flash('toast', $booked
+            ? ['type' => 'success', 'message' => 'Rücklastschriftgebühr wurde belastet.']
+            : ['type' => 'info', 'message' => 'Diese Gebühr wurde bereits belastet und nicht noch einmal angelegt.']);
 
         return back();
     }

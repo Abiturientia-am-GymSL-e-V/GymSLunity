@@ -10,6 +10,7 @@ use App\Models\Contribution;
 use App\Models\Member;
 use App\Payments\ContributionLedger;
 use App\Payments\Money;
+use App\Support\IdempotencyKey;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -20,10 +21,13 @@ class ManualPaymentController extends Controller
     {
         $data = $request->validated();
         $member = Member::query()->where('member_number', $data['member_number'])->firstOrFail();
-        if ($data['direction'] === 'payment') {
-            $ledger->payment($member, $request->user(), Money::cents($data['amount']), $data['booking_date'], $data['description'], $data['reference'] ?? null, kind: 'manual_payment');
-        } else {
-            DB::transaction(function () use ($ledger, $member, $request, $data): void {
+        $booked = DB::transaction(function () use ($ledger, $member, $request, $data): bool {
+            if (! IdempotencyKey::claim('manual_booking', $data['creation_key'])) {
+                return false;
+            }
+            if ($data['direction'] === 'payment') {
+                $ledger->payment($member, $request->user(), Money::cents($data['amount']), $data['booking_date'], $data['description'], $data['reference'] ?? null, kind: 'manual_payment');
+            } else {
                 $account = $ledger->account($member);
                 $contribution = Contribution::query()->create([
                     'account_id' => $account->id,
@@ -40,9 +44,15 @@ class ManualPaymentController extends Controller
                     'status' => 'open',
                 ]);
                 $ledger->charge($contribution, $request->user(), 'manual_charge', ['reference' => $data['reference'] ?? null]);
-            }, attempts: 3);
-        }
-        Inertia::flash('toast', ['type' => 'success', 'message' => $data['direction'] === 'payment' ? 'Zahlungseingang wurde verbucht.' : 'Forderung wurde verbucht.']);
+            }
+
+            return true;
+        }, attempts: 3);
+        Inertia::flash('toast', match (true) {
+            ! $booked => ['type' => 'info', 'message' => 'Diese Buchung wurde bereits verbucht und nicht noch einmal angelegt.'],
+            $data['direction'] === 'payment' => ['type' => 'success', 'message' => 'Zahlungseingang wurde verbucht.'],
+            default => ['type' => 'success', 'message' => 'Forderung wurde verbucht.'],
+        });
 
         return back();
     }

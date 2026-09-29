@@ -9,6 +9,7 @@ use App\Members\MemberReportWriter;
 use App\Models\Donation;
 use App\Models\DonationCertificate;
 use App\Models\User;
+use App\Support\Clock;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -53,7 +54,7 @@ final class DonationCertificateGenerator
             try {
                 $noticeDate = CarbonImmutable::parse($club['tax_privilege_notice_date'])->startOfDay();
                 $validYears = $type === 'section_60a_notice' ? 3 : 5;
-                if (now()->startOfDay()->greaterThan($noticeDate->addYears($validYears))) {
+                if (Clock::today()->greaterThan($noticeDate->addYears($validYears))) {
                     $errors[] = 'Der hinterlegte Steuerbescheid liegt außerhalb der gesetzlichen Gültigkeitsfrist.';
                 }
             } catch (\Throwable) {

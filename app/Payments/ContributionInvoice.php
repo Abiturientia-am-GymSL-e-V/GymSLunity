@@ -7,6 +7,8 @@ namespace App\Payments;
 use App\Configuration\ClubSettings;
 use App\Members\MemberReportWriter;
 use App\Models\Contribution;
+use App\Support\Clock;
+use App\Support\DocumentSequence;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -25,15 +27,8 @@ final class ContributionInvoice
             if ($locked->invoice_number) {
                 return $locked;
             }
-            $year = now()->year;
-            $sequence = DB::table('invoice_sequences')->where('year', $year)->lockForUpdate()->first();
-            if (! $sequence) {
-                DB::table('invoice_sequences')->insert(['year' => $year, 'next_number' => 2]);
-                $next = 1;
-            } else {
-                $next = (int) $sequence->next_number;
-                DB::table('invoice_sequences')->where('year', $year)->update(['next_number' => $next + 1]);
-            }
+            $year = Clock::today()->year;
+            $next = DocumentSequence::next('invoice_sequences', ['year' => $year]);
             $locked->update([
                 'invoice_number' => sprintf('RE-%d-%06d', $year, $next),
                 'invoice_created_at' => now(),

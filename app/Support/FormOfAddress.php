@@ -19,6 +19,8 @@ final class FormOfAddress
             try {
                 $club = app(ClubSettings::class)->data();
             } catch (\Throwable) {
+                // Before installation there is no settings table yet; that
+                // is expected and not worth a log entry.
                 return self::INFORMAL;
             }
         }

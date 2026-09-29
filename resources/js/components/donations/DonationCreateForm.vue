@@ -11,13 +11,14 @@ import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { donationTypeOptions } from '@/lib/donations';
 import type { DonationConfiguration, DonationType } from '@/types/donations';
+import { localDateString } from '@/lib/format';
 
 const props = defineProps<{
     purposes: Array<{ value: string; label: string }>;
     configuration: DonationConfiguration;
 }>();
 
-const today = new Date().toISOString().slice(0, 10);
+const today = localDateString();
 const assetOriginOptions = [
     { value: 'private', label: 'Privatvermögen' },
     { value: 'business', label: 'Betriebsvermögen' },

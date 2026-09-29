@@ -15,6 +15,7 @@ use App\Members\MemberFields;
 use App\Models\CommunicationCampaign;
 use App\Models\MailSetting;
 use App\Models\Member;
+use App\Support\Clock;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response as HttpResponse;
@@ -229,7 +230,7 @@ class CommunicationController extends Controller
             $campaign->update(['failure_count' => $members->count()]);
             throw ValidationException::withMessages(['recipients' => 'Die Serienbriefe konnten nicht erzeugt werden.']);
         }
-        $filename = 'Serienbriefe-'.now()->format('Y-m-d-His').'.'.$data['format'];
+        $filename = 'Serienbriefe-'.Clock::localNow()->format('Y-m-d-His').'.'.$data['format'];
         if ($data['format'] === 'zip') {
             return response()->download($result, $filename, [
                 'Content-Type' => 'application/zip',

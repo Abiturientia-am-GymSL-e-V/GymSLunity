@@ -6,8 +6,11 @@ namespace App\Finance;
 
 use App\Models\ClubSetting;
 use App\Models\FinanceInvoice;
+use App\Models\FinanceMandate;
 use App\Models\User;
 use App\Payments\Money;
+use App\Support\Clock;
+use App\Support\DocumentSequence;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -34,13 +37,18 @@ final class IssueFinanceInvoice
 
             $seller = $this->seller($settings->data);
             $this->ensurePaymentReady($data, $seller);
+            // Repeated under the lock: two parallel requests must not both use a one-off mandate.
+            if ($data['payment_method'] === 'sepa_direct_debit' && ! empty($data['finance_mandate_id'])) {
+                $mandate = FinanceMandate::query()->whereKey($data['finance_mandate_id'])->lockForUpdate()->first();
+                if ($mandate?->mandate_type === 'one_off' && FinanceInvoice::query()->where('finance_mandate_id', $mandate->id)->exists()) {
+                    throw ValidationException::withMessages(['finance_mandate_id' => 'Dieses einmalige Mandat wurde bereits für eine Rechnung verwendet.']);
+                }
+            }
             $smallBusinessRegulation = (bool) ($settings->data['small_business_regulation_enabled'] ?? false);
             $year = (int) substr($data['issue_date'], 0, 4);
-            $next = (int) (DB::table('finance_invoice_sequences')->where('year', $year)->value('next_number') ?? 1);
             do {
-                $number = 'RW-'.$year.'-'.str_pad((string) $next++, 6, '0', STR_PAD_LEFT);
+                $number = 'RW-'.$year.'-'.str_pad((string) DocumentSequence::next('finance_invoice_sequences', ['year' => $year]), 6, '0', STR_PAD_LEFT);
             } while (FinanceInvoice::query()->where('invoice_number', $number)->exists());
-            DB::table('finance_invoice_sequences')->updateOrInsert(['year' => $year], ['next_number' => $next]);
 
             [$items, $subtotal, $tax] = $this->items($data['items'], $smallBusinessRegulation);
             $snapshot = [
@@ -64,7 +72,7 @@ final class IssueFinanceInvoice
                 'tax_cents' => $tax,
                 'total_cents' => $subtotal + $tax,
                 'created_by_name' => $actor->name,
-                'created_at' => now()->format('d.m.Y H:i:s T'),
+                'created_at' => Clock::localNow()->format('d.m.Y H:i:s T'),
             ];
             $documents = $this->documents->create($snapshot, $settings->logoDataUri());
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Inventory;
 
 use App\Models\InventoryItem;
+use App\Support\Clock;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
@@ -30,7 +31,7 @@ class DisposeInventoryItemRequest extends FormRequest
     {
         return [
             'status' => ['required', Rule::in(['sold', 'lost', 'disposed'])],
-            'disposed_at' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'disposed_at' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.Clock::todayString()],
             'disposal_proceeds' => ['nullable', 'required_if:status,sold', 'decimal:0,2', 'min:0', 'max:9999999.99'],
             'disposal_note' => ['nullable', 'string', 'max:2000'],
         ];

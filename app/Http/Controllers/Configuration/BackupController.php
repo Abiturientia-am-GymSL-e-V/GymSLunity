@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Configuration;
 use App\Backup\ApplicationBackup;
 use App\Backup\ConfigurationBackup;
 use App\Http\Controllers\Controller;
+use App\Support\Clock;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -24,7 +25,7 @@ class BackupController extends Controller
     {
         try {
             $contents = $backups->export();
-            $filename = 'gymslunity-konfiguration-'.now()->format('Ymd-His').'.json';
+            $filename = 'gymslunity-konfiguration-'.Clock::localNow()->format('Ymd-His').'.json';
 
             return response()->streamDownload(
                 static fn () => print $contents,

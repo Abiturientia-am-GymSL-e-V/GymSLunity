@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Calendar;
 
+use App\Support\Clock;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -49,7 +50,7 @@ class CalendarReportRequest extends FormRequest
 
     public function month(): CarbonImmutable
     {
-        $month = (string) ($this->validated('month') ?: now()->format('Y-m'));
+        $month = (string) ($this->validated('month') ?: Clock::localNow()->format('Y-m'));
 
         return CarbonImmutable::createFromFormat('!Y-m', $month, config('app.timezone'));
     }

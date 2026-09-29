@@ -12,6 +12,7 @@ use App\Members\MemberFields;
 use App\Members\MemberReportValue;
 use App\Members\MemberReportWriter;
 use App\Models\Member;
+use App\Support\Clock;
 use Illuminate\Http\Response as HttpResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -28,7 +29,7 @@ class SignatureListController extends Controller
 
     public function index(): Response
     {
-        $today = now()->toDateString();
+        $today = Clock::todayString();
         $filterFields = collect(MemberFields::directoryFields())
             ->reject(fn (array $field): bool => in_array($field['key'], self::EXCLUDED_FILTERS, true))
             ->filter(fn (array $field): bool => ! $field['custom'] || $field['filterable'])
@@ -89,7 +90,7 @@ class SignatureListController extends Controller
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="Unterschriftsliste_'.now()->format('Y-m-d-His').'.pdf"',
+            'Content-Disposition' => 'attachment; filename="Unterschriftsliste_'.Clock::localNow()->format('Y-m-d-His').'.pdf"',
             'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
         ]);
     }

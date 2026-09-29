@@ -11,6 +11,8 @@ use App\Models\Receipt;
 use App\Models\User;
 use App\Payments\Money;
 use App\SelfService\FormTemplates;
+use App\Support\Clock;
+use App\Support\DocumentSequence;
 use App\Support\FormOfAddress;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Crypt;
@@ -41,11 +43,9 @@ final class IssueReceipt
             }
             if (! $number) {
                 $year = (int) substr($data['receipt_date'], 0, 4);
-                $next = (int) (DB::table('receipt_sequences')->where('year', $year)->value('next_number') ?? 1);
                 do {
-                    $number = 'Q-'.$year.'-'.str_pad((string) $next++, 5, '0', STR_PAD_LEFT);
+                    $number = 'Q-'.$year.'-'.str_pad((string) DocumentSequence::next('receipt_sequences', ['year' => $year]), 5, '0', STR_PAD_LEFT);
                 } while (Receipt::query()->where('receipt_number', $number)->exists());
-                DB::table('receipt_sequences')->updateOrInsert(['year' => $year], ['next_number' => $next]);
             }
             $signature = null;
             if ($data['signature_method'] === 'profile') {
@@ -87,7 +87,7 @@ final class IssueReceipt
                 'vat_reason' => $rate === 19 ? null : $data['vat_reason'],
                 'amount_words' => ucfirst($words).' und '.str_pad((string) ($gross % 100), 2, '0', STR_PAD_LEFT).'/100 '.$data['currency'],
                 'signature_method' => $data['signature_method'],
-                'club' => $club, 'created_by_name' => $actor->name, 'created_at' => now()->format('d.m.Y H:i:s T'), 'ip' => $ip,
+                'club' => $club, 'created_by_name' => $actor->name, 'created_at' => Clock::localNow()->format('d.m.Y H:i:s T'), 'ip' => $ip,
                 'notes' => $notes,
             ];
             $original = $this->pdf($snapshot, 'original', $signature, $settings->logoDataUri());

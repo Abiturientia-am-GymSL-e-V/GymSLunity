@@ -8,6 +8,7 @@ use App\Configuration\ClubSettings;
 use App\Http\Controllers\Controller;
 use App\Models\Member;
 use App\Security\SafeCsv;
+use App\Support\Clock;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -55,7 +56,7 @@ class MandateExportController extends Controller
                 fputcsv($output, array_map([SafeCsv::class, 'value'], [$member->member_number, $member->last_name, $member->first_name, $member->email, $member->iban, $member->mandate_reference, $member->mandate_signed_at?->format('d.m.Y'), implode(', ', $missing)]), ';', '"', '', "\r\n");
             }
             fclose($output);
-        }, 'fehlende-sepa-mandate-'.now()->format('Y-m-d').'.csv', [
+        }, 'fehlende-sepa-mandate-'.Clock::localNow()->format('Y-m-d').'.csv', [
             'Content-Type' => 'text/csv; charset=UTF-8', 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
         ]);
     }

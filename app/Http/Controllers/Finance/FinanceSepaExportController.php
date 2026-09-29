@@ -8,6 +8,7 @@ use App\Configuration\ClubSettings;
 use App\Finance\FinanceSepaDirectDebit;
 use App\Http\Controllers\Controller;
 use App\Models\FinanceInvoice;
+use App\Support\Clock;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -67,7 +68,7 @@ class FinanceSepaExportController extends Controller
                 ->latest('sepa_exports.created_at')
                 ->limit(20)
                 ->get(),
-            'today' => now()->toDateString(),
+            'today' => Clock::todayString(),
             'sepaReady' => $this->clubSettings->sepaReady(),
         ]);
     }
@@ -77,13 +78,13 @@ class FinanceSepaExportController extends Controller
         $data = $request->validate([
             'ids' => ['required', 'array', 'min:1', 'max:1000'],
             'ids.*' => ['integer', 'distinct', 'exists:finance_invoices,id'],
-            'collection_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'collection_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.Clock::todayString()],
         ]);
         $xml = $export->export($data['ids'], $data['collection_date'], $request->user());
 
         return response($xml, 200, [
             'Content-Type' => 'application/xml; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="sepa-rechnungen-'.now()->format('Y-m-d-His').'.xml"',
+            'Content-Disposition' => 'attachment; filename="sepa-rechnungen-'.Clock::localNow()->format('Y-m-d-His').'.xml"',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
         ]);

@@ -11,7 +11,7 @@ use App\Configuration\ClubSettings;
 use App\Http\Controllers\Controller;
 use App\Models\ClubCalendar;
 use App\Models\Member;
-use Carbon\CarbonImmutable;
+use App\Support\Clock;
 use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -40,8 +40,8 @@ class CalendarFeedController extends Controller
     /** @param Collection<int, ClubCalendar> $calendars */
     private function response(Collection $calendars, string $name, CalendarEntries $entries, Icalendar $ical): Response
     {
-        $from = CarbonImmutable::today()->subYear()->startOfYear();
-        $until = CarbonImmutable::today()->addYears(4)->endOfYear()->addDay();
+        $from = Clock::today()->subYear()->startOfYear();
+        $until = Clock::today()->addYears(4)->endOfYear()->addDay();
         $body = $ical->render($entries->between($calendars, $from, $until), $name);
 
         return response($body, 200, ['Content-Type' => 'text/calendar; charset=utf-8', 'Content-Disposition' => 'inline; filename="vereinskalender.ics"', 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);

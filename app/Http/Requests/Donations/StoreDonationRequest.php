@@ -7,6 +7,7 @@ namespace App\Http\Requests\Donations;
 use App\Configuration\ClubSettings;
 use App\Configuration\Countries;
 use App\Donations\DonationPurposes;
+use App\Support\Clock;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -36,7 +37,7 @@ class StoreDonationRequest extends FormRequest
             'donor_email' => ['nullable', 'email:rfc', 'max:255'],
             'donation_type' => ['required', Rule::in(['money', 'material', 'membership_fee', 'expense_waiver'])],
             'amount' => ['required', 'decimal:0,2', 'min:0.01', 'max:9999999.99'],
-            'donated_at' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'donated_at' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.Clock::todayString()],
             'purpose_code' => ['required', Rule::in(array_keys(DonationPurposes::options()))],
             'description' => ['nullable', 'required_if:donation_type,material', 'string', 'max:600'],
             'asset_origin' => ['nullable', 'required_if:donation_type,material', Rule::in(['business', 'private', 'unknown'])],

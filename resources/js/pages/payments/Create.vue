@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import type { ContributionFilterField, PaymentsClub } from '@/types/payments';
+import { localDateString } from '@/lib/format';
 
 const props = defineProps<{
     filterOptions: {
@@ -23,7 +24,7 @@ defineOptions({
     layout: { breadcrumbs: [{ title: 'Beiträge', href: '/beitraege' }] },
 });
 
-const today = new Date().toISOString().slice(0, 10);
+const today = localDateString();
 const year = new Date().getFullYear();
 const createForm = useForm({
     period_start: year + '-01-01',

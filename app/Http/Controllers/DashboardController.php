@@ -10,6 +10,7 @@ use App\Models\ClubCalendarEvent;
 use App\Models\Contribution;
 use App\Models\Donation;
 use App\Models\Member;
+use App\Support\Clock;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -22,7 +23,7 @@ class DashboardController extends Controller
 
     public function __invoke(Request $request): Response
     {
-        $today = CarbonImmutable::today();
+        $today = Clock::today();
         $modules = SoftwareModules::values($this->clubSettings);
         $canViewMembers = $request->user()?->can('viewAny', Member::class) ?? false;
         $canViewPayments = $modules['payments'] && ($request->user()?->can('view-payments') ?? false);

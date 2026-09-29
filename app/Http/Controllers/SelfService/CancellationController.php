@@ -9,6 +9,7 @@ use App\Models\Member;
 use App\SelfService\Access;
 use App\SelfService\PortalRules;
 use App\SelfService\ProfileChanges;
+use App\Support\Clock;
 use App\Support\FormOfAddress;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -58,7 +59,7 @@ class CancellationController extends Controller
                     $query->whereNull('confirmed_at')
                         ->orWhere(fn ($confirmed) => $confirmed
                             ->whereNotNull('confirmed_at')
-                            ->whereDate('exit_date', '>', now()->toDateString()));
+                            ->whereDate('exit_date', '>', Clock::todayString()));
                 })
                 ->latest('id')
                 ->lockForUpdate()

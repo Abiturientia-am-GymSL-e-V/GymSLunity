@@ -7,6 +7,7 @@ namespace App\SelfService;
 use App\Http\Requests\SelfService\MembershipApplicationRequest;
 use App\Members\MemberMandates;
 use App\Models\Member;
+use App\Support\Clock;
 use App\Support\FormOfAddress;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -43,7 +44,7 @@ final class SubmitMembershipApplication
                 'payment_method' => $values['payment_method'],
                 'sponsor_contribution' => PortalOptions::isSponsorMembership($values['membership_type']) ? number_format((float) $values['sponsor_contribution'], 2, '.', '') : null,
                 'membership_type' => $requiresApproval ? 'Kontakt' : $values['membership_type'],
-                'joined_at' => $requiresApproval ? null : now()->toDateString(),
+                'joined_at' => $requiresApproval ? null : Clock::todayString(),
                 'left_at' => null,
             ];
             if (! $current) {

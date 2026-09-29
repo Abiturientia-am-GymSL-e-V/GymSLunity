@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\ContributionInvoiceMail;
 use App\Models\Contribution;
 use App\Payments\ContributionInvoice;
+use App\Support\Clock;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -87,7 +88,7 @@ class InvoiceController extends Controller
 
         return response($invoices->combinedPdf($contributions), 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="beitragsrechnungen-'.now()->format('Y-m-d-His').'.pdf"',
+            'Content-Disposition' => 'attachment; filename="beitragsrechnungen-'.Clock::localNow()->format('Y-m-d-His').'.pdf"',
             'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
         ]);
     }
