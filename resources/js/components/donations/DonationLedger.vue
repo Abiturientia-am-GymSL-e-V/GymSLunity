@@ -159,7 +159,7 @@ function resetLedgerFilters() {
             >
         </div>
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[1050px] text-sm">
+            <table class="w-full min-w-[880px] text-sm">
                 <thead class="bg-muted/60 text-left">
                     <tr>
                         <th class="px-4 py-3 font-medium">Nr.</th>
@@ -171,7 +171,11 @@ function resetLedgerFilters() {
                         </th>
                         <th class="px-4 py-3 font-medium">Zweck</th>
                         <th class="px-4 py-3 font-medium">
-                            Zuwendungsbestätigung ausgestellt
+                            <abbr
+                                title="Zuwendungsbestätigung ausgestellt"
+                                class="no-underline"
+                                >Bestätigung</abbr
+                            >
                         </th>
                     </tr>
                 </thead>
@@ -180,7 +184,9 @@ function resetLedgerFilters() {
                         v-for="donation in filteredDonations"
                         :key="donation.id"
                     >
-                        <td class="px-4 py-3 font-mono text-xs">
+                        <td
+                            class="px-4 py-3 font-mono text-xs whitespace-nowrap"
+                        >
                             {{ donation.receipt_number }}
                         </td>
                         <td class="px-4 py-3 whitespace-nowrap">
@@ -204,7 +210,7 @@ function resetLedgerFilters() {
                         >
                             {{ formatMoney(donation.amount_cents) }}
                         </td>
-                        <td class="max-w-64 px-4 py-3 text-xs">
+                        <td class="max-w-56 px-4 py-3 text-xs">
                             {{ donation.purpose_label }}
                         </td>
                         <td class="px-4 py-3">

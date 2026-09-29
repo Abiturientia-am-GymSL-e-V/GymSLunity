@@ -10,6 +10,7 @@ use App\Models\FinanceMandate;
 use App\Models\Member;
 use App\Models\User;
 use App\Support\Clock;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
@@ -218,9 +219,8 @@ class FormModulesTest extends TestCase
 
         $filters = [
             'search' => 'Ada',
-            // The mandate book filters UTC timestamps by date.
-            'from' => now()->toDateString(),
-            'to' => now()->toDateString(),
+            'from' => Clock::todayString(),
+            'to' => Clock::todayString(),
             'status' => 'pending',
             'mandate_type' => 'recurring',
         ];
@@ -266,5 +266,25 @@ class FormModulesTest extends TestCase
             'logo' => null,
             'signature' => null,
         ])->render();
+    }
+
+    public function test_mandate_book_date_filter_uses_the_local_calendar_day(): void
+    {
+        // 22:30 UTC on 10 June is 00:30 on 11 June in Berlin.
+        $this->travelTo(CarbonImmutable::parse('2026-06-10 22:30:00', 'UTC'));
+        $this->post(route('forms.mandates.store'), [
+            'creation_key' => (string) Str::uuid(), 'debtor_name' => 'Nora Nacht',
+            'debtor_street' => 'Weg 3', 'debtor_postal_code' => '12345', 'debtor_city' => 'Berlin',
+            'debtor_country' => 'DE', 'iban' => 'DE12500105170648489890', 'mandate_type' => 'recurring',
+        ])->assertSessionHasNoErrors();
+        $this->travelBack();
+        // The session would otherwise end for months of inactivity.
+        $this->flushSession();
+        $this->actingAs($this->actor);
+
+        $this->get(route('forms.mandates.index', ['from' => '2026-06-11', 'to' => '2026-06-11']))
+            ->assertInertia(fn (Assert $page) => $page->where('mandates.total', 1));
+        $this->get(route('forms.mandates.index', ['from' => '2026-06-10', 'to' => '2026-06-10']))
+            ->assertInertia(fn (Assert $page) => $page->where('mandates.total', 0));
     }
 }

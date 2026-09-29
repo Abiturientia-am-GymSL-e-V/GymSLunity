@@ -32,4 +32,20 @@ final class Clock
     {
         return self::localNow()->toDateString();
     }
+
+    /**
+     * Start of a local calendar day as UTC timestamp. Stored timestamps are
+     * UTC, so a date filter "from 30.09." must start at 22:00 UTC the day
+     * before (summer time), not at midnight UTC.
+     */
+    public static function dayStartUtc(string $date): CarbonImmutable
+    {
+        return CarbonImmutable::parse($date, (string) config('app.display_timezone', 'Europe/Berlin'))->startOfDay()->utc();
+    }
+
+    /** Start of the local day after $date as UTC timestamp, the exclusive end of a date filter. */
+    public static function nextDayStartUtc(string $date): CarbonImmutable
+    {
+        return CarbonImmutable::parse($date, (string) config('app.display_timezone', 'Europe/Berlin'))->startOfDay()->addDay()->utc();
+    }
 }

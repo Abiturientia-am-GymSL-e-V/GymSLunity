@@ -7,6 +7,7 @@ namespace Tests\Feature\Security;
 use App\Configuration\ConfigurationAudit;
 use App\Models\Member;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -47,5 +48,20 @@ class AuditLogTest extends TestCase
     {
         $this->actingAs(User::factory()->create(['roles' => ['mv']]))->get(route('audit.index'))->assertForbidden();
         $this->actingAs(User::factory()->create(['roles' => ['kp']]))->get(route('audit.index'))->assertOk();
+    }
+
+    public function test_date_filter_uses_the_local_calendar_day(): void
+    {
+        $admin = User::factory()->create(['roles' => ['admin']]);
+        // 22:30 UTC on 10 June is 00:30 on 11 June in Berlin.
+        $this->travelTo(CarbonImmutable::parse('2026-06-10 22:30:00', 'UTC'));
+        ConfigurationAudit::record($admin, 'Vereinsdaten', ['name' => 'Alt'], ['name' => 'Neu']);
+        $this->travelBack();
+
+        $this->actingAs($admin);
+        $this->get(route('audit.index', ['area' => 'configuration', 'from' => '2026-06-11', 'to' => '2026-06-11']))
+            ->assertInertia(fn (Assert $page) => $page->where('entries.total', 1));
+        $this->get(route('audit.index', ['area' => 'configuration', 'from' => '2026-06-10', 'to' => '2026-06-10']))
+            ->assertInertia(fn (Assert $page) => $page->where('entries.total', 0));
     }
 }
