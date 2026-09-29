@@ -36,14 +36,21 @@ class UpdateCheckTest extends TestCase
 
     public function test_a_newer_prerelease_is_offered_to_a_prerelease_installation(): void
     {
-        $this->releases([['v0.1.0-beta.2', true], ['v0.1.0-beta.10', true], ['v0.1.0-alpha.1', true]]);
+        $version = base_path('VERSION');
+        $original = File::get($version);
+        File::put($version, "0.1.0-beta.1\n");
+        try {
+            $this->releases([['v0.1.0-beta.2', true], ['v0.1.0-beta.10', true], ['v0.1.0-alpha.1', true]]);
 
-        $status = app(UpdateCheck::class)->status();
+            $status = app(UpdateCheck::class)->status();
 
-        $this->assertSame(UpdateCheck::installedVersion(), $status['installed']);
-        $this->assertSame('update', $status['status']);
-        $this->assertSame('0.1.0-beta.10', $status['latest']['version']);
-        $this->assertSame('https://github.com/example/gymslunity/releases/tag/v0.1.0-beta.10', $status['latest']['url']);
+            $this->assertSame('0.1.0-beta.1', $status['installed']);
+            $this->assertSame('update', $status['status']);
+            $this->assertSame('0.1.0-beta.10', $status['latest']['version']);
+            $this->assertSame('https://github.com/example/gymslunity/releases/tag/v0.1.0-beta.10', $status['latest']['url']);
+        } finally {
+            File::put($version, $original);
+        }
     }
 
     public function test_an_installed_latest_version_is_current_and_the_result_is_cached(): void

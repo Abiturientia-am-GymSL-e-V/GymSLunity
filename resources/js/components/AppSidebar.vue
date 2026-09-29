@@ -126,7 +126,7 @@ const footerNavItems: NavItem[] = [
     },
     {
         title: 'Dokumentation',
-        href: 'https://laravel.com/docs/starter-kits#vue',
+        href: 'https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity',
         icon: BookOpen,
     },
 ];

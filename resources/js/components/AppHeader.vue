@@ -1,13 +1,6 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import {
-    BookOpen,
-    Folder,
-    LayoutGrid,
-    Menu,
-    Search,
-    UsersRound,
-} from '@lucide/vue';
+import { BookOpen, LayoutGrid, Menu, Search, UsersRound } from '@lucide/vue';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
@@ -74,13 +67,8 @@ const mainNavItems = computed<NavItem[]>(() => [
 
 const rightNavItems: NavItem[] = [
     {
-        title: 'Repository',
-        href: 'https://github.com/laravel/vue-starter-kit',
-        icon: Folder,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#vue',
+        title: 'Dokumentation',
+        href: 'https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity',
         icon: BookOpen,
     },
 ];

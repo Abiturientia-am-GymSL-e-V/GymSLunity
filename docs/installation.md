@@ -1,46 +1,229 @@
 # GymSLunity installieren und betreiben
 
-Diese Anleitung beschreibt eine klassische Einzelserver-Installation mit Nginx, PHP-FPM und MariaDB. Passe Paketnamen, PHP-FPM-Socket und Benutzer an deine Distribution an.
+Diese Anleitung führt Schritt für Schritt durch eine Einzelserver-Installation mit Nginx, PHP-FPM und MariaDB (alternativ SQLite). Die Befehle sind für **Debian 13** geschrieben. Unter **Ubuntu 24.04** ist PHP 8.3 der Standard: ersetze dort in allen Befehlen und in der Nginx-Konfiguration `8.4` durch `8.3`.
+
+In den Beispielen werden folgende Werte verwendet. Ersetze sie überall durch deine eigenen:
+
+| Platzhalter           | Bedeutung                                                                                                      |
+| --------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `verein.example.org`  | Domain, unter der GymSLunity erreichbar sein soll                                                              |
+| `/var/www/gymslunity` | Installationsverzeichnis                                                                                       |
+| `deploy`              | dein SSH-Benutzer, dem die Dateien gehören                                                                     |
+| `www-data`            | Benutzer, unter dem PHP-FPM und Nginx laufen                                                                   |
+| `1.0.0-beta.1`        | zu installierende Version (siehe [Releases](https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases)) |
+
+Alle Einstellungen in der `.env` sind in [konfiguration.md](konfiguration.md) beschrieben.
 
 ## 1. Voraussetzungen
 
-- Linux-Server mit HTTPS-fähigem Webserver
-- PHP 8.3 oder neuer mit `ctype`, `curl`, `dom`, `fileinfo`, `filter`, `hash`, `mbstring`, `openssl`, `pcre`, `pdo`, einem passenden PDO-Datenbanktreiber, `session`, `tokenizer`, `xml` und `zip`
-- Composer 2
-- Node.js 24 und npm für den einmaligen Frontend-Build
+- Linux-Server mit Root- oder sudo-Zugang und einer Domain, deren DNS-Eintrag auf den Server zeigt
+- PHP 8.3 oder neuer mit den Erweiterungen `ctype`, `curl`, `dom`, `fileinfo`, `filter`, `gd`, `hash`, `iconv`, `mbstring`, `openssl`, `pcre`, `pdo`, `session`, `tokenizer`, `xml`, `zip` und einem PDO-Treiber (`pdo_mysql` oder `pdo_sqlite`)
 - MariaDB/MySQL oder SQLite
+- Nginx (oder ein anderer Webserver, der nur `public/` ausliefert)
+- nur bei Installation per Git: Composer 2 sowie Node.js 24 und npm
 - optional Redis mit der PHP-Erweiterung `redis`
-- ein Prozessmanager für `queue:work`, zum Beispiel systemd oder Supervisor
 
 Der Webserver darf ausschließlich das Verzeichnis `public/` ausliefern. `.env`, Quelltext, `vendor/`, `storage/` und Backups dürfen nicht direkt erreichbar sein.
 
-## 2. Release-Archiv oder Git
-
-Das bei GitHub angehängte Release-Archiv enthält vendor/ und public/build/. Auf dem Zielserver werden daher weder Composer noch Node.js benötigt. Prüfe die mitgelieferte SHA-256-Datei, entpacke das Archiv nach /var/www und benenne den enthaltenen Versionsordner in gymslunity um.
-
-Für eine Git-Installation verwendest du den folgenden Ablauf.
+## 2. Serverpakete installieren
 
 ```bash
-git clone https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity.git /var/www/gymslunity
-cd /var/www/gymslunity
-composer install --no-dev --optimize-autoloader
-cp .env.example .env
+sudo apt update
+sudo apt install -y nginx mariadb-server certbot unzip curl \
+    php8.4-fpm php8.4-cli php8.4-mysql php8.4-sqlite3 php8.4-mbstring \
+    php8.4-xml php8.4-curl php8.4-zip php8.4-gd
 ```
 
-Führe Composer nicht als Webserver-Benutzer aus. Der PHP-FPM-Prozess benötigt Leserechte auf den Anwendungscode und Schreibrechte ausschließlich auf `storage/` und `bootstrap/cache/`.
+Für SQLite statt MariaDB kann `mariadb-server` entfallen. `mariadb-server` bringt auch `mariadb-dump` mit, das für Backups benötigt wird.
 
-## 3. Datenbank vorbereiten
+Nur für die Installation per Git zusätzlich Composer und Node.js 24:
 
-Beispiel für MariaDB:
+```bash
+sudo apt install -y composer git
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+Prüfen:
+
+```bash
+php -v
+php -m | grep -E -i 'gd|mbstring|pdo_mysql|pdo_sqlite|zip'
+```
+
+## 3. GymSLunity herunterladen
+
+Wähle **eine** der beiden Varianten.
+
+### Variante A: Release-Archiv (empfohlen)
+
+Das Archiv enthält bereits `vendor/` und das gebaute Frontend (`public/build/`). Composer und Node.js werden auf dem Server nicht benötigt.
+
+```bash
+VERSION=1.0.0-beta.1
+cd /tmp
+curl -fLO https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases/download/v$VERSION/gymslunity-v$VERSION.tar.gz
+curl -fLO https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases/download/v$VERSION/gymslunity-v$VERSION.tar.gz.sha256
+sha256sum -c gymslunity-v$VERSION.tar.gz.sha256
+
+sudo mkdir -p /var/www
+sudo tar -xzf gymslunity-v$VERSION.tar.gz -C /var/www
+sudo mv /var/www/gymslunity-v$VERSION /var/www/gymslunity
+sudo chown -R deploy:www-data /var/www/gymslunity
+```
+
+`sha256sum -c` muss `OK` melden. Andernfalls das Archiv nicht verwenden.
+
+### Variante B: Git
+
+```bash
+sudo mkdir -p /var/www/gymslunity
+sudo chown deploy:www-data /var/www/gymslunity
+git clone https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity.git /var/www/gymslunity
+cd /var/www/gymslunity
+git checkout v1.0.0-beta.1
+composer install --no-dev --optimize-autoloader
+npm ci
+npm run build
+```
+
+Führe Composer und npm als `deploy` aus, nicht als Root und nicht als `www-data`.
+
+Alle `php artisan`-Befehle in dieser Anleitung laufen dagegen als `www-data`, damit Log- und Cache-Dateien dem PHP-FPM-Benutzer gehören.
+
+## 4. Datenbank anlegen
+
+### MariaDB
+
+Erzeuge ein zufälliges Passwort und notiere es für Schritt 7:
+
+```bash
+openssl rand -base64 24
+```
+
+```bash
+sudo mariadb
+```
 
 ```sql
 CREATE DATABASE gymslunity CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'gymslunity'@'localhost' IDENTIFIED BY 'EIN_LANGES_ZUFAELLIGES_PASSWORT';
+CREATE USER 'gymslunity'@'localhost' IDENTIFIED BY 'DAS_ERZEUGTE_PASSWORT';
 GRANT ALL PRIVILEGES ON gymslunity.* TO 'gymslunity'@'localhost';
 FLUSH PRIVILEGES;
+EXIT;
 ```
 
-Trage anschließend die Verbindung in `.env` ein:
+### SQLite
+
+Keine Einrichtung nötig. Das Release-Archiv enthält bereits eine leere `database/database.sqlite`, bei Git legt der Installer sie an. Das Verzeichnis `database/` braucht Schreibrecht für `www-data` (Schritt 5).
+
+## 5. Dateirechte setzen
+
+```bash
+cd /var/www/gymslunity
+sudo chown -R deploy:www-data .
+sudo find . -type d -exec chmod 0750 {} \;
+sudo find . -type f -exec chmod 0640 {} \;
+sudo chmod 0750 artisan
+sudo chmod -R ug+rwX storage bootstrap/cache database
+ln -s ../storage/app/public public/storage
+```
+
+Der Link `public/storage` macht hochgeladene öffentliche Dateien erreichbar. Er wird hier angelegt, weil `www-data` in `public/` nicht schreiben darf.
+
+Für den Browser-Installer (Schritt 7, Variante A) braucht `www-data` **vorübergehend** Schreibrecht auf das Projektverzeichnis, um die `.env` anzulegen:
+
+```bash
+sudo chmod g+w /var/www/gymslunity
+```
+
+Gewähre niemals pauschal Schreibrechte für den gesamten Projektordner und verwende kein `chmod -R 777`.
+
+## 6. Nginx und HTTPS einrichten
+
+Zertifikat über die Standardseite von Nginx anfordern, die `/var/www/html` ausliefert:
+
+```bash
+sudo certbot certonly --webroot -w /var/www/html -d verein.example.org
+```
+
+Danach die GymSLunity-Site anlegen. Die Vorlage [nginx.conf.example](nginx.conf.example) liegt im Projekt:
+
+```bash
+sudo cp /var/www/gymslunity/docs/nginx.conf.example /etc/nginx/sites-available/gymslunity
+sudo sed -i 's/verein\.example\.org/DEINE.DOMAIN/g' /etc/nginx/sites-available/gymslunity
+sudo ln -s /etc/nginx/sites-available/gymslunity /etc/nginx/sites-enabled/gymslunity
+sudo rm /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Prüfe in der kopierten Datei den PHP-FPM-Socket (`fastcgi_pass unix:/run/php/php8.4-fpm.sock;`). Die Vorlage leitet HTTP auf HTTPS um und liefert `/.well-known/acme-challenge/` weiter aus `/var/www/html` aus, damit Certbot das Zertifikat automatisch verlängern kann. Testen lässt sich die Verlängerung mit:
+
+```bash
+sudo certbot renew --dry-run
+```
+
+Läuft GymSLunity hinter einem weiteren Reverse Proxy oder Load Balancer, trage dessen Adresse später in der `.env` als `TRUSTED_PROXIES` ein. Sonst sehen Rate-Limits und Sicherheitsprotokoll nur die Adresse des Proxys.
+
+## 7. Installation abschließen
+
+Wähle **eine** der beiden Varianten.
+
+### Variante A: im Browser
+
+1. Öffne `https://verein.example.org/install`.
+2. Der Installer fragt nach einem **Einrichtungscode**. Er wird beim ersten Aufruf erzeugt. Lies ihn auf dem Server aus:
+
+    ```bash
+    cat /var/www/gymslunity/storage/app/setup-token
+    ```
+
+3. Gib Adresse, Datenbankzugang und das erste Administratorkonto ein.
+
+Der Installer legt die `.env` an, erzeugt zufällige Werte für `APP_KEY` und `PASSKEYS_USER_HANDLE_SECRET`, führt alle Migrationen aus und legt das Administratorkonto an. Danach ist er gesperrt. Entziehe anschließend das temporäre Schreibrecht und schütze die `.env`:
+
+```bash
+sudo chmod g-w /var/www/gymslunity
+sudo chown deploy:www-data /var/www/gymslunity/.env
+sudo chmod 0640 /var/www/gymslunity/.env
+```
+
+Der Installer übernimmt für einige Werte die Vorgaben der Vorlage. Setze danach in `/var/www/gymslunity/.env`:
+
+```dotenv
+LOG_LEVEL=warning
+```
+
+und übernimm die Änderung:
+
+```bash
+cd /var/www/gymslunity
+sudo -u www-data php artisan optimize
+```
+
+### Variante B: auf der Kommandozeile
+
+```bash
+cd /var/www/gymslunity
+cp .env.example .env
+chmod 0640 .env
+nano .env
+```
+
+Setze mindestens diese Werte (Beschreibung aller Werte in [konfiguration.md](konfiguration.md)):
+
+```dotenv
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://verein.example.org
+LOG_LEVEL=warning
+SESSION_SECURE_COOKIE=true
+MAIL_FROM_ADDRESS="noreply@verein.example.org"
+MAIL_FROM_NAME="Name des Vereins"
+```
+
+Für MariaDB zusätzlich (die `DB_`-Zeilen einkommentieren):
 
 ```dotenv
 DB_CONNECTION=mysql
@@ -48,58 +231,22 @@ DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_DATABASE=gymslunity
 DB_USERNAME=gymslunity
-DB_PASSWORD=EIN_LANGES_ZUFAELLIGES_PASSWORT
+DB_PASSWORD=DAS_ERZEUGTE_PASSWORT
 ```
 
-Für SQLite muss `pdo_sqlite` installiert sein:
+Für SQLite bleibt `DB_CONNECTION=sqlite`.
+
+Erzeuge zwei zufällige Schlüssel und trage sie in die `.env` als `APP_KEY` und `PASSKEYS_USER_HANDLE_SECRET` ein:
 
 ```bash
-touch database/database.sqlite
+echo "APP_KEY=base64:$(openssl rand -base64 32)"
+echo "PASSKEYS_USER_HANDLE_SECRET=base64:$(openssl rand -base64 32)"
 ```
 
-```dotenv
-DB_CONNECTION=sqlite
-```
-
-## 4. Browser-Installation
-
-Setze zuerst die Dateirechte wie in Abschnitt 7. Der PHP-FPM-Benutzer benötigt vorübergehend Schreibrecht auf /var/www/gymslunity und bei SQLite zusätzlich auf database/. Richte dann Nginx und HTTPS ein und öffne https://verein.example.org/install.
-
-Der Installer fragt zuerst nach einem **Einrichtungscode**. Er wird beim ersten Aufruf zufällig erzeugt und liegt in `storage/app/setup-token`; lies ihn per SSH (`cat storage/app/setup-token`) oder per FTP aus. So kann niemand ohne Zugriff auf den Server die Installation zwischen Upload und erstem Aufruf übernehmen. Nach Abschluss wird die Datei gelöscht.
-
-Der Installer erzeugt zufällige Anwendungs- und Passkey-Schlüssel, prüft die Datenbank, führt alle Migrationen aus und legt das erste Administratorkonto an. Sobald ein Benutzer existiert, ist er gesperrt. Fehlt später die Datei `.env`, bleibt der Installer ebenfalls gesperrt (Markierung `storage/app/installed`); stelle `.env` dann aus der Sicherung wieder her. Entziehe nach erfolgreicher Installation das temporäre Schreibrecht am Projektverzeichnis.
-
-Für die manuelle Installation kopierst du .env.example nach .env, konfigurierst die folgenden Werte und führst später php artisan app:install aus.
-
-## 5. Anwendung manuell konfigurieren
-
-Mindestens diese Werte prüfen:
-
-```dotenv
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=https://verein.example.org
-APP_DISPLAY_TIMEZONE=Europe/Berlin
-
-SESSION_DRIVER=database
-SESSION_ENCRYPT=true
-SESSION_SECURE_COOKIE=true
-CACHE_STORE=database
-QUEUE_CONNECTION=database
-
-MAIL_MAILER=log
-```
-
-`MAIL_MAILER=log` stellt keine E-Mails zu. Nach der ersten Anmeldung kann ein Administrator den Mailtransport unter **Konfiguration → E-Mail-Versand** einrichten und testen. Selfservice, Passwortzurücksetzung und Versandfunktionen erst danach produktiv verwenden.
-
-Ändere oder entferne einen vorhandenen `APP_KEY` niemals bei einer bestehenden Installation. Damit verschlüsselte Daten wären anschließend nicht mehr lesbar.
-
-## 6. Installation auf der Kommandozeile abschließen
+Dann die Installation ausführen:
 
 ```bash
-npm ci
-npm run build
-php artisan app:install
+sudo -u www-data php artisan app:install
 ```
 
 Die Installationsroutine:
@@ -114,45 +261,18 @@ Die Installationsroutine:
 
 Für automatisierte Bereitstellung stehen `--force`, `--no-user`, `--skip-migrations` und `--skip-storage-link` zur Verfügung. Ohne interaktive Benutzeranlage kann später `php artisan app:create-user --role=admin` verwendet werden.
 
-## 7. Dateirechte
+### Für beide Varianten
 
-Beispiel mit dem PHP-FPM-Benutzer `www-data`:
+- Ändere oder entferne `APP_KEY` und `PASSKEYS_USER_HANDLE_SECRET` niemals bei einer bestehenden Installation. Verschlüsselte Daten (z. B. IBANs), signierte Backups und registrierte Passkeys wären danach unbrauchbar.
+- Sichere die `.env` sofort an einem zweiten, geschützten Ort.
+- Fehlt die `.env` später, bleibt der Installer trotzdem gesperrt (Markierung `storage/app/installed`). Stelle sie dann aus der Sicherung wieder her.
 
-```bash
-sudo chown -R deploy:www-data /var/www/gymslunity
-sudo find /var/www/gymslunity -type d -exec chmod 0750 {} \;
-sudo find /var/www/gymslunity -type f -exec chmod 0640 {} \;
-sudo chmod -R ug+rwX /var/www/gymslunity/storage /var/www/gymslunity/bootstrap/cache
-sudo chmod ug+rwX /var/www/gymslunity/database
-sudo chmod 0640 /var/www/gymslunity/.env
-```
+## 8. Queue-Worker einrichten
 
-Der tatsächliche Benutzer und die Gruppenstrategie hängen vom Server ab. Gewähre niemals pauschal Schreibrechte für den gesamten Projektordner und verwende kein `chmod -R 777`.
-
-## 8. Nginx und HTTPS
-
-Kopiere [nginx.conf.example](nginx.conf.example) als Ausgangspunkt in die Nginx-Konfiguration, ersetze Domain und PHP-FPM-Socket und aktiviere die Site. Richte anschließend ein gültiges TLS-Zertifikat sowie die HTTP-zu-HTTPS-Weiterleitung ein.
+Bei `QUEUE_CONNECTION=database` (Standard) oder `redis` muss dauerhaft ein Worker laufen. Er versendet unter anderem E-Mails.
 
 ```bash
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
-HSTS erst aktivieren, wenn die Domain einschließlich aller benötigten Subdomains dauerhaft ausschließlich per HTTPS erreichbar ist.
-
-Läuft GymSLunity hinter einem weiteren Reverse Proxy oder Load Balancer, trage dessen Adresse in `.env` als `TRUSTED_PROXIES` ein (mehrere durch Komma getrennt, `*` nur bei einem verwalteten Load Balancer). Sonst sehen Rate-Limits und Sicherheitsprotokoll nur die Adresse des Proxys.
-
-## 9. Queue-Worker
-
-Bei `QUEUE_CONNECTION=database` oder `redis` muss dauerhaft ein Worker laufen:
-
-```bash
-php artisan queue:work --sleep=3 --tries=3 --max-time=3600
-```
-
-Beispiel für systemd:
-
-```ini
+sudo tee /etc/systemd/system/gymslunity-queue.service > /dev/null <<'EOF'
 [Unit]
 Description=GymSLunity Queue Worker
 After=network.target mariadb.service
@@ -167,20 +287,178 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-```
+EOF
 
-Nach dem Anlegen:
-
-```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now gymslunity-queue.service
+systemctl status gymslunity-queue.service
 ```
 
-## 10. Redis optional aktivieren
+## 9. Geplante Aufgaben (Cron) einrichten
+
+Der Laravel-Scheduler muss minütlich laufen. Er erstellt täglich um 02:30 Uhr ein Backup, bereinigt um 03:30 Uhr alte Sicherheitsdaten und rechnet alle 15 Minuten fällige Buchungen ab.
+
+```bash
+echo '* * * * * www-data cd /var/www/gymslunity && /usr/bin/php artisan schedule:run >> /dev/null 2>&1' \
+    | sudo tee /etc/cron.d/gymslunity > /dev/null
+```
+
+Prüfen, welche Aufgaben geplant sind:
+
+```bash
+cd /var/www/gymslunity
+sudo -u www-data php artisan schedule:list
+```
+
+## 10. E-Mail-Versand einrichten
+
+Nach der Installation werden E-Mails nicht zugestellt, sondern nur ins Log geschrieben (`MAIL_MAILER=log`).
+
+1. Melde dich mit dem Administratorkonto an.
+2. Richte unter **Konfiguration → E-Mail-Versand** den SMTP-Server ein.
+3. Sende dort eine Testmail.
+
+Selfservice, Passwortzurücksetzung und Versandfunktionen erst danach produktiv verwenden. Alternativ kann der Transport auch über die `MAIL_`-Variablen in der `.env` gesetzt werden (siehe [konfiguration.md](konfiguration.md)).
+
+## 11. Installation prüfen
+
+```bash
+cd /var/www/gymslunity
+sudo -u www-data php artisan security:check
+curl -fsS https://verein.example.org/up
+```
+
+- `security:check` endet ohne Fehler. Die Prüfung auf einen echten Mailtransport schlägt fehl, solange Schritt 10 nicht erledigt ist.
+- `/up` liefert einen erfolgreichen Status.
+- Anmeldung mit dem Administratorkonto funktioniert.
+- **Konfiguration → System** zeigt keine kritischen Produktionswarnungen.
+- Die Testmail unter **Konfiguration → E-Mail-Versand** wird zugestellt.
+- Queue-Worker (`systemctl status gymslunity-queue`) und Cron laufen.
+- Ein Backup wurde erstellt und die Wiederherstellung getestet (Schritt 12).
+
+GymSLunity sendet in Produktion über HTTPS einen HSTS-Header, der auch für Subdomains gilt. Wenn Subdomains deiner Domain noch ohne HTTPS erreichbar sein müssen, setze vorerst `SECURITY_HSTS_MAX_AGE=0`.
+
+## 12. Backups
+
+GymSLunity erzeugt täglich um 02:30 Uhr ein lokales Backup, sofern der Cron aus Schritt 9 läuft. Standardmäßig liegen die Archive mit restriktiven Dateirechten unter `storage/backups/` und werden nach 30 Tagen bereinigt. Ort und Frist lassen sich in der `.env` anpassen:
+
+```dotenv
+BACKUP_PATH=/var/backups/gymslunity
+BACKUP_RETENTION_DAYS=30
+```
+
+Ein eigener Zielordner muss für `www-data` beschreibbar sein und darf nicht innerhalb von `storage/app/` liegen:
+
+```bash
+sudo mkdir -p /var/backups/gymslunity
+sudo chown www-data:www-data /var/backups/gymslunity
+sudo chmod 0700 /var/backups/gymslunity
+```
+
+Ein vollständiges Archiv enthält:
+
+- die vollständige Datenbank,
+- `.env` als `environment.env`,
+- `storage/app/` als `storage-app/` und
+- ein Manifest mit Erstellungszeitpunkt, Datenbanktreiber und Codeversion.
+
+Ein Backup kann jederzeit manuell erzeugt werden:
+
+```bash
+cd /var/www/gymslunity
+sudo -u www-data php artisan app:backup --prune
+```
+
+Administratoren können unter **Konfiguration → System → Backup & Wiederherstellung** zusätzlich zwei gezielte Sicherungen herunterladen und wieder einspielen:
+
+- Die Konfigurationssicherung im JSON-Format enthält Vereinsdaten, Mitgliedsfelder, E-Mail-Einstellungen und das Vereinslogo, aber keine Benutzer-, Mitglieder- oder Zahlungsdaten. Die Sicherung ist mit einem aus `APP_KEY` abgeleiteten Schlüssel signiert und lässt sich nur in eine Installation mit demselben `APP_KEY` einspielen, etwa nach einem Umzug mit übernommener `.env`. Veränderte oder fremde Dateien werden abgelehnt, ebenso unzulässige E-Mail-Einstellungen wie ein fremder Sendmail-Befehl.
+- Die Datenbanksicherung im ZIP-Format enthält sämtliche Datenbanktabellen, jedoch weder `.env` noch Dateien aus `storage/app/`. Der Webimport akzeptiert nur Sicherungen derselben GymSLunity-Version, desselben Datenbanktreibers und derselben Installation (signiertes Manifest, gebunden an `APP_KEY`), prüft die SHA-256-Prüfsumme, importiert bei MariaDB/MySQL im Sandbox-Modus des Clients, aktiviert vorübergehend den Wartungsmodus und legt unmittelbar vorher ein lokales Datenbankbackup unter `BACKUP_PATH` an. Schlägt der Import fehl, wird diese Sicherheitssicherung automatisch eingespielt.
+
+Für beide Importe muss zur Bestätigung `WIEDERHERSTELLEN` eingegeben werden; wie bei Exporten, der Benutzerverwaltung und den E-Mail-Einstellungen wird außerdem das Passwort erneut abgefragt, wenn die letzte Bestätigung länger als `SECURITY_RECONFIRM_SECONDS` (Standard 15 Minuten) zurückliegt. Die Zugriffe sind auf Administratoren beschränkt, gedrosselt und werden im Sicherheitsprotokoll erfasst. Die Browserfunktion ersetzt kein extern gespeichertes vollständiges Serverbackup.
+
+Die ZIP-Dateien enthalten Schlüssel und personenbezogene Daten. Kopiere sie regelmäßig verschlüsselt auf ein anderes System. Ein lokales Backup allein schützt nicht vor dem Ausfall oder Verlust des Servers.
+
+### Wiederherstellung testen
+
+Teste die Wiederherstellung regelmäßig auf einem getrennten System. Verwende ein zur Anwendungsversion passendes Release, entpacke das Backup und kontrolliere zuerst `manifest.json`.
+
+Für MariaDB/MySQL:
+
+```bash
+unzip gymslunity-JJJJMMTT-HHMMSS-XXXXXXXX.zip -d /tmp/gymslunity-restore
+cd /var/www/gymslunity
+sudo -u www-data php artisan down
+mariadb -h DB_HOST -u DB_USERNAME -p DB_DATABASE < /tmp/gymslunity-restore/database.sql
+rsync -a --delete /tmp/gymslunity-restore/storage-app/ storage/app/
+cp /tmp/gymslunity-restore/environment.env .env
+sudo -u www-data php artisan optimize:clear
+sudo -u www-data php artisan migrate --force
+sudo -u www-data php artisan optimize
+sudo -u www-data php artisan up
+```
+
+Für SQLite wird stattdessen bei gestoppter Anwendung `database.sqlite` an den in `DB_DATABASE` konfigurierten Ort kopiert. Setze nach dem Restore Eigentümer und Dateirechte erneut wie in Schritt 5. Führe eine Wiederherstellung niemals ungeprüft über eine laufende Produktivdatenbank aus.
+
+## 13. Updates
+
+Lies vor jedem Update die [Release-Notizen](releases/) der neuen Version. Sie nennen Schritte, die über den folgenden Ablauf hinausgehen.
+
+### Release-Archiv
+
+```bash
+VERSION=1.0.1
+cd /tmp
+curl -fLO https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases/download/v$VERSION/gymslunity-v$VERSION.tar.gz
+curl -fLO https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases/download/v$VERSION/gymslunity-v$VERSION.tar.gz.sha256
+sha256sum -c gymslunity-v$VERSION.tar.gz.sha256
+tar -xzf gymslunity-v$VERSION.tar.gz
+
+cd /var/www/gymslunity
+sudo -u www-data php artisan app:backup --prune
+sudo -u www-data php artisan down
+rsync -a --delete \
+    --exclude=.env \
+    --exclude=storage/ \
+    --exclude=database/database.sqlite \
+    --exclude=public/storage \
+    /tmp/gymslunity-v$VERSION/ /var/www/gymslunity/
+sudo -u www-data php artisan migrate --force
+sudo -u www-data php artisan optimize
+sudo -u www-data php artisan queue:restart
+sudo -u www-data php artisan up
+```
+
+Setze bei Bedarf die Dateirechte erneut wie in Schritt 5.
+
+### Git
+
+```bash
+cd /var/www/gymslunity
+sudo -u www-data php artisan app:backup --prune
+sudo -u www-data php artisan down
+git fetch --tags
+git checkout v1.0.1
+composer install --no-dev --optimize-autoloader
+npm ci
+npm run build
+sudo -u www-data php artisan migrate --force
+sudo -u www-data php artisan optimize
+sudo -u www-data php artisan queue:restart
+sudo -u www-data php artisan up
+```
+
+**Konfiguration → System** zeigt an, ob eine neuere Version verfügbar ist (abschaltbar mit `GYMSLUNITY_UPDATE_CHECK=false`).
+
+## 14. Redis (optional)
 
 Redis ist keine Voraussetzung. Die Datenbanktreiber sind für eine einzelne, normal ausgelastete Vereinsinstanz einfacher zu betreiben und dauerhaft zu sichern.
 
 Für höhere Last oder mehrere Anwendungsserver:
+
+```bash
+sudo apt install -y redis-server php8.4-redis
+sudo systemctl restart php8.4-fpm
+```
 
 ```dotenv
 REDIS_CLIENT=phpredis
@@ -201,98 +479,16 @@ Redis darf nicht ungeschützt aus dem Internet erreichbar sein. Verwende Netzwer
 Danach:
 
 ```bash
-php artisan optimize:clear
-php artisan optimize
-php artisan queue:restart
+cd /var/www/gymslunity
+sudo -u www-data php artisan optimize:clear
+sudo -u www-data php artisan optimize
+sudo -u www-data php artisan queue:restart
 ```
 
-## 11. Cron und regelmäßige Aufgaben
+## 15. Passkeys
 
-Führe den Laravel-Scheduler minütlich aus:
+Passkeys wie Touch ID, Face ID, Windows Hello oder Sicherheitsschlüssel basieren auf WebAuthn. Außer auf localhost funktionieren sie nur über HTTPS. `APP_URL` und gegebenenfalls `PASSKEYS_RELYING_PARTY_ID` sowie `PASSKEYS_ALLOWED_ORIGINS` müssen zur aufgerufenen Domain passen.
 
-```cron
-* * * * * cd /var/www/gymslunity && /usr/bin/php artisan schedule:run >> /dev/null 2>&1
-```
-
-## 12. Backups und Updates
-
-GymSLunity erzeugt täglich um 02:30 Uhr ein lokales Backup, sofern der in Abschnitt 11 beschriebene Scheduler läuft. Standardmäßig liegen die Archive mit restriktiven Dateirechten unter `storage/backups/` und werden nach 30 Tagen bereinigt. Passe Ort und Frist bei Bedarf in `.env` an:
-
-```dotenv
-BACKUP_PATH=/var/backups/gymslunity
-BACKUP_RETENTION_DAYS=30
-```
-
-Der Zielordner darf nicht innerhalb von `storage/app/` liegen. Ein vollständiges Archiv enthält:
-
-- die vollständige Datenbank,
-- `.env` als `environment.env`,
-- `storage/app/` als `storage-app/` und
-- ein Manifest mit Erstellungszeitpunkt, Datenbanktreiber und Codeversion.
-
-Ein Backup kann jederzeit manuell erzeugt werden:
-
-```bash
-php artisan app:backup --prune
-```
-
-Administratoren können unter **Konfiguration → System → Backup & Wiederherstellung** zusätzlich zwei gezielte Sicherungen herunterladen und wieder einspielen:
-
-- Die Konfigurationssicherung im JSON-Format enthält Vereinsdaten, Mitgliedsfelder, E-Mail-Einstellungen und das Vereinslogo, aber keine Benutzer-, Mitglieder- oder Zahlungsdaten. Die Sicherung ist mit einem aus `APP_KEY` abgeleiteten Schlüssel signiert und lässt sich nur in eine Installation mit demselben `APP_KEY` einspielen, etwa nach einem Umzug mit übernommener `.env`. Veränderte oder fremde Dateien werden abgelehnt, ebenso unzulässige E-Mail-Einstellungen wie ein fremder Sendmail-Befehl.
-- Die Datenbanksicherung im ZIP-Format enthält sämtliche Datenbanktabellen, jedoch weder `.env` noch Dateien aus `storage/app/`. Der Webimport akzeptiert nur Sicherungen derselben GymSLunity-Version, desselben Datenbanktreibers und derselben Installation (signiertes Manifest, gebunden an `APP_KEY`), prüft die SHA-256-Prüfsumme, importiert bei MariaDB/MySQL im Sandbox-Modus des Clients, aktiviert vorübergehend den Wartungsmodus und legt unmittelbar vorher ein lokales Datenbankbackup unter `BACKUP_PATH` an. Schlägt der Import fehl, wird diese Sicherheitssicherung automatisch eingespielt.
-
-Für beide Importe muss zur Bestätigung `WIEDERHERSTELLEN` eingegeben werden; wie bei Exporten, der Benutzerverwaltung und den E-Mail-Einstellungen wird außerdem das Passwort erneut abgefragt, wenn die letzte Bestätigung länger als `SECURITY_RECONFIRM_SECONDS` (Standard 15 Minuten) zurückliegt. Die Zugriffe sind auf Administratoren beschränkt, gedrosselt und werden im Sicherheitsprotokoll erfasst. Die Browserfunktion ersetzt kein extern gespeichertes vollständiges Serverbackup.
-
-Für MariaDB/MySQL muss `mariadb-dump` oder `mysqldump` installiert sein. Die ZIP-Dateien enthalten Schlüssel und personenbezogene Daten. Sichere sie mit restriktiven Rechten und kopiere sie regelmäßig verschlüsselt auf ein anderes System. Ein lokales Backup allein schützt nicht vor dem Ausfall oder Verlust des Servers.
-
-### Wiederherstellung testen
-
-Teste die Wiederherstellung regelmäßig auf einem getrennten System. Verwende ein zur Anwendungsversion passendes Release, entpacke das Backup und kontrolliere zuerst `manifest.json`.
-
-Für MariaDB/MySQL:
-
-```bash
-unzip gymslunity-JJJJMMTT-HHMMSS-XXXXXXXX.zip -d /tmp/gymslunity-restore
-php artisan down
-mariadb -h DB_HOST -u DB_USERNAME -p DB_DATABASE < /tmp/gymslunity-restore/database.sql
-rsync -a --delete /tmp/gymslunity-restore/storage-app/ storage/app/
-cp /tmp/gymslunity-restore/environment.env .env
-php artisan optimize:clear
-php artisan migrate --force
-php artisan up
-```
-
-Für SQLite wird stattdessen bei gestoppter Anwendung `database.sqlite` an den in `DB_DATABASE` konfigurierten Ort kopiert. Setze nach dem Restore Eigentümer und Dateirechte erneut passend zum PHP-FPM-Benutzer. Führe eine Wiederherstellung niemals ungeprüft über eine laufende Produktivdatenbank aus.
-
-Vor Updates zuerst ein frisches Backup erzeugen und danach:
-
-```bash
-php artisan app:backup --prune
-php artisan down
-git pull --ff-only
-composer install --no-dev --optimize-autoloader
-npm ci
-npm run build
-php artisan migrate --force
-php artisan optimize
-php artisan queue:restart
-php artisan up
-```
-
-## 13. Passkeys
-
-Passkeys wie Touch ID, Face ID, Windows Hello oder Sicherheitsschlüssel basieren auf WebAuthn. Außer auf localhost funktionieren sie nur über HTTPS. APP_URL und gegebenenfalls PASSKEYS_RELYING_PARTY_ID sowie PASSKEYS_ALLOWED_ORIGINS müssen zur aufgerufenen Domain passen.
-
-Der Browser-Installer erzeugt einen unabhängigen PASSKEYS_USER_HANDLE_SECRET. Dieser Wert gehört ins Backup und muss dauerhaft stabil bleiben.
-
-## 14. Kontrolle
-
-- `php artisan security:check` endet ohne Fehler.
-- `https://verein.example.org/up` liefert einen erfolgreichen Status.
-- Anmeldung mit dem Administratorkonto funktioniert.
-- **Konfiguration → System** zeigt keine kritischen Produktionswarnungen.
-- Testmail unter **Konfiguration → E-Mail-Versand** wird zugestellt.
-- Queue-Worker und Cron laufen.
-- Backup und Wiederherstellung wurden getestet.
+`PASSKEYS_USER_HANDLE_SECRET` gehört ins Backup und muss dauerhaft stabil bleiben.
 
 Das technische Lösch- und Aufbewahrungskonzept ist in [`datenschutz-aufbewahrung.md`](datenschutz-aufbewahrung.md) beschrieben. `php artisan security:prune --dry-run` zeigt, welche technischen Datensätze die nächste tägliche Bereinigung betrifft.
