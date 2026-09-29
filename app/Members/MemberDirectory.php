@@ -49,6 +49,10 @@ final class MemberDirectory
             }
         }
 
+        if (($filters['welcome'] ?? '') !== '') {
+            WelcomeMails::whereReceived($query, $filters['welcome'] === 'received');
+        }
+
         if ($filters['sort'] === 'name') {
             $query->orderBy('last_name', $filters['direction'])->orderBy('first_name', $filters['direction']);
         } elseif (isset($customFields[$filters['sort']])) {

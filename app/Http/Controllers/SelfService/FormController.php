@@ -10,6 +10,7 @@ use App\Http\Requests\SelfService\MembershipApplicationRequest;
 use App\Http\Requests\SelfService\SepaMandateRequest;
 use App\Mail\MembershipWelcomeMail;
 use App\Members\MemberMandates;
+use App\Members\WelcomeMails;
 use App\Models\Member;
 use App\SelfService\Access;
 use App\SelfService\FormTemplates;
@@ -52,7 +53,7 @@ class FormController extends Controller
         ]);
     }
 
-    public function storeApplication(MembershipApplicationRequest $request, SubmitMembershipApplication $submit): RedirectResponse
+    public function storeApplication(MembershipApplicationRequest $request, SubmitMembershipApplication $submit, WelcomeMails $welcomeMails): RedirectResponse
     {
         $email = $request->email();
         $result = $submit->handle($request);
@@ -66,6 +67,8 @@ class FormController extends Controller
                 report($exception);
             }
         });
+        // Only immediate activation; approved applications trigger it on approval.
+        $welcomeMails->sendAutomaticallyLater($member);
         Access::signIn($request, $email, $member->id);
         Inertia::flash('toast', ['type' => 'success', 'message' => $member->joined_at
             ? FormOfAddress::choose('Dein Beitritt wurde gespeichert. Du kannst jetzt dein SEPA-Mandat anlegen.', 'Ihr Beitritt wurde gespeichert. Sie können jetzt Ihr SEPA-Mandat anlegen.')

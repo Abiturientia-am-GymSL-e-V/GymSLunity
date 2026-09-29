@@ -14,6 +14,7 @@ use App\Http\Requests\CommunicationRequest;
 use App\Mail\SerialMemberMail;
 use App\Members\MemberFieldFilter;
 use App\Members\MemberReportWriter;
+use App\Members\WelcomeMails;
 use App\Models\CommunicationCampaign;
 use App\Models\MailSetting;
 use App\Models\Member;
@@ -43,7 +44,7 @@ class CommunicationController extends Controller
         $filters = $request->filters();
         // Reusing an earlier campaign fills subject, text and its recipient filters.
         $template = $tab !== 'history' && $request->integer('campaign_template') > 0
-            ? CommunicationCampaign::query()->whereKey($request->integer('campaign_template'))->first(['id', 'subject', 'body', 'filters'])
+            ? CommunicationCampaign::query()->whereKey($request->integer('campaign_template'))->whereIn('kind', ['mail', 'letter'])->first(['id', 'subject', 'body', 'filters'])
             : null;
         if ($template !== null) {
             $filters = CommunicationRequest::normalizeFilters((array) $template->filters);
@@ -310,7 +311,10 @@ class CommunicationController extends Controller
         $deliveries = $campaign->deliveries()->orderBy('recipient_name')->get(['member_number', 'recipient_name', 'recipient_email', 'status', 'error']);
         $pdf = MemberReportWriter::pdf(view('communication.report', [
             'campaign' => $campaign,
-            'body' => $sanitizer->sanitize((string) $campaign->body),
+            // Welcome mail texts are plain text templates, the others sanitized HTML.
+            'body' => $campaign->kind === WelcomeMails::KIND
+                ? nl2br(e((string) $campaign->body))
+                : $sanitizer->sanitize((string) $campaign->body),
             'deliveries' => $deliveries,
             'club' => $settings->data(),
             'logo' => $settings->logoDataUri(),

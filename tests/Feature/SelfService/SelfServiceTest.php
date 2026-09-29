@@ -6,6 +6,7 @@ namespace Tests\Feature\SelfService;
 
 use App\Mail\MembershipCancellationConfirmedMail;
 use App\Mail\MembershipWelcomeMail;
+use App\Mail\MemberWelcomeMail;
 use App\Mail\SelfServiceAccessMail;
 use App\Models\ClubSetting;
 use App\Models\Member;
@@ -575,9 +576,12 @@ class SelfServiceTest extends TestCase
                     ['mime' => 'application/pdf'],
                 );
             $this->assertStringStartsWith('%PDF-', $mail->applicationPdf);
+            $mail->assertSeeInHtml('separate E-Mail mit Hinweisen zur Anmeldung');
 
             return true;
         });
+        // The immediately active member also receives the separate welcome mail.
+        Mail::assertSent(MemberWelcomeMail::class, fn (MemberWelcomeMail $mail): bool => $mail->hasTo('applicant@example.com'));
     }
 
     public function test_selfservice_documents_use_club_logo_and_display_timezone(): void
@@ -754,7 +758,7 @@ class SelfServiceTest extends TestCase
             ->where('settings.receipt_notes', FormTemplates::defaults()['receipt_notes'])
             ->where('settings.receipt_donation_notes', FormTemplates::defaults()['receipt_donation_notes'])
             ->where('placeholders', fn ($placeholders): bool => $placeholders->contains('{{verein.tax_privilege_notice}}')));
-        $values = ['version' => 0, 'selfservice_enabled' => true, 'public_join_enabled' => true, 'membership_activation' => 'immediate', ...FormTemplates::defaults(), 'email_filter_mode' => 'off', 'email_filter_patterns' => ''];
+        $values = ['version' => 0, 'selfservice_enabled' => true, 'public_join_enabled' => true, 'membership_activation' => 'immediate', ...FormTemplates::defaults(), 'welcome_mail_automatic' => true, 'email_filter_mode' => 'off', 'email_filter_patterns' => ''];
         $this->patchJson('/konfiguration/selfservice', [...$values, 'sepa_text' => '{{unknown}}'])->assertUnprocessable();
         $this->patch('/konfiguration/selfservice', $values)->assertSessionHasNoErrors();
         $this->assertTrue(ClubSetting::current()->data['selfservice_enabled']);
@@ -946,7 +950,7 @@ class SelfServiceTest extends TestCase
     {
         $this->actingAs(User::factory()->create(['roles' => ['admin']]));
         $this->get('/konfiguration/selfservice')->assertInertia(fn (Assert $page) => $page->where('settings.membership_activation', 'immediate'));
-        $values = ['version' => 0, 'selfservice_enabled' => true, 'public_join_enabled' => true, 'membership_activation' => 'invalid', ...FormTemplates::defaults(), 'email_filter_mode' => 'off', 'email_filter_patterns' => ''];
+        $values = ['version' => 0, 'selfservice_enabled' => true, 'public_join_enabled' => true, 'membership_activation' => 'invalid', ...FormTemplates::defaults(), 'welcome_mail_automatic' => true, 'email_filter_mode' => 'off', 'email_filter_patterns' => ''];
         $this->patchJson('/konfiguration/selfservice', $values)->assertUnprocessable()->assertJsonValidationErrors('membership_activation');
         $this->patch('/konfiguration/selfservice', [...$values, 'membership_activation' => 'approval'])->assertSessionHasNoErrors();
         $this->assertSame('approval', ClubSetting::current()->data['membership_activation']);

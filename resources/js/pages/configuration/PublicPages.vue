@@ -14,6 +14,8 @@ type TemplateKey =
     | 'join_mail_text'
     | 'welcome_mail_subject'
     | 'welcome_mail_text'
+    | 'member_welcome_mail_subject'
+    | 'member_welcome_mail_text'
     | 'contribution_invoice_mail_subject'
     | 'contribution_invoice_mail_text';
 
@@ -21,6 +23,7 @@ const props = defineProps<{
     settings: Record<TemplateKey, string>;
     defaults: Record<TemplateKey, string>;
     placeholders: string[];
+    memberPlaceholders: string[];
     version: number;
 }>();
 
@@ -52,7 +55,12 @@ const mails: { subject: TemplateKey; text: TemplateKey; label: string }[] = [
     {
         subject: 'welcome_mail_subject',
         text: 'welcome_mail_text',
-        label: 'Willkommen nach dem Mitgliedsantrag',
+        label: 'Antragsbestätigung nach dem Online-Beitritt',
+    },
+    {
+        subject: 'member_welcome_mail_subject',
+        text: 'member_welcome_mail_text',
+        label: 'Willkommensmail zum Mitgliederbereich',
     },
     {
         subject: 'contribution_invoice_mail_subject',
@@ -127,8 +135,12 @@ const mails: { subject: TemplateKey; text: TemplateKey; label: string }[] = [
                         Logo und Vereinsname ergänzt das System automatisch.
                         Zugangs- und Bestätigungsmails erhalten zusätzlich eine
                         Schaltfläche, Gültigkeit und Zugangscode. Der
-                        Willkommensmail wird der eingereichte Mitgliedsantrag
-                        automatisch als PDF beigefügt.
+                        Antragsbestätigung wird der eingereichte Mitgliedsantrag
+                        automatisch als PDF beigefügt. Die Willkommensmail
+                        enthält zusätzlich die Schaltfläche zum
+                        Mitgliederbereich, Anmeldeadresse und Mitgliedsnummer
+                        sowie bei Bedarf einen Hinweis, dass die E-Mail-Adresse
+                        geändert werden muss.
                     </p>
                 </div>
                 <div class="space-y-7 p-5">
@@ -182,6 +194,19 @@ const mails: { subject: TemplateKey; text: TemplateKey; label: string }[] = [
                 <div class="mt-3 flex flex-wrap gap-2">
                     <code
                         v-for="placeholder in placeholders"
+                        :key="placeholder"
+                        class="rounded bg-muted p-1 text-xs"
+                        >{{ placeholder }}</code
+                    >
+                </div>
+                <p class="mt-4 text-muted-foreground">
+                    Nur in der Willkommensmail zum Mitgliederbereich stehen
+                    zusätzlich die Angaben des Empfängers zur Verfügung – mit
+                    denselben Platzhaltern wie bei Serien-E-Mails:
+                </p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <code
+                        v-for="placeholder in memberPlaceholders"
                         :key="placeholder"
                         class="rounded bg-muted p-1 text-xs"
                         >{{ placeholder }}</code

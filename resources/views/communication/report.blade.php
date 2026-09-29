@@ -15,7 +15,7 @@
         @if ($logo)<div class="report-brand"><img class="report-logo" src="{{ $logo }}" alt=""></div>@endif
     </div>
     <p>
-        {{ $campaign->kind === 'mail' ? 'Serien-E-Mail' : 'Serienbrief ('.strtoupper((string) $campaign->format).')' }}
+        {{ match ($campaign->kind) { 'mail' => 'Serien-E-Mail', 'welcome' => 'Willkommensmail', default => 'Serienbrief ('.strtoupper((string) $campaign->format).')' } }}
         vom {{ $createdAt }} · erstellt von {{ $campaign->created_by_name }} ·
         {{ $campaign->recipient_count }} Empfänger, {{ $campaign->skipped_count }} übersprungen,
         {{ $campaign->success_count }} erfolgreich, {{ $campaign->failure_count }} fehlgeschlagen ·
@@ -23,7 +23,7 @@
     </p>
     <h2>Betreff: {{ $campaign->subject }}</h2>
     <p>Nachricht (Vorlage mit Platzhaltern, vor der Personalisierung):</p>
-    {{-- Sanitized rich text, see RichTextSanitizer. --}}
+    {{-- Sanitized rich text (see RichTextSanitizer) or escaped plain text of welcome mails. --}}
     <div class="message">{!! $body !!}</div>
     @if (! empty($campaign->attachments))
         <p>Anhänge: {{ collect($campaign->attachments)->pluck('name')->join(', ') }}</p>
@@ -37,7 +37,7 @@
                 <td>{{ $delivery->member_number }}</td>
                 <td>{{ $delivery->recipient_name }}</td>
                 <td>{{ $delivery->recipient_email ?: '–' }}</td>
-                <td>{{ match ($delivery->status) { 'sent' => 'Versendet', 'failed' => 'Fehlgeschlagen', 'generated' => 'Erstellt', default => 'Ausstehend' } }}</td>
+                <td>{{ match ($delivery->status) { 'sent' => 'Versendet', 'failed' => 'Fehlgeschlagen', 'generated' => 'Erstellt', 'skipped' => 'Übersprungen', default => 'Ausstehend' } }}</td>
                 <td>{{ $delivery->error ?: '' }}</td>
             </tr>
         @empty

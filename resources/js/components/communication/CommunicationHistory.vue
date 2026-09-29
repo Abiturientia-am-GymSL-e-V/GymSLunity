@@ -21,6 +21,12 @@ defineProps<{
 /** Opens the matching editor with subject, text and recipient filters. */
 const templateUrl = (campaign: Campaign) =>
     `/kommunikation/${campaign.kind === 'mail' ? 'serienmails' : 'serienbriefe'}?campaign_template=${campaign.id}`;
+const kindLabel = (campaign: Campaign) =>
+    campaign.kind === 'mail'
+        ? 'E-Mail'
+        : campaign.kind === 'welcome'
+          ? 'Willkommensmail'
+          : campaign.format?.toUpperCase();
 </script>
 
 <template>
@@ -28,7 +34,7 @@ const templateUrl = (campaign: Campaign) =>
         ><CardHeader class="border-b py-5"
             ><CardTitle class="text-base">Letzte Vorgänge</CardTitle
             ><CardDescription
-                >Protokollierte Serienmail-Versände und
+                >Protokollierte Serienmail-Versände, Willkommensmails und
                 Briefexporte.</CardDescription
             ></CardHeader
         ><CardContent class="overflow-x-auto p-0"
@@ -61,12 +67,10 @@ const templateUrl = (campaign: Campaign) =>
                         <td class="px-3 py-3">
                             <Badge variant="outline"
                                 ><Mail
-                                    v-if="campaign.kind === 'mail'"
+                                    v-if="campaign.kind !== 'letter'"
                                     class="mr-1 size-3"
                                 /><Archive v-else class="mr-1 size-3" />{{
-                                    campaign.kind === 'mail'
-                                        ? 'E-Mail'
-                                        : campaign.format?.toUpperCase()
+                                    kindLabel(campaign)
                                 }}</Badge
                             >
                         </td>
@@ -136,7 +140,11 @@ const templateUrl = (campaign: Campaign) =>
                 </template></CardDescription
             >
             <div class="flex flex-wrap gap-2 pt-2">
-                <Button as-child variant="outline" size="sm"
+                <Button
+                    v-if="selectedCampaign.kind !== 'welcome'"
+                    as-child
+                    variant="outline"
+                    size="sm"
                     ><Link :href="templateUrl(selectedCampaign)"
                         ><Copy class="size-4" />Als Vorlage verwenden</Link
                     ></Button
@@ -183,9 +191,11 @@ const templateUrl = (campaign: Campaign) =>
                                         ? 'Versendet'
                                         : delivery.status === 'generated'
                                           ? 'Erzeugt'
-                                          : delivery.status === 'failed'
-                                            ? 'Fehlgeschlagen'
-                                            : 'Ausstehend'
+                                          : delivery.status === 'skipped'
+                                            ? 'Übersprungen'
+                                            : delivery.status === 'failed'
+                                              ? 'Fehlgeschlagen'
+                                              : 'Ausstehend'
                                 }}</Badge
                             >
                         </td>

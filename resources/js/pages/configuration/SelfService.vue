@@ -11,6 +11,7 @@ const props = defineProps<{
         selfservice_enabled: boolean;
         public_join_enabled: boolean;
         membership_activation: 'immediate' | 'approval';
+        welcome_mail_automatic: boolean;
         application_text: string;
         sepa_text: string;
         guardian_text: string;
@@ -92,6 +93,29 @@ const templates = [
                         Öffentlichen Online-Beitritt anbieten (bei aktiviertem
                         Selfservice)</label
                     >
+                    <div class="space-y-2">
+                        <label class="flex items-center gap-3 text-sm"
+                            ><input
+                                v-model="form.welcome_mail_automatic"
+                                type="checkbox"
+                                aria-describedby="welcome-mail-automatic-help"
+                            />
+                            Willkommensmail automatisch senden</label
+                        >
+                        <p
+                            id="welcome-mail-automatic-help"
+                            class="text-sm text-muted-foreground"
+                        >
+                            Neue Mitglieder erhalten eine E-Mail mit Hinweisen
+                            zur Anmeldung im Mitgliederbereich: nach einem
+                            sofort wirksamen Online-Beitritt, bei der Freigabe
+                            eines Beitrittsantrags und bei der manuellen Anlage
+                            eines Mitglieds mit E-Mail-Adresse. Beim CSV-Import
+                            wird nichts automatisch versendet. Unabhängig davon
+                            lässt sich die Mail in der Mitgliederliste und beim
+                            einzelnen Mitglied jederzeit manuell senden.
+                        </p>
+                    </div>
                     <div class="space-y-2">
                         <Label for="membership-activation"
                             >Aktivierung der Mitgliedschaft</Label
