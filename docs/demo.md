@@ -12,6 +12,37 @@ Beide Instanzen laufen mit `DEMO_MODE=true`. Was das bewirkt (Zugangsdaten auf d
 > [!CAUTION]
 > Eine Demo-Instanz löscht bei jedem Deployment und jede Nacht alle Daten. Betreibe sie auf einem eigenen Server oder zumindest mit eigenem Benutzer, eigener Datenbank und eigener Domain, niemals neben einer Instanz mit echten Vereinsdaten.
 
+## Automatische Einrichtung
+
+Das Skript [`scripts/install-demo-server.sh`](../scripts/install-demo-server.sh) erledigt die Schritte 1 bis 4 und das erste Deployment auf einem Server mit **Debian 12/13 oder Ubuntu 22.04/24.04**:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/Abiturientia-am-GymSL-e-V/GymSLunity/main/scripts/install-demo-server.sh
+sudo bash install-demo-server.sh
+```
+
+Es fragt nach den Domains beider Instanzen, dem Installationsverzeichnis, der HTTPS-Variante (Let's Encrypt, vorhandenes Zertifikat oder vorgeschalteter Reverse Proxy), Impressum und Datenschutz des Betreibers und dem Demo-Passwort. Danach:
+
+1. prüft es, dass nichts Bestehendes überschrieben würde: Benutzer, Verzeichnisse, Nginx-Sites mit denselben Domains, belegte Ports 80/443, eine fehlerhafte Nginx-Konfiguration,
+2. installiert es fehlende Pakete (Nginx, Certbot, PHP 8.4 mit Erweiterungen). Ein vorhandenes anderes PHP bleibt Standard; fehlt PHP 8.4 in den Paketquellen, fragt es vor dem Hinzufügen von `ppa:ondrej/php` bzw. `packages.sury.org`. Vorhandene Pakete werden nicht aktualisiert,
+3. legt Benutzer, Verzeichnisse, `.env`-Dateien, PHP-FPM-Pool, Nginx-Site und Zertifikat an. Nginx und PHP-FPM werden nur neu geladen, nicht neu gestartet,
+4. stellt das neueste Release in beiden Instanzen bereit und startet Queue-Worker und Scheduler als systemd-Dienste (`<name>-queue@<instanz>`, `<name>-schedule@<instanz>.timer`) statt Cron,
+5. richtet den Deploy-Schlüssel ein und gibt am Ende die `gh`-Befehle aus, die Secrets und Variablen in GitHub setzen (Schritt 5). Sie laufen auf einem Rechner mit angemeldeter GitHub-CLI.
+
+Schlägt ein Schritt fehl oder wird das Skript mit Strg+C abgebrochen, macht es alle bisherigen Änderungen in umgekehrter Reihenfolge rückgängig, einschließlich der dabei installierten Pakete. Dasselbe Protokoll unter `/var/lib/gymslunity-demo-installer/` nutzt die Deinstallation:
+
+```bash
+sudo bash install-demo-server.sh --uninstall
+```
+
+Sie entfernt die Demo mit allen Daten und fragt, ob auch die installierten Pakete entfernt werden sollen. `--help` listet die Umgebungsvariablen, mit denen sich alle Fragen vorab beantworten lassen (zusammen mit `--yes` für unbeaufsichtigte Installationen). Der Workflow `demo-installer.yml` testet Installation, Rollback, SSH-Deployment und Deinstallation bei jeder Änderung an den Skripten.
+
+Gegenüber der manuellen Einrichtung ist die Installation etwas strenger abgeschottet: Das Home-Verzeichnis und `.ssh/authorized_keys` gehören root, damit PHP die Beschränkung des Deploy-Schlüssels nicht aufheben kann. `.env`, Datenbank und Sitzungen sind für Nginx nicht lesbar. Die systemd-Dienste dürfen nur im Installationsverzeichnis schreiben.
+
+## Manuelle Einrichtung
+
+Die folgenden Schritte beschreiben dieselbe Einrichtung von Hand.
+
 ## 1. Server vorbereiten
 
 Installiere PHP 8.4, Nginx und die übrigen Pakete wie in [installation.md](installation.md), Schritte 1 und 2. Als Datenbank genügt SQLite. Node, Composer und Git sind auf dem Server nicht nötig, weil GitHub Actions fertige Release-Archive liefert.
