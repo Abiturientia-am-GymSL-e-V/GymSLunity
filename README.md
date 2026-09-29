@@ -1,10 +1,14 @@
 # GymSLunity - Vereinsverwaltung
 <div align="center">
 <img src="public/images/gymslunity-logo.png" alt="Logo" width="400">
+
 [![Current Release](https://img.shields.io/github/v/release/Abiturientia-am-GymSL-e-V/GymSLunity?include_prereleases)](https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases)
 [![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL--1.2-yellow.svg)](LICENSE)
+
 </div>
-<hr>
+
+---
+
 GymSLunity ist eine webbasierte Komplettlösung für die tägliche Vereinsverwaltung. Die Anwendung verbindet Mitgliederverwaltung, Finanzen, Kalender, Kommunikation und Dokumente in einer gemeinsamen, rollenbasierten Arbeitsumgebung.
 
 Das Projekt ist aus den praktischen Anforderungen eines Schulvereins entstanden und wird von Schülerinnen und Schülern getragen. Ziel ist eine offene, selbst betreibbare Alternative zu kostenpflichtigen SaaS-Angeboten, die Vereine verstehen, anpassen und gemeinsam weiterentwickeln können.
