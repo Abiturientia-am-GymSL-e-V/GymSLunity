@@ -9,12 +9,12 @@ import {
 import { computed, ref } from 'vue';
 import { toast } from 'vue-sonner';
 import MemberFieldControl from '@/components/members/MemberFieldControl.vue';
+import EmailChangeForm from '@/components/selfservice/EmailChangeForm.vue';
 import Frame from '@/components/selfservice/Frame.vue';
 import PortalPasskeys from '@/components/selfservice/PortalPasskeys.vue';
 import type { PortalPasskey } from '@/components/selfservice/PortalPasskeys.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatDate, formatMoney } from '@/lib/format';
 import { formatIban } from '@/lib/formatIban';
@@ -92,8 +92,6 @@ const form = useForm<Record<string, MemberValue>>({
     lock_version: Number(props.member.lock_version),
 });
 const profileSaved = ref(false);
-const email = useForm({ email: '', purpose: 'email' });
-const emailSent = ref(false);
 const cancelOpen = ref(false);
 const cancelForm = useForm<{
     lock_version: number;
@@ -139,18 +137,6 @@ function save() {
         onSuccess: () => (profileSaved.value = true),
         onError: () =>
             toast.error('Die Änderungen konnten nicht gespeichert werden.'),
-    });
-}
-function sendEmailConfirmation() {
-    emailSent.value = false;
-    email.post('/selfservice/zugang/anfordern', {
-        preserveScroll: true,
-        onSuccess: () => {
-            emailSent.value = true;
-            email.reset('email');
-        },
-        onError: () =>
-            toast.error('Die Bestätigungsmail konnte nicht versendet werden.'),
     });
 }
 function cancelMembership() {
@@ -584,50 +570,7 @@ function subscriptionLink(value: string) {
             >
         </form>
 
-        <form
-            class="space-y-4 rounded-xl border p-5"
-            @submit.prevent="sendEmailConfirmation"
-        >
-            <h2 class="text-xl font-medium">E-Mail-Adresse ändern</h2>
-            <p class="text-sm">
-                Die bisherige Adresse bleibt gültig, bis
-                {{
-                    $address(
-                        'du die neue Adresse bestätigst',
-                        'Sie die neue Adresse bestätigen',
-                    )
-                }}. {{ $address('Öffne', 'Öffnen Sie') }} den Link im selben
-                Browser, während {{ $address('dein', 'Ihr') }}
-                Zugang noch aktiv ist.
-            </p>
-            <Alert v-if="emailSent" variant="success">
-                <CircleCheck />
-                <AlertTitle>Bestätigungsmail versendet</AlertTitle>
-                <AlertDescription>
-                    {{ $address('Prüfe', 'Prüfen Sie') }} den Posteingang der
-                    neuen Adresse und
-                    {{ $address('öffne', 'öffnen Sie') }} innerhalb von 15
-                    Minuten den enthaltenen Bestätigungslink.
-                </AlertDescription>
-            </Alert>
-            <div class="space-y-2">
-                <Label for="member-new-email">Neue E-Mail-Adresse</Label>
-                <Input
-                    id="member-new-email"
-                    v-model="email.email"
-                    type="email"
-                    required
-                />
-            </div>
-            <Alert v-if="email.errors.email" variant="destructive">
-                <CircleAlert />
-                <AlertTitle>Versand nicht möglich</AlertTitle>
-                <AlertDescription>{{ email.errors.email }}</AlertDescription>
-            </Alert>
-            <Button variant="outline" :disabled="email.processing">
-                Bestätigungslink senden
-            </Button>
-        </form>
+        <EmailChangeForm />
 
         <Dialog v-model:open="cancelOpen">
             <DialogContent>

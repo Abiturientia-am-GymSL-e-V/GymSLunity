@@ -754,7 +754,7 @@ class SelfServiceTest extends TestCase
             ->where('settings.receipt_notes', FormTemplates::defaults()['receipt_notes'])
             ->where('settings.receipt_donation_notes', FormTemplates::defaults()['receipt_donation_notes'])
             ->where('placeholders', fn ($placeholders): bool => $placeholders->contains('{{verein.tax_privilege_notice}}')));
-        $values = ['version' => 0, 'selfservice_enabled' => true, 'public_join_enabled' => true, 'membership_activation' => 'immediate', ...FormTemplates::defaults()];
+        $values = ['version' => 0, 'selfservice_enabled' => true, 'public_join_enabled' => true, 'membership_activation' => 'immediate', ...FormTemplates::defaults(), 'email_filter_mode' => 'off', 'email_filter_patterns' => ''];
         $this->patchJson('/konfiguration/selfservice', [...$values, 'sepa_text' => '{{unknown}}'])->assertUnprocessable();
         $this->patch('/konfiguration/selfservice', $values)->assertSessionHasNoErrors();
         $this->assertTrue(ClubSetting::current()->data['selfservice_enabled']);
@@ -946,7 +946,7 @@ class SelfServiceTest extends TestCase
     {
         $this->actingAs(User::factory()->create(['roles' => ['admin']]));
         $this->get('/konfiguration/selfservice')->assertInertia(fn (Assert $page) => $page->where('settings.membership_activation', 'immediate'));
-        $values = ['version' => 0, 'selfservice_enabled' => true, 'public_join_enabled' => true, 'membership_activation' => 'invalid', ...FormTemplates::defaults()];
+        $values = ['version' => 0, 'selfservice_enabled' => true, 'public_join_enabled' => true, 'membership_activation' => 'invalid', ...FormTemplates::defaults(), 'email_filter_mode' => 'off', 'email_filter_patterns' => ''];
         $this->patchJson('/konfiguration/selfservice', $values)->assertUnprocessable()->assertJsonValidationErrors('membership_activation');
         $this->patch('/konfiguration/selfservice', [...$values, 'membership_activation' => 'approval'])->assertSessionHasNoErrors();
         $this->assertSame('approval', ClubSetting::current()->data['membership_activation']);

@@ -9,6 +9,7 @@ use App\Configuration\SoftwareModules;
 use App\Http\Controllers\Controller;
 use App\Members\MemberFields;
 use App\SelfService\Access;
+use App\SelfService\EmailAddressFilter;
 use App\SelfService\PortalRules;
 use App\SelfService\PortalView;
 use Illuminate\Http\RedirectResponse;
@@ -20,9 +21,22 @@ use Inertia\Response;
 
 class PortalController extends Controller
 {
-    public function __invoke(Request $request, CalendarAccess $calendarAccess, PortalView $view, PortalRules $rules): Response
+    public function __invoke(Request $request, CalendarAccess $calendarAccess, PortalView $view, PortalRules $rules, EmailAddressFilter $emailFilter): Response
     {
         $member = Access::member($request);
+        if ($emailFilter->requiresChange($member)) {
+            $pendingEmail = DB::table('selfservice_tokens')
+                ->where('member_id', $member->id)
+                ->where('purpose', 'email')
+                ->where('expires_at', '>', now())
+                ->latest('id')
+                ->value('email');
+
+            return Inertia::render('selfservice/EmailChangeRequired', [
+                'member' => Arr::only($member->attributesToArray(), ['member_number', 'first_name', 'email']),
+                'pendingEmail' => is_string($pendingEmail) ? self::mask($pendingEmail) : null,
+            ]);
+        }
         $calendarEnabled = SoftwareModules::enabled('calendar');
         $calendars = $calendarEnabled ? $calendarAccess->forMember($member) : collect();
         $calendarToken = DB::table('member_calendar_tokens')->where('member_id', $member->id)->value('token');
@@ -72,6 +86,14 @@ class PortalController extends Controller
             'contributionAccount' => SoftwareModules::enabled('payments') ? $view->contributionAccount($member) : null,
             'passkeys' => $member->passkeys()->latest()->get(['id', 'name', 'last_used_at', 'created_at']),
         ]);
+    }
+
+    /** Shows enough of a pending address to recognize it without disclosing it. */
+    private static function mask(string $email): string
+    {
+        [$local, $domain] = array_pad(explode('@', $email, 2), 2, '');
+
+        return mb_substr($local, 0, 1).'***@'.$domain;
     }
 
     /** Invalidates the current subscription link; the portal creates a new one. */

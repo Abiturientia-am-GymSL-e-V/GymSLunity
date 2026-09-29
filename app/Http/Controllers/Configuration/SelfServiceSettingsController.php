@@ -9,6 +9,7 @@ use App\Configuration\ConfigurationAudit;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Configuration\UpdateSelfServiceSettingsRequest;
 use App\Models\ClubSetting;
+use App\SelfService\EmailAddressFilter;
 use App\SelfService\FormTemplates;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Arr;
@@ -26,7 +27,11 @@ class SelfServiceSettingsController extends Controller
         $settings = $this->clubSettings;
 
         return Inertia::render('configuration/SelfService', [
-            'settings' => array_replace(['selfservice_enabled' => false, 'public_join_enabled' => false, 'membership_activation' => 'immediate'], FormTemplates::defaults(), Arr::only($settings->data(), ['selfservice_enabled', 'public_join_enabled', 'membership_activation', ...array_keys(FormTemplates::defaults())])),
+            'settings' => array_replace(
+                ['selfservice_enabled' => false, 'public_join_enabled' => false, 'membership_activation' => 'immediate', 'email_filter_mode' => 'off', 'email_filter_patterns' => ''],
+                FormTemplates::defaults(),
+                Arr::only($settings->data(), ['selfservice_enabled', 'public_join_enabled', 'membership_activation', 'email_filter_mode', 'email_filter_patterns', ...array_keys(FormTemplates::defaults())]),
+            ),
             'version' => $settings->version(), 'defaults' => FormTemplates::defaults(), 'placeholders' => FormTemplates::placeholders(),
         ]);
     }
@@ -34,6 +39,7 @@ class SelfServiceSettingsController extends Controller
     public function update(UpdateSelfServiceSettingsRequest $request): RedirectResponse
     {
         $values = $request->validated();
+        $values['email_filter_patterns'] = implode("\n", EmailAddressFilter::parse((string) $values['email_filter_patterns']));
         DB::transaction(function () use ($request, $values): void {
             $settings = ClubSetting::query()->whereKey(1)->lockForUpdate()->firstOrFail();
             if ($settings->version !== (int) $values['version']) {

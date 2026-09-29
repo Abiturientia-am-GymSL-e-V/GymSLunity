@@ -68,6 +68,7 @@ use App\Http\Controllers\SelfService\ProfileController as SelfServiceProfileCont
 use App\Http\Controllers\SelfService\TransactionReceiptController as SelfServiceTransactionReceiptController;
 use App\Http\Controllers\StatisticsController;
 use App\Http\Middleware\EnsureSelfService;
+use App\Http\Middleware\RequireAllowedSelfServiceEmail;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -307,23 +308,26 @@ Route::middleware(EnsureSelfService::class)->prefix('selfservice')->group(functi
     Route::post('abmelden', [AccessController::class, 'logout']);
     Route::get('passkey-anmeldung/optionen', [SelfServicePasskeyController::class, 'loginOptions'])->middleware('throttle:30,1')->name('selfservice.passkeys.login-options');
     Route::post('passkey-anmeldung', [SelfServicePasskeyController::class, 'login'])->middleware('throttle:10,1')->name('selfservice.passkeys.login');
-    Route::get('passkeys/optionen', [SelfServicePasskeyController::class, 'registrationOptions'])->middleware('throttle:10,1')->name('selfservice.passkeys.options');
-    Route::post('passkeys', [SelfServicePasskeyController::class, 'store'])->middleware('throttle:10,1')->name('selfservice.passkeys.store');
-    Route::delete('passkeys/{memberPasskey}', [SelfServicePasskeyController::class, 'destroy'])->whereNumber('memberPasskey')->middleware('throttle:10,1')->name('selfservice.passkeys.destroy');
     Route::get('/', PortalController::class);
-    Route::post('kalender-link/erneuern', [PortalController::class, 'renewCalendarLink'])->middleware('throttle:5,1')->name('selfservice.calendar-link.renew');
-    Route::patch('profil', [SelfServiceProfileController::class, 'update'])->middleware('throttle:20,1');
-    Route::patch('mitgliedschaft/kuendigen', [SelfServiceCancellationController::class, 'store'])->middleware('throttle:5,1');
-    Route::delete('mitgliedschaft/kuendigen', [SelfServiceCancellationController::class, 'destroy'])->middleware('throttle:5,1');
-    Route::get('beitritt', [SelfServiceFormController::class, 'show'])->defaults('kind', 'application');
-    Route::get('mandat', [SelfServiceFormController::class, 'show'])->defaults('kind', 'sepa');
-    Route::post('formulare/application', [SelfServiceFormController::class, 'storeApplication'])->middleware('throttle:5,1');
-    Route::post('formulare/sepa', [SelfServiceFormController::class, 'storeMandate'])->middleware('throttle:5,1');
-    Route::get('dokumente/{kind}', SelfServiceDocumentController::class)->middleware(['throttle:30,1', 'audit:document_access']);
-    Route::get('kontobuchungen/{transaction}/beleg.pdf', SelfServiceTransactionReceiptController::class)->whereNumber('transaction')->middleware(['module:payments', 'throttle:30,1', 'audit:document_access'])->name('selfservice.transactions.receipt');
-    Route::middleware('module:bookings')->group(function () {
-        Route::get('buchungen', [SelfServiceBookingController::class, 'index'])->name('selfservice.bookings.index');
-        Route::post('buchungen', [SelfServiceBookingController::class, 'store'])->middleware('throttle:10,1')->name('selfservice.bookings.store');
-        Route::delete('buchungen/{booking}', [SelfServiceBookingController::class, 'cancel'])->middleware('throttle:10,1')->name('selfservice.bookings.cancel');
+    // Locked while the stored address violates the e-mail filter.
+    Route::middleware(RequireAllowedSelfServiceEmail::class)->group(function () {
+        Route::get('passkeys/optionen', [SelfServicePasskeyController::class, 'registrationOptions'])->middleware('throttle:10,1')->name('selfservice.passkeys.options');
+        Route::post('passkeys', [SelfServicePasskeyController::class, 'store'])->middleware('throttle:10,1')->name('selfservice.passkeys.store');
+        Route::delete('passkeys/{memberPasskey}', [SelfServicePasskeyController::class, 'destroy'])->whereNumber('memberPasskey')->middleware('throttle:10,1')->name('selfservice.passkeys.destroy');
+        Route::post('kalender-link/erneuern', [PortalController::class, 'renewCalendarLink'])->middleware('throttle:5,1')->name('selfservice.calendar-link.renew');
+        Route::patch('profil', [SelfServiceProfileController::class, 'update'])->middleware('throttle:20,1');
+        Route::patch('mitgliedschaft/kuendigen', [SelfServiceCancellationController::class, 'store'])->middleware('throttle:5,1');
+        Route::delete('mitgliedschaft/kuendigen', [SelfServiceCancellationController::class, 'destroy'])->middleware('throttle:5,1');
+        Route::get('beitritt', [SelfServiceFormController::class, 'show'])->defaults('kind', 'application');
+        Route::get('mandat', [SelfServiceFormController::class, 'show'])->defaults('kind', 'sepa');
+        Route::post('formulare/application', [SelfServiceFormController::class, 'storeApplication'])->middleware('throttle:5,1');
+        Route::post('formulare/sepa', [SelfServiceFormController::class, 'storeMandate'])->middleware('throttle:5,1');
+        Route::get('dokumente/{kind}', SelfServiceDocumentController::class)->middleware(['throttle:30,1', 'audit:document_access']);
+        Route::get('kontobuchungen/{transaction}/beleg.pdf', SelfServiceTransactionReceiptController::class)->whereNumber('transaction')->middleware(['module:payments', 'throttle:30,1', 'audit:document_access'])->name('selfservice.transactions.receipt');
+        Route::middleware('module:bookings')->group(function () {
+            Route::get('buchungen', [SelfServiceBookingController::class, 'index'])->name('selfservice.bookings.index');
+            Route::post('buchungen', [SelfServiceBookingController::class, 'store'])->middleware('throttle:10,1')->name('selfservice.bookings.store');
+            Route::delete('buchungen/{booking}', [SelfServiceBookingController::class, 'cancel'])->middleware('throttle:10,1')->name('selfservice.bookings.cancel');
+        });
     });
 });
