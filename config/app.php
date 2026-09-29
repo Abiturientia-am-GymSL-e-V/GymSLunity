@@ -82,6 +82,16 @@ return [
     'display_timezone' => env('APP_DISPLAY_TIMEZONE', 'Europe/Berlin'),
 
     /*
+    | GitHub repository whose releases are compared with the installed
+    | version under Configuration → System. The check only reads the public
+    | release list and can be disabled.
+    */
+
+    'repository' => env('GYMSLUNITY_REPOSITORY', 'Abiturientia-am-GymSL-e-V/GymSLunity'),
+
+    'update_check' => (bool) env('GYMSLUNITY_UPDATE_CHECK', true),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
