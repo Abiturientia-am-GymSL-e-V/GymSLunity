@@ -81,6 +81,11 @@ return [
             'transport' => 'array',
         ],
 
+        // Public demo (DEMO_MODE): mails go to the demo mailbox, never out.
+        'demo' => [
+            'transport' => 'demo',
+        ],
+
         'failover' => [
             'transport' => 'failover',
             'mailers' => [

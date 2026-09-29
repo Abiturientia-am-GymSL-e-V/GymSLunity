@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { usePasskeyVerify } from '@laravel/passkeys/vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import { KeyRound } from '@lucide/vue';
 import { onMounted, ref } from 'vue';
 import Frame from '@/components/selfservice/Frame.vue';
@@ -8,6 +8,7 @@ import StatusAlert from '@/components/StatusAlert.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { index as mailbox } from '@/routes/demo/mailbox';
 const sent = ref(false);
 const form = useForm({ email: '', member_number: '', purpose: 'login' });
 const confirmation = useForm({ token: '' });
@@ -47,6 +48,20 @@ onMounted(() => {
                     )
                 }}
             </p>
+            <StatusAlert
+                v-if="$page.props.demo"
+                type="info"
+                title="Mitgliederbereich der Demo"
+            >
+                Melde dich mit
+                <code class="font-mono font-medium break-all select-all">{{
+                    $page.props.demo.memberEmail
+                }}</code>
+                an. Den Anmeldelink findest du im
+                <Link :href="mailbox.url()" class="underline"
+                    >Demo-Postfach</Link
+                >.
+            </StatusAlert>
             <form
                 class="space-y-4 rounded-xl border p-5"
                 @submit.prevent="

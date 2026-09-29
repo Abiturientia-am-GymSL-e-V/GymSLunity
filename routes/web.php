@@ -24,6 +24,7 @@ use App\Http\Controllers\Configuration\SoftwareModuleController;
 use App\Http\Controllers\Configuration\SystemController;
 use App\Http\Controllers\Configuration\UserController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DemoMailboxController;
 use App\Http\Controllers\Donations\DonationController;
 use App\Http\Controllers\Finance\FinanceBankImportController;
 use App\Http\Controllers\Finance\FinanceInvoiceController;
@@ -81,6 +82,11 @@ Route::get('/', fn (ClubSettings $settings) => Inertia::render('Welcome', ['self
 Route::get('branding/logo', [ClubLogoController::class, 'show'])->name('branding.logo');
 Route::get('impressum', [PublicPageController::class, 'imprint'])->name('imprint');
 Route::get('datenschutz', [PublicPageController::class, 'privacy'])->name('privacy');
+Route::middleware('throttle:60,1')->prefix('demo/postfach')->group(function () {
+    Route::get('/', [DemoMailboxController::class, 'index'])->name('demo.mailbox.index');
+    Route::get('{mail}/html', [DemoMailboxController::class, 'html'])->whereNumber('mail')->name('demo.mailbox.html');
+    Route::get('{mail}/anhang/{index}', [DemoMailboxController::class, 'attachment'])->whereNumber(['mail', 'index'])->name('demo.mailbox.attachment');
+});
 Route::get('kalender/abo/{token}.ics', [CalendarFeedController::class, 'publicFeed'])->middleware(['module:calendar', 'throttle:60,1'])->name('calendar.feed.public');
 Route::get('kalender/mein-abo/{token}.ics', [CalendarFeedController::class, 'memberFeed'])->middleware(['module:calendar', 'throttle:60,1'])->name('calendar.feed.member');
 Route::get('sepa-mandat/{token}', [FinanceMandateController::class, 'publicShow'])->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:60,1')->name('forms.mandates.sign');

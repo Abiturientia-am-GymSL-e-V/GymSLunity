@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Configuration\ClubSettings;
 use App\Configuration\MailConfigurator;
+use App\Demo\DemoMailTransport;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
@@ -45,6 +46,7 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(RequestHandled::class, fn () => app(ClubSettings::class)->refresh());
         $mailManager = app('mail.manager');
         $mailManager->extend('native', fn (array $config) => Transport::fromDsn('native://default'));
+        $mailManager->extend('demo', fn (array $config) => new DemoMailTransport);
         // Composer package discovery and the release build run before .env is
         // created. Do not require a database connection during that phase.
         if (is_file(base_path('.env')) && Schema::hasTable('mail_settings')) {

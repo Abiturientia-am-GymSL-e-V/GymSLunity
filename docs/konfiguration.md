@@ -142,6 +142,8 @@ Nur nötig, wenn `CACHE_STORE` oder `QUEUE_CONNECTION` auf `redis` stehen. `SESS
 
 Nur für eine öffentliche Demo-Instanz ohne echte Vereinsdaten. Im Demo-Modus zeigt die Anmeldeseite die Zugangsdaten der gemeinsamen Demo-Konten, jede Seite zeigt einen Hinweis-Banner, und die Demo-Konten brauchen keinen zweiten Faktor. `php artisan demo:reset` löscht die Datenbank und die hochgeladenen Dateien und legt den Musterverein neu an. Der Scheduler führt das jede Nacht aus; die täglichen Backups entfallen im Demo-Modus.
 
+Die Demo verschickt keine E-Mails, auch wenn unter **Konfiguration → E-Mail-Versand** ein Server eingetragen ist. Alle Nachrichten landen im öffentlichen Demo-Postfach unter `/demo/postfach`, das der Banner verlinkt. Dort stehen auch die Anmeldelinks für das Demo-Mitglied im Mitgliederbereich. Das Postfach behält die letzten 500 Nachrichten und wird mit der Demo zurückgesetzt.
+
 | Variable        | Vorlage              | Bedeutung                                                                               |
 | --------------- | -------------------- | --------------------------------------------------------------------------------------- |
 | `DEMO_MODE`     | `false`              | `true` aktiviert den Demo-Modus. **Niemals auf einer Instanz mit echten Daten setzen.** |
