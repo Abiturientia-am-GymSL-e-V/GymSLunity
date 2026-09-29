@@ -11,6 +11,7 @@ use App\Members\MemberFields;
 use App\SelfService\Access;
 use App\SelfService\PortalRules;
 use App\SelfService\PortalView;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -70,5 +71,15 @@ class PortalController extends Controller
             ],
             'contributionAccount' => SoftwareModules::enabled('payments') ? $view->contributionAccount($member) : null,
         ]);
+    }
+
+    /** Invalidates the current subscription link; the portal creates a new one. */
+    public function renewCalendarLink(Request $request): RedirectResponse
+    {
+        $member = Access::member($request);
+        DB::table('member_calendar_tokens')->where('member_id', $member->id)->delete();
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Der Kalender-Abo-Link wurde erneuert. Der bisherige Link funktioniert nicht mehr.']);
+
+        return back();
     }
 }

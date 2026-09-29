@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Configuration;
 
 use App\Backup\ApplicationBackup;
+use App\Backup\BackupSignature;
 use App\Backup\ConfigurationBackup;
 use App\Models\ClubSetting;
 use App\Models\User;
@@ -82,6 +83,7 @@ class BackupConfigurationTest extends TestCase
             $document['payload'],
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
         ));
+        $document['signature'] = app(BackupSignature::class)->sign($document['checksum']);
 
         DB::table('member_field_definitions')->update(['selfservice_visible' => false]);
 
@@ -96,6 +98,41 @@ class BackupConfigurationTest extends TestCase
         $response->assertRedirect(route('configuration.system'))->assertSessionHasNoErrors();
         $this->assertTrue((bool) DB::table('member_field_definitions')->where('key', 'gender')->value('selfservice_visible'));
         $this->assertFalse((bool) DB::table('member_field_definitions')->where('key', 'club_role')->value('selfservice_visible'));
+    }
+
+    public function test_configuration_restore_rejects_foreign_and_unsafe_backups(): void
+    {
+        $admin = User::factory()->create(['roles' => ['admin']]);
+        $restore = function (array $document) use ($admin) {
+            return $this->actingAs($admin)->post(route('configuration.backup.configuration.restore'), [
+                'configuration_backup' => UploadedFile::fake()->createWithContent('konfiguration.json', json_encode($document, JSON_THROW_ON_ERROR)),
+                'confirmation' => 'WIEDERHERSTELLEN',
+            ]);
+        };
+        $resign = function (array $document): array {
+            $document['checksum'] = hash('sha256', json_encode($document['payload'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+            $document['signature'] = app(BackupSignature::class)->sign($document['checksum']);
+
+            return $document;
+        };
+        $original = json_decode(app(ConfigurationBackup::class)->export(), true, flags: JSON_THROW_ON_ERROR);
+
+        $foreign = $original;
+        $foreign['payload']['mail_settings']['from_name'] = 'Fremd';
+        $foreign['checksum'] = hash('sha256', json_encode($foreign['payload'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        $restore($foreign)->assertSessionHasErrors('configuration_backup');
+
+        $sendmail = $original;
+        $sendmail['payload']['mail_settings']['driver'] = 'sendmail';
+        $sendmail['payload']['mail_settings']['sendmail_path'] = "/bin/sh -c 'id > /tmp/pwned' #";
+        $restore($resign($sendmail))->assertSessionHasErrors('configuration_backup');
+
+        $field = $original;
+        $field['payload']['member_field_definitions'][0]['key'] = "x') or 1=1 -- ";
+        $restore($resign($field))->assertSessionHasErrors('configuration_backup');
+
+        $this->assertNotSame('sendmail', DB::table('mail_settings')->value('driver'));
+        $this->assertNotSame('Fremd', DB::table('mail_settings')->value('from_name'));
     }
 
     public function test_configuration_restore_rejects_wrong_confirmation_and_corrupt_backup(): void

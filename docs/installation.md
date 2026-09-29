@@ -65,7 +65,9 @@ DB_CONNECTION=sqlite
 
 Setze zuerst die Dateirechte wie in Abschnitt 7. Der PHP-FPM-Benutzer benötigt vorübergehend Schreibrecht auf /var/www/gymslunity und bei SQLite zusätzlich auf database/. Richte dann Nginx und HTTPS ein und öffne https://verein.example.org/install.
 
-Der Installer erzeugt zufällige Anwendungs- und Passkey-Schlüssel, prüft die Datenbank, führt alle Migrationen aus und legt das erste Administratorkonto an. Sobald ein Benutzer existiert, ist er gesperrt. Entziehe nach erfolgreicher Installation das temporäre Schreibrecht am Projektverzeichnis.
+Der Installer fragt zuerst nach einem **Einrichtungscode**. Er wird beim ersten Aufruf zufällig erzeugt und liegt in `storage/app/setup-token`; lies ihn per SSH (`cat storage/app/setup-token`) oder per FTP aus. So kann niemand ohne Zugriff auf den Server die Installation zwischen Upload und erstem Aufruf übernehmen. Nach Abschluss wird die Datei gelöscht.
+
+Der Installer erzeugt zufällige Anwendungs- und Passkey-Schlüssel, prüft die Datenbank, führt alle Migrationen aus und legt das erste Administratorkonto an. Sobald ein Benutzer existiert, ist er gesperrt. Fehlt später die Datei `.env`, bleibt der Installer ebenfalls gesperrt (Markierung `storage/app/installed`); stelle `.env` dann aus der Sicherung wieder her. Entziehe nach erfolgreicher Installation das temporäre Schreibrecht am Projektverzeichnis.
 
 Für die manuelle Installation kopierst du .env.example nach .env, konfigurierst die folgenden Werte und führst später php artisan app:install aus.
 
@@ -137,6 +139,8 @@ sudo systemctl reload nginx
 ```
 
 HSTS erst aktivieren, wenn die Domain einschließlich aller benötigten Subdomains dauerhaft ausschließlich per HTTPS erreichbar ist.
+
+Läuft GymSLunity hinter einem weiteren Reverse Proxy oder Load Balancer, trage dessen Adresse in `.env` als `TRUSTED_PROXIES` ein (mehrere durch Komma getrennt, `*` nur bei einem verwalteten Load Balancer). Sonst sehen Rate-Limits und Sicherheitsprotokoll nur die Adresse des Proxys.
 
 ## 9. Queue-Worker
 
@@ -234,10 +238,10 @@ php artisan app:backup --prune
 
 Administratoren können unter **Konfiguration → System → Backup & Wiederherstellung** zusätzlich zwei gezielte Sicherungen herunterladen und wieder einspielen:
 
-- Die Konfigurationssicherung im JSON-Format enthält Vereinsdaten, Mitgliedsfelder, E-Mail-Einstellungen und das Vereinslogo, aber keine Benutzer-, Mitglieder- oder Zahlungsdaten. Das SMTP-Passwort bleibt mit dem aktuellen `APP_KEY` verschlüsselt; für einen Umzug auf eine Installation mit anderem Schlüssel muss es anschließend neu gesetzt werden.
-- Die Datenbanksicherung im ZIP-Format enthält sämtliche Datenbanktabellen, jedoch weder `.env` noch Dateien aus `storage/app/`. Der Webimport akzeptiert nur Sicherungen derselben GymSLunity-Version und desselben Datenbanktreibers, prüft die SHA-256-Prüfsumme, aktiviert vorübergehend den Wartungsmodus und legt unmittelbar vorher ein lokales Datenbankbackup unter `BACKUP_PATH` an. Schlägt der Import fehl, wird diese Sicherheitssicherung automatisch eingespielt.
+- Die Konfigurationssicherung im JSON-Format enthält Vereinsdaten, Mitgliedsfelder, E-Mail-Einstellungen und das Vereinslogo, aber keine Benutzer-, Mitglieder- oder Zahlungsdaten. Die Sicherung ist mit einem aus `APP_KEY` abgeleiteten Schlüssel signiert und lässt sich nur in eine Installation mit demselben `APP_KEY` einspielen, etwa nach einem Umzug mit übernommener `.env`. Veränderte oder fremde Dateien werden abgelehnt, ebenso unzulässige E-Mail-Einstellungen wie ein fremder Sendmail-Befehl.
+- Die Datenbanksicherung im ZIP-Format enthält sämtliche Datenbanktabellen, jedoch weder `.env` noch Dateien aus `storage/app/`. Der Webimport akzeptiert nur Sicherungen derselben GymSLunity-Version, desselben Datenbanktreibers und derselben Installation (signiertes Manifest, gebunden an `APP_KEY`), prüft die SHA-256-Prüfsumme, importiert bei MariaDB/MySQL im Sandbox-Modus des Clients, aktiviert vorübergehend den Wartungsmodus und legt unmittelbar vorher ein lokales Datenbankbackup unter `BACKUP_PATH` an. Schlägt der Import fehl, wird diese Sicherheitssicherung automatisch eingespielt.
 
-Für beide Importe muss zur Bestätigung `WIEDERHERSTELLEN` eingegeben werden. Die Zugriffe sind auf Administratoren beschränkt, gedrosselt und werden im Sicherheitsprotokoll erfasst. Die Browserfunktion ersetzt kein extern gespeichertes vollständiges Serverbackup.
+Für beide Importe muss zur Bestätigung `WIEDERHERSTELLEN` eingegeben werden; wie bei Exporten, der Benutzerverwaltung und den E-Mail-Einstellungen wird außerdem das Passwort erneut abgefragt, wenn die letzte Bestätigung länger als `SECURITY_RECONFIRM_SECONDS` (Standard 15 Minuten) zurückliegt. Die Zugriffe sind auf Administratoren beschränkt, gedrosselt und werden im Sicherheitsprotokoll erfasst. Die Browserfunktion ersetzt kein extern gespeichertes vollständiges Serverbackup.
 
 Für MariaDB/MySQL muss `mariadb-dump` oder `mysqldump` installiert sein. Die ZIP-Dateien enthalten Schlüssel und personenbezogene Daten. Sichere sie mit restriktiven Rechten und kopiere sie regelmäßig verschlüsselt auf ein anderes System. Ein lokales Backup allein schützt nicht vor dem Ausfall oder Verlust des Servers.
 

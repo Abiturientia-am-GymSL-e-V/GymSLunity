@@ -80,6 +80,15 @@ class InstallApplication extends Command
             }
         }
 
+        // Locks the web installer, also when .env goes missing later.
+        $marker = storage_path('app/installed');
+        if (User::query()->exists() && ! is_file($marker)) {
+            file_put_contents($marker, json_encode([
+                'installed_at' => now()->toIso8601String(),
+                'version' => trim((string) @file_get_contents(base_path('VERSION'))),
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL, LOCK_EX);
+        }
+
         $this->callSilent(app()->isProduction() ? 'optimize' : 'optimize:clear');
         $this->newLine();
         $this->components->info('GymSLunity ist eingerichtet. Für Datenbank-Warteschlangen zusätzlich einen dauerhaft laufenden queue:work-Prozess einrichten.');

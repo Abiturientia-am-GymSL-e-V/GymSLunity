@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Casts\EncryptedString;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Crypt;
@@ -29,7 +30,7 @@ class FinanceMandate extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['signed_at' => 'immutable_datetime', 'revoked_at' => 'immutable_datetime'];
+        return ['signed_at' => 'immutable_datetime', 'revoked_at' => 'immutable_datetime', 'iban' => EncryptedString::class];
     }
 
     public function pdf(): string

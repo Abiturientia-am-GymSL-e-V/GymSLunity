@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Casts\EncryptedString;
 use App\Members\MemberFields;
 use Carbon\CarbonImmutable;
 use Database\Factories\MemberFactory;
@@ -72,6 +73,7 @@ class Member extends Model
             'deceased_at' => 'immutable_date:Y-m-d',
             'is_honorary' => 'boolean',
             'custom_values' => 'array',
+            'iban' => EncryptedString::class,
             'mandate_signed_at' => 'immutable_date:Y-m-d',
             'sponsor_contribution' => 'decimal:2',
             'lock_version' => 'integer',

@@ -11,7 +11,7 @@ defineOptions({
     layout: {
         title: 'Passwort bestätigen',
         description:
-            'Passwort bestätigen, um diesen geschützten Bereich zu öffnen.',
+            'Passwort bestätigen, um fortzufahren. Danach geht es zurück zur vorherigen Seite, wo die geschützte Aktion erneut ausgeführt werden kann.',
     },
 });
 </script>

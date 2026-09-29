@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace App\Backup;
 
 use App\Configuration\ClubSettings;
+use App\Configuration\MailSettingsData;
+use App\Members\MemberFields;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use RuntimeException;
 use Throwable;
 
@@ -26,7 +30,13 @@ class ConfigurationBackup
     /** @var list<string> */
     private const MAIL_COLUMNS = ['id', 'driver', 'from_address', 'from_name', 'reply_to_address', 'reply_to_name', 'smtp_host', 'smtp_port', 'smtp_security', 'smtp_username', 'smtp_password', 'smtp_timeout', 'smtp_local_domain', 'sendmail_path', 'version', 'created_at', 'updated_at'];
 
-    public function __construct(private readonly ClubSettings $clubSettings) {}
+    /** @var list<string> */
+    private const FIELD_TYPES = ['text', 'select', 'date', 'email', 'tel', 'decimal', 'number', 'boolean'];
+
+    public function __construct(
+        private readonly ClubSettings $clubSettings,
+        private readonly BackupSignature $signature = new BackupSignature,
+    ) {}
 
     public function export(): string
     {
@@ -49,6 +59,7 @@ class ConfigurationBackup
             'application_version' => $this->applicationVersion(),
             'payload' => $payload,
             'checksum' => $this->checksum($payload),
+            'signature' => $this->signature->sign($this->checksum($payload)),
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR).PHP_EOL;
     }
 
@@ -71,6 +82,9 @@ class ConfigurationBackup
         if (! hash_equals($this->checksum($payload), $document['checksum'])) {
             throw new RuntimeException('Die Prüfsumme der Konfigurationssicherung ist ungültig.');
         }
+        if (! $this->signature->verify($document['checksum'], $document['signature'] ?? null)) {
+            throw new RuntimeException('Die Konfigurationssicherung stammt nicht von dieser Installation oder wurde verändert.');
+        }
         if ($document['format_version'] === 1) {
             $payload = $this->upgradeVersionOnePayload($payload);
         }
@@ -80,9 +94,10 @@ class ConfigurationBackup
         if (($club['id'] ?? null) !== 1 || ($mail['id'] ?? null) !== 1 || ! is_array($fields) || $fields === []) {
             throw new RuntimeException('Die Konfigurationssicherung ist unvollständig.');
         }
+        $this->assertSafeMailSettings($mail);
         $validatedFields = [];
         foreach ($fields as $field) {
-            $validatedFields[] = $this->validatedRow($field, self::FIELD_COLUMNS, 'Mitgliedsfelder');
+            $validatedFields[] = $this->assertSafeField($this->validatedRow($field, self::FIELD_COLUMNS, 'Mitgliedsfelder'));
         }
         $keys = array_column($validatedFields, 'key');
         if (count($keys) !== count(array_unique($keys)) || count(array_column($validatedFields, 'id')) !== count(array_unique(array_column($validatedFields, 'id')))) {
@@ -164,6 +179,43 @@ class ConfigurationBackup
         }
 
         return $value;
+    }
+
+    /**
+     * The restore bypasses the settings form, so the values that reach the
+     * mail transport are checked with the same rules as the form.
+     *
+     * @param  array<string, mixed>  $mail
+     */
+    private function assertSafeMailSettings(array $mail): void
+    {
+        $rules = array_intersect_key(MailSettingsData::rules(), array_flip([
+            'driver', 'from_name', 'reply_to_name', 'smtp_host', 'smtp_port', 'smtp_security',
+            'smtp_username', 'smtp_timeout', 'smtp_local_domain', 'sendmail_path',
+        ]));
+        if (Validator::make($mail, $rules)->fails()) {
+            throw new RuntimeException('Die E-Mail-Konfiguration in der Sicherung enthält unzulässige Werte.');
+        }
+    }
+
+    /**
+     * Field keys end up in JSON paths of member queries.
+     *
+     * @param  array<string, mixed>  $field
+     * @return array<string, mixed>
+     */
+    private function assertSafeField(array $field): array
+    {
+        $validator = Validator::make($field, [
+            'key' => ['required', 'string', 'regex:/^[a-z][a-z0-9_]{0,63}$/'],
+            'type' => ['required', Rule::in(self::FIELD_TYPES)],
+            'section' => ['required', Rule::in(array_keys(MemberFields::SECTIONS))],
+        ]);
+        if ($validator->fails()) {
+            throw new RuntimeException('Die Mitgliedsfelder in der Sicherung enthalten unzulässige Werte.');
+        }
+
+        return $field;
     }
 
     /**

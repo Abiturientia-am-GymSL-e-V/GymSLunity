@@ -88,7 +88,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('serienbriefe', [CommunicationController::class, 'index'])->defaults('tab', 'letters')->name('communication.letters');
         Route::get('verlauf', [CommunicationController::class, 'index'])->defaults('tab', 'history')->name('communication.history');
         Route::post('serienmails', [CommunicationController::class, 'sendMail'])->middleware('throttle:2,1')->name('communication.mail.send');
-        Route::post('serienbriefe', [CommunicationController::class, 'generateLetters'])->middleware(['throttle:10,1', 'audit:data_export'])->name('communication.letters.generate');
+        Route::post('serienbriefe', [CommunicationController::class, 'generateLetters'])->middleware(['throttle:10,1', 'reconfirm', 'audit:data_export'])->name('communication.letters.generate');
     });
     Route::middleware(['module:payments', 'can:view-payments'])->prefix('beitraege')->group(function () {
         Route::get('/', PaymentController::class)->defaults('tab', 'overview')->name('payments');
@@ -101,18 +101,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('ruecklastschriften', PaymentController::class)->defaults('tab', 'returns')->name('payments.return-debits.index');
         Route::get('manuell-buchen', PaymentController::class)->defaults('tab', 'manual')->name('payments.manual.index');
         Route::post('anlegen', [ContributionController::class, 'store'])->name('payments.contributions.store');
-        Route::get('mandate/export', MandateExportController::class)->middleware(['throttle:sensitive', 'audit:data_export'])->name('payments.mandates.export');
-        Route::get('kontobuchungen/export', TransactionExportController::class)->middleware(['throttle:sensitive', 'audit:data_export'])->name('payments.transactions.export');
+        Route::get('mandate/export', MandateExportController::class)->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('payments.mandates.export');
+        Route::get('kontobuchungen/export', TransactionExportController::class)->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('payments.transactions.export');
         Route::post('rechnungen/erzeugen', [InvoiceController::class, 'generate'])->name('payments.invoices.generate');
         Route::post('rechnungen/versenden', [InvoiceController::class, 'send'])->name('payments.invoices.send');
-        Route::post('rechnungen/sammeldownload', [InvoiceController::class, 'combined'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('payments.invoices.combined');
+        Route::post('rechnungen/sammeldownload', [InvoiceController::class, 'combined'])->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('payments.invoices.combined');
         Route::get('rechnungen/{contribution}', [InvoiceController::class, 'document'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('payments.invoices.document');
-        Route::get('mahnwesen/export', [DunningController::class, 'export'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('payments.dunning.export');
-        Route::get('mahnwesen/tabelle', [DunningController::class, 'table'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('payments.dunning.table');
-        Route::post('mahnwesen/briefe', [DunningController::class, 'letters'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('payments.dunning.letters');
+        Route::get('mahnwesen/export', [DunningController::class, 'export'])->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('payments.dunning.export');
+        Route::get('mahnwesen/tabelle', [DunningController::class, 'table'])->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('payments.dunning.table');
+        Route::post('mahnwesen/briefe', [DunningController::class, 'letters'])->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('payments.dunning.letters');
         Route::post('mahnwesen/versenden', [DunningController::class, 'send'])->middleware('throttle:2,1')->name('payments.dunning.send');
         Route::get('mahnwesen/{member:member_number}', [DunningController::class, 'document'])->whereNumber('member')->middleware(['throttle:sensitive', 'audit:document_access'])->name('payments.dunning.document');
-        Route::post('sepa-export', SepaExportController::class)->middleware(['throttle:sensitive', 'audit:data_export'])->name('payments.sepa.export');
+        Route::post('sepa-export', SepaExportController::class)->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('payments.sepa.export');
         Route::post('bankimport', BankImportController::class)->name('payments.bank-import');
         Route::post('bankimport/{paymentImport}/zeilen/{row}/zuordnen', [BankImportController::class, 'assign'])->name('payments.bank-import.assign');
         Route::post('bankimport/{paymentImport}/zeilen/{row}/ignorieren', [BankImportController::class, 'ignore'])->name('payments.bank-import.ignore');
@@ -124,17 +124,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('mitglieder', [StatisticsController::class, 'index'])->defaults('tab', 'members')->name('statistics.members');
         Route::get('finanzen', [StatisticsController::class, 'index'])->defaults('tab', 'finances')->name('statistics.finances');
         Route::get('datenqualitaet', [StatisticsController::class, 'index'])->defaults('tab', 'quality')->name('statistics.quality');
-        Route::get('bericht.pdf', [StatisticsController::class, 'pdf'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('statistics.pdf');
-        Route::get('bestandsmeldung.csv', [StatisticsController::class, 'stockCsv'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('statistics.stock-csv');
+        Route::get('bericht.pdf', [StatisticsController::class, 'pdf'])->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('statistics.pdf');
+        Route::get('bestandsmeldung.csv', [StatisticsController::class, 'stockCsv'])->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('statistics.stock-csv');
     });
     Route::middleware(['module:finance', 'can:view-finance'])->prefix('buchhaltung')->group(function () {
         Route::inertia('/', 'finance/Overview')->name('finance');
         Route::get('rechnungen', [FinanceInvoiceController::class, 'index'])->name('finance.invoices.index');
-        Route::get('rechnungen/rechnungsbuch.pdf', [FinanceInvoiceController::class, 'report'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('finance.invoices.report');
+        Route::get('rechnungen/rechnungsbuch.pdf', [FinanceInvoiceController::class, 'report'])->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('finance.invoices.report');
         Route::get('rechnungen/anlegen', [FinanceInvoiceController::class, 'create'])->name('finance.invoices.create');
         Route::post('rechnungen', [FinanceInvoiceController::class, 'store'])->name('finance.invoices.store');
         Route::get('rechnungen/sepa-export', [FinanceSepaExportController::class, 'index'])->name('finance.invoices.sepa.index');
-        Route::post('rechnungen/sepa-export', [FinanceSepaExportController::class, 'export'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('finance.invoices.sepa.export');
+        Route::post('rechnungen/sepa-export', [FinanceSepaExportController::class, 'export'])->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('finance.invoices.sepa.export');
         Route::post('rechnungen/sepa-export/{uuid}/rueckgaengig', [FinanceSepaExportController::class, 'reverse'])->whereUuid('uuid')->name('finance.invoices.sepa.reverse');
         Route::get('rechnungen/bankimport', [FinanceBankImportController::class, 'index'])->name('finance.invoices.bank-import.index');
         Route::post('rechnungen/bankimport', [FinanceBankImportController::class, 'import'])->name('finance.invoices.bank-import.store');
@@ -152,7 +152,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [ReceiptController::class, 'index'])->defaults('tab', 'list')->name('index');
         Route::get('anlegen', [ReceiptController::class, 'index'])->defaults('tab', 'create')->name('create');
         Route::get('archiv', [ReceiptController::class, 'index'])->defaults('tab', 'list')->name('archive');
-        Route::get('quittungsbuch.pdf', [ReceiptController::class, 'report'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('report');
+        Route::get('quittungsbuch.pdf', [ReceiptController::class, 'report'])->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('report');
         Route::post('/', [ReceiptController::class, 'store'])->middleware('throttle:10,1')->name('store');
         Route::get('{receipt}', [ReceiptController::class, 'show'])->name('show');
         Route::get('{receipt}/pdf/{edition}', [ReceiptController::class, 'document'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('document');
@@ -161,12 +161,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
     Route::middleware(['module:forms', 'can:view-forms'])->prefix('formulare/unterschriftslisten')->name('forms.signature-lists.')->group(function () {
         Route::get('/', [SignatureListController::class, 'index'])->name('index');
-        Route::post('pdf', [SignatureListController::class, 'document'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('document');
+        Route::post('pdf', [SignatureListController::class, 'document'])->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('document');
     });
     Route::middleware(['module:forms', 'can:view-forms'])->prefix('formulare/sepa-mandate')->name('forms.mandates.')->group(function () {
         Route::get('/', [FinanceMandateController::class, 'index'])->defaults('tab', 'overview')->name('index');
         Route::get('anlegen', [FinanceMandateController::class, 'index'])->defaults('tab', 'create')->name('create');
-        Route::get('mandatsbuch.pdf', [FinanceMandateController::class, 'report'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('report');
+        Route::get('mandatsbuch.pdf', [FinanceMandateController::class, 'report'])->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('report');
         Route::post('/', [FinanceMandateController::class, 'store'])->middleware('throttle:10,1')->name('store');
         Route::get('{mandate}/pdf', [FinanceMandateController::class, 'document'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('document');
         Route::post('{mandate}/versenden', [FinanceMandateController::class, 'send'])->middleware('throttle:5,1')->name('send');
@@ -177,7 +177,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [DonationController::class, 'index'])->defaults('tab', 'ledger')->name('donations');
         Route::get('anlegen', [DonationController::class, 'index'])->defaults('tab', 'create')->name('donations.create');
         Route::get('offene-bestaetigungen', [DonationController::class, 'index'])->defaults('tab', 'open')->name('donations.open');
-        Route::get('spendenbuch.pdf', [DonationController::class, 'report'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('donations.report');
+        Route::get('spendenbuch.pdf', [DonationController::class, 'report'])->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('donations.report');
         Route::post('/', [DonationController::class, 'store'])->name('donations.store');
         Route::post('{donation}/ausstellen', [DonationController::class, 'issue'])->name('donations.certificates.issue');
         Route::get('bestaetigungen/{certificate}', [DonationController::class, 'document'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('donations.certificates.document');
@@ -188,18 +188,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [InventoryController::class, 'index'])->defaults('tab', 'overview')->name('inventory');
         Route::get('inventarisieren', [InventoryController::class, 'index'])->defaults('tab', 'create')->name('inventory.create');
         Route::post('/', [InventoryController::class, 'store'])->name('inventory.store');
-        Route::get('inventarliste.pdf', [InventoryController::class, 'report'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('inventory.report');
+        Route::get('inventarliste.pdf', [InventoryController::class, 'report'])->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('inventory.report');
         Route::get('{inventoryItem:inventory_number}', [InventoryController::class, 'show'])->name('inventory.show');
         Route::get('{inventoryItem:inventory_number}/bearbeiten', [InventoryController::class, 'edit'])->name('inventory.edit');
         Route::patch('{inventoryItem:inventory_number}', [InventoryController::class, 'update'])->name('inventory.update');
         Route::patch('{inventoryItem:inventory_number}/abgang', [InventoryController::class, 'dispose'])->name('inventory.dispose');
-        Route::get('{inventoryItem:inventory_number}/inventarblatt.pdf', InventorySheetController::class)->middleware(['throttle:sensitive', 'audit:data_export'])->name('inventory.sheet');
+        Route::get('{inventoryItem:inventory_number}/inventarblatt.pdf', InventorySheetController::class)->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('inventory.sheet');
         Route::post('{inventoryItem:inventory_number}/belege', [InventoryDocumentController::class, 'store'])->name('inventory.documents.store');
         Route::get('{inventoryItem:inventory_number}/belege/{inventoryDocument}', [InventoryDocumentController::class, 'show'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('inventory.documents.show');
     });
     Route::middleware(['module:calendar', 'can:view-calendar'])->prefix('kalender')->name('calendar.')->group(function () {
         Route::get('/', [CalendarController::class, 'index'])->name('index');
-        Route::get('terminliste.pdf', CalendarReportController::class)->middleware(['throttle:sensitive', 'audit:data_export'])->name('report');
+        Route::get('terminliste.pdf', CalendarReportController::class)->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('report');
         Route::post('/', [CalendarController::class, 'store'])->name('store');
         Route::patch('{calendar}', [CalendarController::class, 'update'])->name('update');
         Route::delete('{calendar}', [CalendarController::class, 'destroy'])->name('destroy');
@@ -234,11 +234,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('mitglieder/anlegen', [MemberController::class, 'create'])->name('members.create');
     Route::post('mitglieder/anlegen', [MemberController::class, 'store'])->name('members.store');
     Route::get('mitglieder/importieren', [MemberImportController::class, 'index'])->name('members.import.index');
-    Route::get('mitglieder/importieren/vorlage', [MemberImportController::class, 'template'])->middleware(['throttle:sensitive', 'audit:data_export'])->name('members.import.template');
+    Route::get('mitglieder/importieren/vorlage', [MemberImportController::class, 'template'])->middleware(['throttle:sensitive', 'reconfirm', 'audit:data_export'])->name('members.import.template');
     Route::post('mitglieder/importieren/vorschau', [MemberImportController::class, 'preview'])->name('members.import.preview');
     Route::post('mitglieder/importieren/zuordnen', [MemberImportController::class, 'map'])->name('members.import.map');
     Route::post('mitglieder/importieren/abschliessen', [MemberImportController::class, 'store'])->name('members.import.store');
-    Route::post('mitglieder/export', MemberExportController::class)->middleware(['throttle:20,1', 'audit:data_export'])->name('members.export');
+    Route::post('mitglieder/export', MemberExportController::class)->middleware(['throttle:20,1', 'reconfirm', 'audit:data_export'])->name('members.export');
     Route::patch('mitglieder/massenbearbeitung', BulkUpdateMemberController::class)->middleware('throttle:10,1')->name('members.bulk-update');
     Route::get('mitglieder/{member:member_number}/karteiblatt', MemberCardController::class)->middleware(['throttle:sensitive', 'audit:document_access'])->name('members.card');
     Route::get('mitglieder/{member:member_number}', [MemberController::class, 'show'])->name('members.show');
@@ -257,11 +257,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('mitgliedsfelder/reihenfolge', [MemberFieldController::class, 'reorder'])->name('fields.reorder');
         Route::patch('mitgliedsfelder/{field}', [MemberFieldController::class, 'update'])->name('fields.update');
         Route::get('benutzer', [UserController::class, 'index'])->name('users.index');
-        Route::post('benutzer', [UserController::class, 'store'])->name('users.store');
-        Route::patch('benutzer/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::post('benutzer', [UserController::class, 'store'])->middleware('reconfirm')->name('users.store');
+        Route::patch('benutzer/{user}', [UserController::class, 'update'])->middleware('reconfirm')->name('users.update');
         Route::get('email', [MailSettingsController::class, 'edit'])->name('mail.edit');
-        Route::patch('email', [MailSettingsController::class, 'update'])->name('mail.update');
-        Route::post('email/test', [MailSettingsController::class, 'test'])->middleware('throttle:5,1')->name('mail.test');
+        Route::patch('email', [MailSettingsController::class, 'update'])->middleware('reconfirm')->name('mail.update');
+        Route::post('email/test', [MailSettingsController::class, 'test'])->middleware(['throttle:5,1', 'reconfirm'])->name('mail.test');
         Route::get('selfservice', [SelfServiceSettingsController::class, 'edit'])->name('selfservice.edit');
         Route::patch('selfservice', [SelfServiceSettingsController::class, 'update'])->name('selfservice.update');
         Route::get('startseite', [PublicPageSettingsController::class, 'edit'])->name('public-pages.edit');
@@ -273,10 +273,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('buchhaltung', [FinanceSettingsController::class, 'edit'])->name('finance.edit');
         Route::patch('buchhaltung', [FinanceSettingsController::class, 'update'])->name('finance.update');
         Route::get('system', SystemController::class)->name('system');
-        Route::get('system/backup/konfiguration', [BackupController::class, 'downloadConfiguration'])->middleware(['throttle:sensitive', 'audit:configuration_backup_export'])->name('backup.configuration.download');
-        Route::get('system/backup/datenbank', [BackupController::class, 'downloadDatabase'])->middleware(['throttle:2,1', 'audit:database_backup_export'])->name('backup.database.download');
-        Route::post('system/backup/konfiguration', [BackupController::class, 'restoreConfiguration'])->middleware(['throttle:5,1', 'audit:configuration_backup_restore'])->name('backup.configuration.restore');
-        Route::post('system/backup/datenbank', [BackupController::class, 'restoreDatabase'])->middleware(['throttle:2,1', 'audit:database_backup_restore'])->name('backup.database.restore');
+        Route::get('system/backup/konfiguration', [BackupController::class, 'downloadConfiguration'])->middleware(['throttle:sensitive', 'reconfirm', 'audit:configuration_backup_export'])->name('backup.configuration.download');
+        Route::get('system/backup/datenbank', [BackupController::class, 'downloadDatabase'])->middleware(['throttle:2,1', 'reconfirm', 'audit:database_backup_export'])->name('backup.database.download');
+        Route::post('system/backup/konfiguration', [BackupController::class, 'restoreConfiguration'])->middleware(['throttle:5,1', 'reconfirm', 'audit:configuration_backup_restore'])->name('backup.configuration.restore');
+        Route::post('system/backup/datenbank', [BackupController::class, 'restoreDatabase'])->middleware(['throttle:2,1', 'reconfirm', 'audit:database_backup_restore'])->name('backup.database.restore');
         Route::get('sicherheitsprotokoll', SecurityAuditController::class)->name('security-audit');
     });
 });
@@ -294,6 +294,7 @@ Route::middleware(EnsureSelfService::class)->prefix('selfservice')->group(functi
         ->name('selfservice.email.confirm');
     Route::post('abmelden', [AccessController::class, 'logout']);
     Route::get('/', PortalController::class);
+    Route::post('kalender-link/erneuern', [PortalController::class, 'renewCalendarLink'])->middleware('throttle:5,1')->name('selfservice.calendar-link.renew');
     Route::patch('profil', [SelfServiceProfileController::class, 'update'])->middleware('throttle:20,1');
     Route::patch('mitgliedschaft/kuendigen', [SelfServiceCancellationController::class, 'store'])->middleware('throttle:5,1');
     Route::delete('mitgliedschaft/kuendigen', [SelfServiceCancellationController::class, 'destroy'])->middleware('throttle:5,1');

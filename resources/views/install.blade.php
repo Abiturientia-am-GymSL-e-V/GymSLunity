@@ -25,6 +25,7 @@
     @endif
     <form method="post" action="{{ route('install.store') }}">
         @csrf
+        <label>Einrichtungscode <input name="setup_token" required autocomplete="off" spellcheck="false" value="{{ old('setup_token') }}"><small>Derselbe Code wie im ersten Schritt, aus der Datei <code>storage/app/setup-token</code>.</small></label>
         <label>Name <input name="name" required maxlength="255" autocomplete="name" value="{{ old('name') }}"></label>
         <label>E-Mail-Adresse <input name="email" type="email" required maxlength="255" autocomplete="email" value="{{ old('email') }}"></label>
         <label>Passwort <input name="password" type="password" required maxlength="72" autocomplete="new-password"><small>Mindestens 12 Zeichen; Groß-/Kleinbuchstaben, Zahl und Sonderzeichen.</small></label>

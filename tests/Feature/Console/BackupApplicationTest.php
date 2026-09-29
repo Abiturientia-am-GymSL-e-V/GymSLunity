@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Console;
 
 use App\Backup\ApplicationBackup;
+use App\Backup\BackupSignature;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use PDO;
@@ -104,19 +105,53 @@ class BackupApplicationTest extends TestCase
         $zip = new ZipArchive;
         $this->assertTrue($zip->open($archive, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true);
         $zip->addFromString($databaseFile, 'not a database');
-        $zip->addFromString('manifest.json', json_encode([
+        $manifest = [
             'format' => 'gymslunity-application-backup',
             'format_version' => 1,
             'backup_type' => 'database',
             'application_version' => trim((string) File::get(base_path('VERSION'))),
             'database_driver' => DB::getDriverName(),
             'checksums' => [$databaseFile => str_repeat('0', 64)],
-        ], JSON_THROW_ON_ERROR));
+        ];
+        $manifest['signature'] = app(BackupSignature::class)->sign(json_encode($manifest, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        $zip->addFromString('manifest.json', json_encode($manifest, JSON_THROW_ON_ERROR));
         $zip->close();
 
         try {
             $this->expectException(RuntimeException::class);
             $this->expectExceptionMessage('Prüfsumme');
+            app(ApplicationBackup::class)->restoreDatabase($archive);
+        } finally {
+            $this->assertSame([], File::glob($directory.'/gymslunity-*.zip') ?: []);
+            File::deleteDirectory($directory);
+        }
+    }
+
+    public function test_restore_rejects_archives_not_signed_by_this_installation(): void
+    {
+        $directory = storage_path('framework/testing/backup-foreign-'.uniqid());
+        File::ensureDirectoryExists($directory);
+        config(['backup.path' => $directory]);
+        $archive = $directory.'/incoming.zip';
+        $databaseFile = DB::getDriverName() === 'sqlite' ? 'database.sqlite' : 'database.sql';
+        $contents = "\\! id > /tmp/pwned\n";
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($archive, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true);
+        $zip->addFromString($databaseFile, $contents);
+        $zip->addFromString('manifest.json', json_encode([
+            'format' => 'gymslunity-application-backup',
+            'format_version' => 1,
+            'backup_type' => 'database',
+            'application_version' => trim((string) File::get(base_path('VERSION'))),
+            'database_driver' => DB::getDriverName(),
+            'checksums' => [$databaseFile => hash('sha256', $contents)],
+            'signature' => str_repeat('a', 64),
+        ], JSON_THROW_ON_ERROR));
+        $zip->close();
+
+        try {
+            $this->expectException(RuntimeException::class);
+            $this->expectExceptionMessage('nicht von dieser Installation');
             app(ApplicationBackup::class)->restoreDatabase($archive);
         } finally {
             $this->assertSame([], File::glob($directory.'/gymslunity-*.zip') ?: []);

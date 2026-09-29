@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests;
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Laravel\Fortify\Features;
@@ -23,6 +24,17 @@ abstract class TestCase extends BaseTestCase
         }
 
         return $app;
+    }
+
+    /**
+     * A real login confirms the password (SecurityServiceProvider), so an
+     * authenticated test user starts with a fresh confirmation as well.
+     */
+    public function actingAs(Authenticatable $user, $guard = null)
+    {
+        parent::actingAs($user, $guard);
+
+        return $this->withSession(['auth.password_confirmed_at' => time()]);
     }
 
     protected function skipUnlessFortifyHas(string $feature, ?string $message = null): void

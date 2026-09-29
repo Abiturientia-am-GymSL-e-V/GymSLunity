@@ -1,3 +1,6 @@
+import { router } from '@inertiajs/vue3';
+import { confirm } from '@/routes/password';
+
 /** Laravel's XSRF token from the cookie, for requests made with fetch(). */
 export function xsrfToken(): string {
     const token = document.cookie
@@ -49,6 +52,14 @@ export async function postDownload(
         },
         body: JSON.stringify(body),
     });
+    if (response.status === 423) {
+        // The export needs a fresh password confirmation. The server sends
+        // the user back to this page afterwards.
+        router.visit(confirm());
+        throw new Error(
+            'Bitte zuerst das Passwort bestätigen und den Export danach erneut starten.',
+        );
+    }
     if (!response.ok || response.redirected) {
         const failure =
             response.status === 422

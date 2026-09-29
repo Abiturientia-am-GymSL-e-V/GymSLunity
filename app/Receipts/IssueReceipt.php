@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace App\Receipts;
 
 use App\Documents\SignatureImage;
+use App\Members\MemberReportWriter;
 use App\Models\ClubSetting;
 use App\Models\Receipt;
 use App\Models\User;
 use App\Payments\Money;
 use App\SelfService\FormTemplates;
 use App\Support\FormOfAddress;
-use Dompdf\Dompdf;
-use Dompdf\Options;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -107,12 +106,7 @@ final class IssueReceipt
     /** @param array<string, mixed> $snapshot */
     private function pdf(array $snapshot, string $edition, ?string $signature, ?string $logo): string
     {
-        $options = new Options;
-        $options->set('isRemoteEnabled', false);
-        $options->set('isPhpEnabled', false);
-        $options->set('isJavascriptEnabled', false);
-        $options->set('isPdfAEnabled', true);
-        $pdf = new Dompdf($options);
+        $pdf = MemberReportWriter::dompdf(pdfA: true);
         $pdf->setPaper('A5', 'landscape');
         $pdf->loadHtml(view('receipts.document', [
             'receipt' => $snapshot, 'edition' => $edition,

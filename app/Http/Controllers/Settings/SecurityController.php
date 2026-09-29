@@ -74,8 +74,9 @@ class SecurityController extends Controller
         $request->user()->update([
             'password' => $request->password,
         ]);
+        $request->user()->endOtherSessions($request->session()->getId());
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Passwort geändert.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Passwort geändert. Alle anderen Sitzungen wurden beendet.']);
 
         return back();
     }
@@ -104,11 +105,7 @@ class SecurityController extends Controller
     public function destroyOtherSessions(Request $request): RedirectResponse
     {
         abort_unless(config('session.driver') === 'database' && Schema::hasTable(config('session.table', 'sessions')), 404);
-        DB::table(config('session.table', 'sessions'))
-            ->where('user_id', $request->user()->getAuthIdentifier())
-            ->where('id', '<>', $request->session()->getId())
-            ->delete();
-        $request->user()->forceFill(['remember_token' => str()->random(60)])->save();
+        $request->user()->endOtherSessions($request->session()->getId());
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Alle anderen Sitzungen wurden beendet.']);
 
         return back();

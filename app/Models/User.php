@@ -13,6 +13,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\PasskeyAuthenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
@@ -85,5 +88,20 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
         $signature = base64_decode(Crypt::decryptString($this->encrypted_signature), true);
 
         return is_string($signature) ? $signature : null;
+    }
+
+    /**
+     * Signs the account out everywhere except the given session, e.g. after
+     * a password change, so a stolen session does not outlive the old password.
+     */
+    public function endOtherSessions(?string $keepSessionId = null): void
+    {
+        $table = (string) config('session.table', 'sessions');
+        if (config('session.driver') === 'database' && Schema::hasTable($table)) {
+            DB::table($table)->where('user_id', $this->getKey())
+                ->when($keepSessionId !== null, fn ($query) => $query->where('id', '<>', $keepSessionId))
+                ->delete();
+        }
+        $this->forceFill(['remember_token' => Str::random(60)])->save();
     }
 }

@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Finance;
 
+use App\Members\MemberReportWriter;
 use App\Payments\GiroCode;
 use Dompdf\Adapter\CPDF;
-use Dompdf\Dompdf;
-use Dompdf\Options;
 use RuntimeException;
 
 final class FinanceInvoiceDocuments
@@ -35,12 +34,7 @@ final class FinanceInvoiceDocuments
         if (($snapshot['document_type'] ?? 'invoice') === 'invoice' && $snapshot['payment_method'] === 'bank_transfer') {
             $giroCode = $this->giroCode->create($snapshot['total_cents'], $snapshot['seller']['account_holder'], $snapshot['seller']['iban'], $snapshot['seller']['bic'], $snapshot['invoice_number']);
         }
-        $options = new Options;
-        $options->set('isRemoteEnabled', false);
-        $options->set('isPhpEnabled', false);
-        $options->set('isJavascriptEnabled', false);
-        $options->set('isPdfAEnabled', true);
-        $pdf = new Dompdf($options);
+        $pdf = MemberReportWriter::dompdf(pdfA: true);
         $pdf->setPaper('A4');
         $pdf->loadHtml(view('finance.invoice', ['invoice' => $snapshot, 'logo' => $logo, 'giroCode' => $giroCode])->render());
         $pdf->render();

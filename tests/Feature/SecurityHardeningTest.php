@@ -26,6 +26,78 @@ class SecurityHardeningTest extends TestCase
         $this->get(route('security.setup'))->assertOk();
     }
 
+    public function test_exports_backups_and_mail_settings_require_a_recent_password_confirmation(): void
+    {
+        $admin = User::factory()->create(['roles' => ['admin']]);
+        $stale = ['auth.password_confirmed_at' => now()->subMinutes(16)->timestamp];
+
+        $this->be($admin)->withSession($stale)
+            ->from(route('configuration.system'))
+            ->get(route('configuration.backup.configuration.download'))
+            ->assertRedirect(route('password.confirm'))
+            ->assertSessionHas('url.intended', route('configuration.system'));
+
+        $this->be($admin)->withSession($stale)
+            ->postJson(route('members.export'), ['format' => 'csv'])
+            ->assertStatus(423);
+        $this->be($admin)->withSession($stale)
+            ->post(route('members.export'), ['format' => 'csv'], ['Accept' => 'text/csv, application/json'])
+            ->assertStatus(423);
+        $this->be($admin)->withSession($stale)
+            ->patch(route('configuration.mail.update'), [])
+            ->assertRedirect(route('password.confirm'));
+
+        $this->be($admin)->withSession(['auth.password_confirmed_at' => now()->subMinutes(5)->timestamp])
+            ->get(route('configuration.backup.configuration.download'))
+            ->assertOk();
+    }
+
+    public function test_password_change_ends_other_sessions_and_rotates_remember_token(): void
+    {
+        $user = User::factory()->create(['remember_token' => 'old-token']);
+        $this->actingAs($user)->from(route('security.edit'))->put(route('user-password.update'), [
+            'current_password' => 'password',
+            'password' => 'New-password1!',
+            'password_confirmation' => 'New-password1!',
+        ])->assertSessionHasNoErrors();
+        $this->assertNotSame('old-token', $user->fresh()->remember_token);
+
+        config(['session.driver' => 'database']);
+        $other = User::factory()->create();
+        foreach (['keep' => $user->id, 'stolen' => $user->id, 'foreign' => $other->id] as $id => $owner) {
+            DB::table('sessions')->insert(['id' => $id, 'user_id' => $owner, 'ip_address' => null, 'user_agent' => '', 'payload' => '', 'last_activity' => time()]);
+        }
+        $user->endOtherSessions('keep');
+        $this->assertSame(['foreign', 'keep'], DB::table('sessions')->orderBy('id')->pluck('id')->all());
+    }
+
+    public function test_email_change_requires_a_recent_password_confirmation(): void
+    {
+        $user = User::factory()->create(['name' => 'Alt', 'email' => 'alt@example.org']);
+        $stale = ['auth.password_confirmed_at' => now()->subMinutes(16)->timestamp];
+
+        $this->be($user)->withSession($stale)->patch(route('profile.update'), ['name' => 'Neu', 'email' => 'neu@example.org'])
+            ->assertRedirect(route('password.confirm'));
+        $this->assertSame('alt@example.org', $user->fresh()->email);
+
+        $this->be($user)->withSession($stale)->patch(route('profile.update'), ['name' => 'Neu', 'email' => 'alt@example.org'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('Neu', $user->fresh()->name);
+    }
+
+    public function test_ibans_are_encrypted_at_rest_and_empty_values_stay_null(): void
+    {
+        $member = Member::factory()->create(['iban' => 'DE12500105170648489890']);
+        $stored = DB::table('members')->where('id', $member->id)->value('iban');
+
+        $this->assertIsString($stored);
+        $this->assertStringNotContainsString('DE12500105170648489890', $stored);
+        $this->assertSame('DE12500105170648489890', $member->fresh()->iban);
+
+        $member->update(['iban' => '']);
+        $this->assertNull(DB::table('members')->where('id', $member->id)->value('iban'));
+    }
+
     public function test_password_confirmation_submission_is_not_caught_in_a_redirect_loop(): void
     {
         $user = User::factory()->create(['roles' => ['admin']]);
