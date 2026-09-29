@@ -16,6 +16,10 @@ final class ClubData
             $field('short_name', 'Kurzname / Name in der Navigation', 'Allgemein'),
             $field('form_of_address', 'Anrede in Systemtexten', 'Allgemein', 'select', true, ['du' => 'Du', 'sie' => 'Sie'], 'du'),
             $field('founded_at', 'Gründungsdatum', 'Allgemein', 'date'),
+            $field('fiscal_year_start', 'Beginn des Geschäftsjahres', 'Allgemein', 'select', options: [
+                '1' => 'Januar (Kalenderjahr)', '2' => 'Februar', '3' => 'März', '4' => 'April', '5' => 'Mai', '6' => 'Juni',
+                '7' => 'Juli', '8' => 'August', '9' => 'September', '10' => 'Oktober', '11' => 'November', '12' => 'Dezember',
+            ], default: '1'),
             $field('street', 'Straße und Hausnummer', 'Adresse & Kontakt'),
             $field('postal_code', 'Postleitzahl', 'Adresse & Kontakt'),
             $field('city', 'Ort', 'Adresse & Kontakt'),

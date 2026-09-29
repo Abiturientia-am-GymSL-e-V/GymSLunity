@@ -57,10 +57,12 @@ class DashboardController extends Controller
     private function memberOverview(CarbonImmutable $today): array
     {
         $current = $this->currentMembers($today);
-        $yearStart = $today->startOfYear()->toDateString();
+        $fiscalYear = $this->clubSettings->fiscalYear($today);
+        $yearStart = $fiscalYear->start->toDateString();
         $yearToDate = $today->toDateString();
 
         return [
+            'year' => $fiscalYear->label(),
             'current_count' => (clone $current)->count(),
             'joined_this_year' => Member::query()->whereBetween('joined_at', [$yearStart, $yearToDate])->count(),
             'left_this_year' => Member::query()->whereBetween('left_at', [$yearStart, $yearToDate])->count(),
@@ -119,19 +121,20 @@ class DashboardController extends Controller
         ];
     }
 
-    /** @return array<string, int> */
+    /** @return array<string, int|string> year label and figures in cents */
     private function contributionOverview(CarbonImmutable $today): array
     {
+        $fiscalYear = $this->clubSettings->fiscalYear($today);
         $currentYear = Contribution::query()
             ->where('kind', 'contribution')
-            ->whereBetween('due_date', [$today->startOfYear()->toDateString(), $today->endOfYear()->toDateString()]);
+            ->whereBetween('due_date', [$fiscalYear->start->toDateString(), $fiscalYear->end->toDateString()]);
         $open = Contribution::query()->where('kind', 'contribution')->where('status', 'open');
         $overdue = (clone $open)->whereDate('due_date', '<', $today->toDateString());
         $assessedCents = (int) (clone $currentYear)->sum('amount_cents');
         $paidCents = (int) (clone $currentYear)->sum('paid_cents');
 
         return [
-            'year' => $today->year,
+            'year' => $fiscalYear->label(),
             'assessed_count' => (clone $currentYear)->count(),
             'assessed_cents' => $assessedCents,
             'paid_cents' => $paidCents,

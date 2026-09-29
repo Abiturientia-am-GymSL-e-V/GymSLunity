@@ -52,6 +52,7 @@ type StockRow = {
 const props = defineProps<{
     activeTab: Tab;
     filters: { from: string; to: string; as_of: string };
+    periods: { label: string; from: string; to: string }[];
     summary: {
         active_members: number;
         contacts: number;
@@ -117,6 +118,11 @@ const applyFilters = () =>
         preserveState: true,
         replace: true,
     });
+const selectPeriod = (period: { from: string; to: string }) => {
+    filterForm.from = period.from;
+    filterForm.to = period.to;
+    applyFilters();
+};
 const today = new Intl.DateTimeFormat('sv-SE').format(new Date());
 const number = (value: number) => value.toLocaleString('de-DE');
 const periodLabel = computed(
@@ -162,6 +168,25 @@ const periodLabel = computed(
             class="grid gap-3 rounded-xl border bg-card p-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[repeat(3,minmax(0,1fr))_auto] 2xl:items-end"
             @submit.prevent="applyFilters"
         >
+            <div
+                class="flex flex-wrap gap-2 sm:col-span-2 xl:col-span-3 2xl:col-span-4"
+                role="group"
+                aria-label="Zeitraum schnell wählen"
+            >
+                <Button
+                    v-for="period in periods"
+                    :key="period.label"
+                    type="button"
+                    size="sm"
+                    :variant="
+                        filters.from === period.from && filters.to === period.to
+                            ? 'secondary'
+                            : 'ghost'
+                    "
+                    @click="selectPeriod(period)"
+                    >{{ period.label }}</Button
+                >
+            </div>
             <div class="min-w-0 space-y-2">
                 <Label for="statistics-from">Zeitraum von</Label>
                 <Input

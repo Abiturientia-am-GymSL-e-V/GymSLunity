@@ -13,6 +13,14 @@ import { localDateString } from '@/lib/format';
 import { firstError } from '@/lib/formErrors';
 import type { ContributionFilterField, PaymentsClub } from '@/types/payments';
 
+type PeriodTemplate = {
+    value: string;
+    label: string;
+    start: string;
+    end: string;
+    description: string;
+};
+
 const props = defineProps<{
     filterOptions: {
         membership_types: string[];
@@ -20,18 +28,19 @@ const props = defineProps<{
         fields: ContributionFilterField[];
     };
     club: PaymentsClub;
+    periodTemplates: PeriodTemplate[];
 }>();
 defineOptions({
     layout: { breadcrumbs: [{ title: 'Beiträge', href: '/beitraege' }] },
 });
 
 const today = localDateString();
-const year = new Date().getFullYear();
+const fiscalYear = props.periodTemplates[0];
 const createForm = useForm({
-    period_start: year + '-01-01',
-    period_end: year + '-12-31',
+    period_start: fiscalYear.start,
+    period_end: fiscalYear.end,
     due_date: today,
-    description: 'Mitgliedsbeitrag ' + year,
+    description: fiscalYear.description,
     amount_mode: 'fixed',
     amount: '',
     membership_type: '',
@@ -42,15 +51,10 @@ const createForm = useForm({
 });
 const filterFieldToAdd = ref('');
 const periodTemplate = ref('year');
-const periodOptions = [
-    { value: 'year', label: `Jahr ${year}` },
-    { value: 'h1', label: '1. Halbjahr' },
-    { value: 'h2', label: '2. Halbjahr' },
-    { value: 'q1', label: '1. Quartal' },
-    { value: 'q2', label: '2. Quartal' },
-    { value: 'q3', label: '3. Quartal' },
-    { value: 'q4', label: '4. Quartal' },
-];
+const periodOptions = props.periodTemplates.map(({ value, label }) => ({
+    value,
+    label,
+}));
 const amountModeOptions = [
     { value: 'fixed', label: 'Fester Betrag' },
     { value: 'member', label: 'Förderbeitrag des Mitglieds' },
@@ -119,45 +123,15 @@ function removeContributionFilter(key: string) {
     );
 }
 function period(value: string) {
-    const values: Record<string, [string, string, string]> = {
-        year: [year + '-01-01', year + '-12-31', 'Mitgliedsbeitrag ' + year],
-        h1: [
-            year + '-01-01',
-            year + '-06-30',
-            'Mitgliedsbeitrag 1. Halbjahr ' + year,
-        ],
-        h2: [
-            year + '-07-01',
-            year + '-12-31',
-            'Mitgliedsbeitrag 2. Halbjahr ' + year,
-        ],
-        q1: [
-            year + '-01-01',
-            year + '-03-31',
-            'Mitgliedsbeitrag 1. Quartal ' + year,
-        ],
-        q2: [
-            year + '-04-01',
-            year + '-06-30',
-            'Mitgliedsbeitrag 2. Quartal ' + year,
-        ],
-        q3: [
-            year + '-07-01',
-            year + '-09-30',
-            'Mitgliedsbeitrag 3. Quartal ' + year,
-        ],
-        q4: [
-            year + '-10-01',
-            year + '-12-31',
-            'Mitgliedsbeitrag 4. Quartal ' + year,
-        ],
-    };
-    if (values[value])
+    const template = props.periodTemplates.find(
+        (entry) => entry.value === value,
+    );
+    if (template)
         [
             createForm.period_start,
             createForm.period_end,
             createForm.description,
-        ] = values[value];
+        ] = [template.start, template.end, template.description];
 }
 </script>
 

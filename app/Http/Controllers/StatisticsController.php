@@ -39,8 +39,29 @@ class StatisticsController extends Controller
                 'to' => $to->toDateString(),
                 'as_of' => $asOf->toDateString(),
             ],
+            'periods' => $this->periods(),
             ...(new StatisticsReport($from, $to, $asOf))->build(),
         ]);
+    }
+
+    /**
+     * Quick selections for the running and the previous financial year. The
+     * running year ends today because future dates are not evaluated.
+     *
+     * @return list<array{label: string, from: string, to: string}>
+     */
+    private function periods(): array
+    {
+        $today = Clock::today();
+        $current = $this->clubSettings->fiscalYear($today);
+        $previous = $current->previous();
+        $name = $current->start->month === 1 ? 'Jahr' : 'Geschäftsjahr';
+
+        return [
+            ['label' => 'Letzte 12 Monate', 'from' => $today->subMonths(11)->startOfMonth()->toDateString(), 'to' => $today->toDateString()],
+            ['label' => $name.' '.$current->label(), 'from' => $current->start->toDateString(), 'to' => $today->toDateString()],
+            ['label' => $name.' '.$previous->label(), 'from' => $previous->start->toDateString(), 'to' => $previous->end->toDateString()],
+        ];
     }
 
     public function stockCsv(Request $request): StreamedResponse
