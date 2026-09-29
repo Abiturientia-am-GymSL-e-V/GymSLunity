@@ -1,0 +1,90 @@
+name: Demo-Deployment
+
+# Called by tests.yml (next: current main) and release.yml (release: newest
+# release including pre-releases), or started by hand. Only runs when the
+# repository variable DEMO_DEPLOY is "true"; setup in docs/demo.md.
+on:
+  workflow_call:
+    inputs:
+      target:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Demo-Instanz
+        required: true
+        type: choice
+        options:
+          - next
+          - release
+
+permissions:
+  contents: read
+
+concurrency:
+  group: demo-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: demo
+    env:
+      TARGET: ${{ inputs.target }}
+    steps:
+      - name: Check target
+        run: |
+          case "$TARGET" in
+            next | release) ;;
+            *) echo "Unbekannte Demo-Instanz: $TARGET" >&2; exit 1 ;;
+          esac
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: inputs.target == 'next'
+        with:
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        if: inputs.target == 'next'
+        with:
+          php-version: '8.4'
+          extensions: ctype, curl, dom, fileinfo, mbstring, openssl, pdo_sqlite, xml, zip
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: inputs.target == 'next'
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Build archive of main
+        if: inputs.target == 'next'
+        run: |
+          scripts/build-release.sh
+          echo "ARCHIVE=$(ls dist/gymslunity-v*.tar.gz)" >> "$GITHUB_ENV"
+
+      - name: Download newest release
+        if: inputs.target == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # gh release list also contains pre-releases, unlike /releases/latest.
+          tag="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName')"
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "gymslunity-$tag.tar.gz*"
+          sha256sum -c "gymslunity-$tag.tar.gz.sha256"
+          echo "ARCHIVE=gymslunity-$tag.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Deploy
+        env:
+          DEMO_SSH_KEY: ${{ secrets.DEMO_SSH_KEY }}
+          DEMO_SSH_KNOWN_HOSTS: ${{ secrets.DEMO_SSH_KNOWN_HOSTS }}
+          DEMO_SSH_TARGET: ${{ vars.DEMO_SSH_TARGET }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEMO_SSH_KEY" > ~/.ssh/demo_deploy
+          chmod 600 ~/.ssh/demo_deploy
+          printf '%s\n' "$DEMO_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # The server key only runs scripts/deploy-demo.sh (forced command).
+          ssh -i ~/.ssh/demo_deploy -o IdentitiesOnly=yes -o BatchMode=yes \
+            "$DEMO_SSH_TARGET" "$TARGET" < "$ARCHIVE"

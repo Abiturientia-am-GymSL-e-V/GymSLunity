@@ -7,6 +7,8 @@ namespace App\Console\Commands;
 use App\Demo\DemoAccounts;
 use App\Demo\DemoData;
 use Illuminate\Console\Command;
+use Illuminate\Database\Console\Migrations\FreshCommand;
+use Illuminate\Database\Console\WipeCommand;
 use Illuminate\Support\Facades\Storage;
 
 class ResetDemo extends Command
@@ -25,6 +27,9 @@ class ResetDemo extends Command
 
         $this->call('down', ['--retry' => 60]);
         try {
+            // Production prohibits destructive commands; the demo exists to be wiped.
+            FreshCommand::prohibit(false);
+            WipeCommand::prohibit(false);
             // Sessions and the cache live in the database and are dropped as well.
             if ($this->call('migrate:fresh', ['--force' => true]) !== self::SUCCESS) {
                 return self::FAILURE;
