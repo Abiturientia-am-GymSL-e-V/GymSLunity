@@ -686,15 +686,32 @@ class FinanceInvoiceTest extends TestCase
             'item_indices' => [0, 1],
         ])->assertSessionHasNoErrors()->assertInertiaFlash(
             'toast.message',
-            'Stornorechnung RW-'.now()->year.'-000002 wurde erstellt und archiviert. Die ursprüngliche Rechnung war bezahlt; eine notwendige Erstattung muss separat veranlasst werden.',
+            'Stornorechnung RW-'.now()->year.'-000002 wurde erstellt und archiviert. Die ursprüngliche Rechnung war bezahlt; die Rückzahlung bitte veranlassen und anschließend in der Liste als Erstattung erfassen.',
         );
 
         $original->refresh();
         $this->assertSame('cancelled', $original->status);
         $this->assertNotNull($original->paid_at);
         $this->assertSame('paid', FinanceInvoice::query()->where('document_type', 'cancellation')->sole()->snapshot['original_status']);
+        // Until the refund is recorded, the amount is owed back: negative open amount.
         $this->get('/buchhaltung/rechnungen')->assertInertia(fn (Assert $page) => $page
-            ->where('summary.paid_cents', 3082));
+            ->where('summary.paid_cents', 3082)
+            ->where('summary.open_cents', -3082)
+            ->where('summary.refund_pending_cents', 3082));
+
+        $cancellation = FinanceInvoice::query()->where('document_type', 'cancellation')->sole();
+        $this->patch("/buchhaltung/rechnungen/{$original->id}/erstattet", ['refunded_at' => now()->toDateString()])
+            ->assertSessionHasErrors('refund');
+        $this->patch("/buchhaltung/rechnungen/{$cancellation->id}/erstattet", [
+            'refunded_at' => now()->toDateString(), 'refund_reference' => 'Überweisung 42',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('Überweisung 42', $cancellation->fresh()->refund_reference);
+        $this->get('/buchhaltung/rechnungen')->assertInertia(fn (Assert $page) => $page
+            ->where('summary.paid_cents', 0)
+            ->where('summary.open_cents', 0)
+            ->where('summary.refund_pending_cents', 0));
+        $this->patch("/buchhaltung/rechnungen/{$cancellation->id}/erstattet", ['refunded_at' => now()->toDateString()])
+            ->assertSessionHasErrors('refund');
     }
 
     public function test_cancellation_requires_a_reason_and_cannot_be_marked_paid(): void

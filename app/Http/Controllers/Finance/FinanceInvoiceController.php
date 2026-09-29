@@ -9,6 +9,7 @@ use App\Configuration\ClubSettings;
 use App\Configuration\MailConfigurator;
 use App\Finance\CancelFinanceInvoice;
 use App\Finance\IssueFinanceInvoice;
+use App\Finance\RecordFinanceRefund;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Finance\FinanceInvoiceFilterRequest;
 use App\Http\Requests\Finance\StoreFinanceInvoiceRequest;
@@ -64,10 +65,21 @@ class FinanceInvoiceController extends Controller
                 'status' => $invoice->status,
                 'paid_at' => $invoice->paid_at?->toIso8601String(),
                 'cancellation_reason' => $invoice->cancellation_reason,
+                'refund_due' => $invoice->refundDue(),
+                'refunded_at' => $invoice->refunded_at?->toDateString(),
+                'refunded_by_name' => $invoice->refunded_by_name,
+                'refund_reference' => $invoice->refund_reference,
                 'cancellable_items' => $cancellableItems,
                 'partially_cancelled' => $cancellableItems !== [] && count($cancellableItems) < $itemCount,
             ];
         });
+        // Cancellations of paid invoices: owed back until the refund is recorded.
+        $paidCancellations = FinanceInvoice::query()
+            ->where('document_type', 'cancellation')
+            ->get(['id', 'document_type', 'total_cents', 'snapshot', 'refunded_at'])
+            ->filter(fn (FinanceInvoice $cancellation): bool => ($cancellation->snapshot['original_status'] ?? null) === 'paid');
+        $refundPending = (int) $paidCancellations->filter(fn (FinanceInvoice $cancellation): bool => $cancellation->refunded_at === null)->sum('total_cents');
+        $refunded = (int) $paidCancellations->filter(fn (FinanceInvoice $cancellation): bool => $cancellation->refunded_at !== null)->sum('total_cents');
         $openInvoices = FinanceInvoice::query()
             ->where('document_type', 'invoice')
             ->where('status', 'open')
@@ -80,8 +92,9 @@ class FinanceInvoiceController extends Controller
             'summary' => [
                 'count' => FinanceInvoice::query()->where('document_type', 'invoice')->count(),
                 'open_count' => $openInvoices->filter(fn (FinanceInvoice $invoice): bool => $invoice->total_cents > (int) $invoice->cancellations_sum_total_cents)->count(),
-                'open_cents' => (int) $openInvoices->sum(fn (FinanceInvoice $invoice): int => max(0, $invoice->total_cents - (int) $invoice->cancellations_sum_total_cents)),
-                'paid_cents' => (int) FinanceInvoice::query()->where('document_type', 'invoice')->whereNotNull('paid_at')->sum('total_cents'),
+                'open_cents' => (int) $openInvoices->sum(fn (FinanceInvoice $invoice): int => max(0, $invoice->total_cents - (int) $invoice->cancellations_sum_total_cents)) - $refundPending,
+                'refund_pending_cents' => $refundPending,
+                'paid_cents' => (int) FinanceInvoice::query()->where('document_type', 'invoice')->whereNotNull('paid_at')->sum('total_cents') - $refunded,
             ],
         ]);
     }
@@ -259,6 +272,18 @@ class FinanceInvoiceController extends Controller
         return back();
     }
 
+    public function refund(Request $request, FinanceInvoice $invoice, RecordFinanceRefund $refund): RedirectResponse
+    {
+        $data = $request->validate([
+            'refunded_at' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.$invoice->issue_date->toDateString(), 'before_or_equal:'.Clock::todayString()],
+            'refund_reference' => ['nullable', 'string', 'max:255'],
+        ]);
+        $refund->handle($invoice, $request->user(), $data['refunded_at'], $data['refund_reference'] ?? null);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Die Erstattung zu '.$invoice->invoice_number.' wurde erfasst.']);
+
+        return back();
+    }
+
     public function cancel(Request $request, FinanceInvoice $invoice, CancelFinanceInvoice $cancel): RedirectResponse
     {
         $data = $request->validate([
@@ -270,7 +295,7 @@ class FinanceInvoiceController extends Controller
         $label = ($cancellation->snapshot['cancellation_scope'] ?? 'full') === 'partial' ? 'Teilstornorechnung' : 'Stornorechnung';
         $message = $label.' '.$cancellation->invoice_number.' wurde erstellt und archiviert.';
         if (($cancellation->snapshot['original_status'] ?? null) === 'paid') {
-            $message .= ' Die ursprüngliche Rechnung war bezahlt; eine notwendige Erstattung muss separat veranlasst werden.';
+            $message .= ' Die ursprüngliche Rechnung war bezahlt; die Rückzahlung bitte veranlassen und anschließend in der Liste als Erstattung erfassen.';
         }
         Inertia::flash('toast', ['type' => 'success', 'message' => $message]);
 

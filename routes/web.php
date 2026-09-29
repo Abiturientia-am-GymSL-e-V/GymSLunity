@@ -148,6 +148,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('rechnungen/{invoice}/{format}', [FinanceInvoiceController::class, 'document'])->whereIn('format', ['pdf', 'xrechnung'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('finance.invoices.document');
         Route::post('rechnungen/{invoice}/versenden', [FinanceInvoiceController::class, 'send'])->middleware('throttle:5,1')->name('finance.invoices.send');
         Route::patch('rechnungen/{invoice}/bezahlt', [FinanceInvoiceController::class, 'markPaid'])->name('finance.invoices.paid');
+        Route::patch('rechnungen/{invoice}/erstattet', [FinanceInvoiceController::class, 'refund'])->name('finance.invoices.refunded');
         Route::post('rechnungen/{invoice}/stornieren', [FinanceInvoiceController::class, 'cancel'])->name('finance.invoices.cancel');
     });
     Route::inertia('formulare', 'Forms')->middleware(['module:forms', 'can:view-forms'])->name('forms');
