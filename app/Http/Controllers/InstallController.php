@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules\Password;
@@ -90,7 +91,7 @@ class InstallController extends Controller
                 'installed_at' => now()->toIso8601String(),
                 'version' => trim((string) @file_get_contents(base_path('VERSION'))),
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL, LOCK_EX);
-            @unlink(storage_path('app/setup-token'));
+            File::delete(storage_path('app/setup-token'));
             Artisan::call('optimize:clear');
         } catch (Throwable $exception) {
             report($exception);
