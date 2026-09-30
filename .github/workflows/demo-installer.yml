@@ -41,13 +41,16 @@ jobs:
           echo "BASH_ENV=$RUNNER_TEMP/helpers.sh" >> "$GITHUB_ENV"
           sudo apt-get update -qq
           sudo apt-get install -y -qq openssh-server
+          # Like many servers: only the admin may log in over SSH.
+          echo 'AllowUsers runner' | sudo tee /etc/ssh/sshd_config.d/00-test.conf > /dev/null
           sudo systemctl start ssh
+          sudo systemctl reload ssh
           php -r 'echo PHP_VERSION, PHP_EOL;' | tee "$RUNNER_TEMP/php-default"
           dpkg-query -W -f='${db:Status-Status}\n' php8.4-fpm 2> /dev/null | tee "$RUNNER_TEMP/php84-before" || true
 
       - name: Rollback after a late failure
         run: |
-          if sudo -E DEMO_TEST_FAIL_AFTER=install_units bash scripts/install-demo-server.sh --yes; then
+          if sudo -E DEMO_TEST_FAIL_AFTER=setup_deploy_key bash scripts/install-demo-server.sh --yes; then
             echo "Die Installation hätte abbrechen müssen." >&2
             exit 1
           fi
@@ -57,6 +60,7 @@ jobs:
           test ! -e /etc/nginx/sites-enabled/gymslunity-demo
           test ! -e /etc/php/8.4/fpm/pool.d/gymslunity-demo.conf
           test ! -e /etc/systemd/system/gymslunity-demo-queue@.service
+          test ! -e /etc/ssh/sshd_config.d/gymslunity-demo.conf
           test ! -e /usr/local/bin/gymslunity-demo-deploy
           # Packages installed by the failed run are removed again.
           if [ "$(cat "$RUNNER_TEMP/php84-before")" != installed ]; then
@@ -87,6 +91,9 @@ jobs:
           fails sudo -u www-data cat /srv/gymslunity-demo/release/shared/.env
           fails sudo -u www-data cat /srv/gymslunity-demo/release/shared/database.sqlite
           # The demo user cannot change its SSH restriction.
+          # The installer allowed the demo user in addition to the admin.
+          sudo sshd -T | grep -qx 'allowusers runner'
+          sudo sshd -T | grep -qx 'allowusers gymslunity-demo'
           fails sudo -u gymslunity-demo sh -c 'echo x >> /srv/gymslunity-demo/.ssh/authorized_keys'
           grep -q 'gh secret set DEMO_SSH_KEY' "$RUNNER_TEMP/install.log"
 
@@ -114,6 +121,8 @@ jobs:
           fails id gymslunity-demo
           test ! -e /srv/gymslunity-demo
           test ! -e "$HOME/gymslunity-demo-deploy-key"
+          test ! -e /etc/ssh/sshd_config.d/gymslunity-demo.conf
+          fails sh -c "sudo sshd -T | grep -qx 'allowusers gymslunity-demo'"
           test ! -e /var/lib/gymslunity-demo-installer/gymslunity-demo
           fails sh -c "systemctl list-unit-files 'gymslunity-demo*' | grep -q gymslunity-demo"
           sudo nginx -t
