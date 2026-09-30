@@ -43,9 +43,8 @@ class FormModulesTest extends TestCase
 
     public function test_signature_list_supports_member_and_column_selection(): void
     {
-        $first = Member::factory()->create([
-            'first_name' => 'Ada', 'last_name' => 'Beispiel', 'membership_type' => 'Aktiv',
-            'department_role' => 'Vorstand', 'club_role' => 'Kassenprüfung', 'gender' => 'w',
+        $first = Member::factory()->withAssignment('department_role', 'Vorstand', '2020-01-01')->withAssignment('club_role', 'Kassenprüfung')->create([
+            'first_name' => 'Ada', 'last_name' => 'Beispiel', 'membership_type' => 'Aktiv', 'gender' => 'w',
             'payment_method' => 'SEPA-Lastschrift', 'street' => 'Testweg 1', 'city' => 'Berlin',
             'is_honorary' => true, 'custom_values' => ['custom_graduation_year' => 2012],
         ]);
@@ -66,7 +65,7 @@ class FormModulesTest extends TestCase
             ->has('members', 4)
             ->where('members.0.status', 'active')
             ->where('members.0.filter_values.membership_type', 'Aktiv')
-            ->where('members.0.filter_values.department_role', 'Vorstand')
+            ->where('members.0.filter_values.department_role', fn ($tokens): bool => collect($tokens)->contains('Vorstand') && ! collect($tokens)->contains('__none__'))
             ->where('members.0.filter_values.payment_method', 'SEPA-Lastschrift')
             ->where('members.0.filter_values.is_honorary', true)
             ->where('members.0.filter_values.custom_graduation_year', 2012)

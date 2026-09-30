@@ -12,8 +12,6 @@ export type Member = {
     country: string | null;
     birth_date: string | null;
     membership_type: string;
-    department_role: string | null;
-    club_role: string | null;
     is_honorary: boolean;
     custom_values: Record<string, MemberValue> | null;
     /** Current option values of department, office and honor fields. */
@@ -37,25 +35,16 @@ export type MemberFilters = {
     q: string;
     custom: Record<string, string>;
     membership: string;
-    department_role: string;
-    club_role: string;
     welcome: '' | 'received' | 'missing';
     sort: MemberSort;
     direction: 'asc' | 'desc';
     per_page: number;
 };
 
-export type MemberFilterKey =
-    | 'q'
-    | 'membership'
-    | 'department_role'
-    | 'club_role'
-    | 'welcome';
+export type MemberFilterKey = 'q' | 'membership' | 'welcome';
 
 export type MemberFilterOptions = {
     memberships: string[];
-    departmentRoles: string[];
-    clubRoles: string[];
 };
 
 export type MemberPage = {

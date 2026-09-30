@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Payments;
 
+use App\Members\CurrentAssignments;
 use App\Models\Contribution;
 use App\Models\ContributionAccount;
 use App\Models\ContributionBatch;
@@ -58,6 +59,11 @@ final class CreateContributions
             foreach ($data['filters'] ?? [] as $filter) {
                 $field = $fields->get($filter['key']);
                 if (! $field) {
+                    continue;
+                }
+                if ($field->isTemporal()) {
+                    CurrentAssignments::filter($query, $field->key, $filter['value']);
+
                     continue;
                 }
                 $value = match ($field->type) {

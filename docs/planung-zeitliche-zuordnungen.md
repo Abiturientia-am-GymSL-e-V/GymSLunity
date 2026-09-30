@@ -1,6 +1,6 @@
 # Planung: Zeitliche Zuordnungen zu Abteilungen, Funktionen/Ämtern und Ereignissen/Ehrungen
 
-Stand: 30.09.2026 · Status: **Alle fachlichen Fragen F1–F17 am 30.09.2026 entschieden (siehe Abschnitt 6.2); Umsetzung am 30.09.2026 freigegeben; Phasen 1 bis 4 umgesetzt**
+Stand: 30.09.2026 · Status: **Alle fachlichen Fragen F1–F17 am 30.09.2026 entschieden (siehe Abschnitt 6.2); Umsetzung am 30.09.2026 freigegeben; Phasen 1 bis 5 umgesetzt**
 
 Kennzeichnung im Dokument:
 
@@ -327,6 +327,16 @@ Anmerkungen zur Umsetzung von Phase 4:
 - Abteilungen: Ein Zeitraum (Standard: Jahresbeginn bis heute) liefert Mitglieder am Ende des Zeitraums, Eintritte und Austritte. Für einen Stichtag werden Beginn und Ende gleich gewählt. Ein Klick auf eine Abteilung zeigt ihre Mitglieder im Zeitraum.
 - Gates `view-assignments` und `manage-assignments` delegieren an `MemberPolicy::viewAny` und `updateAny`; die Schreibrouten der Mitgliederakte prüfen zusätzlich `manage-assignments`.
 - `{{verein.vorstand}}` liefert „Name (Amt)“, mit „, “ getrennt, in der Reihenfolge der Felder und Optionen. Die Zeitstrahl-Darstellung im Verlauf und der Tab „Fällige Jubiläen“ (F13) folgen später.
+
+Anmerkungen zur Umsetzung von Phase 5:
+
+- Die Migration `2026_09_30_040000_migrate_legacy_roles_to_assignments` stellt `department_role` und `club_role` auf den Typ `office` um. Die Felder gelten danach als gewöhnliche Zusatzfelder (`is_custom`), sind filterbar und in der Tabelle sichtbar. „Mehrere Ämter gleichzeitig“ ist aus, „Vorstand“, „Pflichtamt“ und „höchstens“ sind bei keiner Option gesetzt; das legt der Verein selbst fest.
+- Gespeicherte Werte ohne passende Option werden als deaktivierte Option übernommen, damit ihre Bezeichnung erhalten bleibt.
+- Pro Mitglied mit Altwert entsteht genau ein Historieneintrag von „System (Migration)“: vorher der Einzelwert, nachher die Zuordnungsliste. Die Historie stellt beides lesbar dar.
+- Die Migration ist idempotent (bereits umgestellte Felder werden übersprungen). Der Rückweg stellt die Auswahlfelder wieder her, solange nach der Umstellung keine Zuordnungen erfasst oder geändert wurden; sonst bricht er mit einer Meldung ab. Die Spalten in `members` bleiben unverändert und werden nicht mehr beschrieben.
+- Alte Links der Mitgliederliste mit `department_role=` oder `club_role=` werden auf den Filter des Amtsfelds übertragen; gespeicherte Kommunikationsfilter funktionieren unverändert weiter. Beide beziehen sich jetzt auf die _aktuellen_ Ämter.
+- Kalender- und Buchungsfreigaben können Abteilungen, Ämter und Ehrungen als Bedingung nutzen; es zählen die heute gültigen Zuordnungen. Beitragsläufe filtern typisierte Felder ebenso über die aktuellen Zuordnungen.
+- Die Demo enthält Vorstand mit Vorgänger und unbesetztem Pflichtamt, Abteilungen mit Wechseln und einige Ehrungen.
 
 ---
 

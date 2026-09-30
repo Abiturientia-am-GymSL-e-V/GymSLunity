@@ -13,7 +13,6 @@ defineProps<{
     label: string;
     value: string;
     options: string[];
-    withPresence?: boolean;
     labels?: Record<string, string>;
 }>();
 
@@ -36,17 +35,8 @@ const emit = defineEmits<{ change: [value: string] }>();
             </SelectTrigger>
             <SelectContent>
                 <SelectItem value="__all__">Alle</SelectItem>
-                <template v-if="withPresence">
-                    <SelectItem value="__any__">Mit Funktion</SelectItem>
-                    <SelectItem value="__none__">Ohne Funktion</SelectItem>
-                </template>
                 <SelectItem
-                    v-if="
-                        value &&
-                        !options.includes(value) &&
-                        (!withPresence ||
-                            !['__any__', '__none__'].includes(value))
-                    "
+                    v-if="value && !options.includes(value)"
                     :value="value"
                     >{{ value }}</SelectItem
                 >

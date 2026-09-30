@@ -85,7 +85,7 @@ class ContributionManagementTest extends TestCase
             ->where('missingMandates.0.missing', ['IBAN', 'Mandatsreferenz', 'Mandatsdatum']));
         $this->get(route('payments.create'))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('payments/Create')
-            ->where('filterOptions.fields.0.key', 'custom_graduation_year')
+            ->where('filterOptions.fields', fn ($fields): bool => collect($fields)->pluck('key')->contains('custom_graduation_year'))
             ->where('periodTemplates.0.label', 'Jahr '.now()->year));
     }
 
@@ -156,6 +156,24 @@ class ContributionManagementTest extends TestCase
 
         $this->assertDatabaseCount('contributions', 1);
         $this->assertSame($included->id, Contribution::sole()->account->member_id);
+    }
+
+    public function test_contributions_filter_office_fields_by_current_assignments(): void
+    {
+        $this->signIn();
+        $current = Member::factory()->withAssignment('club_role', 'Kassierer', '2020-01-01')->create();
+        Member::factory()->withAssignment('club_role', 'Kassierer', '2020-01-01', '2020-12-31')->create();
+        Member::factory()->create();
+
+        $this->post(route('payments.contributions.store'), $this->contributionData([
+            'filters' => [['key' => 'club_role', 'value' => 'Kassierer']],
+        ]))->assertSessionHasNoErrors();
+        $this->assertSame([$current->id], Contribution::query()->with('account')->get()->pluck('account.member_id')->all());
+
+        $this->post(route('payments.contributions.store'), $this->contributionData([
+            'description' => 'Ohne Amt', 'filters' => [['key' => 'club_role', 'value' => '__none__']],
+        ]))->assertSessionHasNoErrors();
+        $this->assertSame(2, Contribution::query()->where('description', 'Ohne Amt')->count());
     }
 
     public function test_bulk_contribution_creation_uses_a_bounded_number_of_select_queries(): void

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Bookings;
 
 use App\Configuration\ClubSettings;
+use App\Members\MemberFieldRule;
 use App\Models\BookingResource;
 use App\Models\ContributionAccount;
 use App\Models\ContributionTransaction;
@@ -21,6 +22,8 @@ use Illuminate\Validation\ValidationException;
 
 final class BookingManager
 {
+    private ?MemberFieldRule $fieldRules = null;
+
     public function __construct(private readonly ClubSettings $clubSettings) {}
 
     /** @param array<string, mixed> $data
@@ -216,19 +219,7 @@ final class BookingManager
     /** @return list<array{key: string, label: string, options: list<array{value: string, label: string}>}> */
     public function memberFields(): array
     {
-        $result = [];
-        foreach (MemberFieldDefinition::query()->where('is_active', true)->whereIn('type', ['select', 'boolean'])->orderBy('position')->get() as $field) {
-            $options = $field->type === 'boolean'
-                ? [['value' => '1', 'label' => 'Ja'], ['value' => '0', 'label' => 'Nein']]
-                : array_values(collect($field->options)->filter(fn (array $option): bool => $option['active'])->map(
-                    fn (array $option): array => ['value' => $option['value'], 'label' => $option['label']],
-                )->all());
-            if ($options !== []) {
-                $result[] = ['key' => $field->key, 'label' => $field->label, 'options' => $options];
-            }
-        }
-
-        return $result;
+        return MemberFieldRule::fields();
     }
 
     public function canRequest(BookingResource $resource, Member $member): bool
@@ -357,12 +348,7 @@ final class BookingManager
     /** @param array{field_key: string, value: string} $rule */
     private function matches(Member $member, array $rule): bool
     {
-        $field = $rule['field_key'];
-        $value = str_starts_with($field, 'custom_')
-            ? ($member->custom_values[$field] ?? null)
-            : $member->getAttribute($field);
-
-        return (string) (is_bool($value) ? (int) $value : $value) === $rule['value'];
+        return ($this->fieldRules ??= new MemberFieldRule)->matches($member, $rule['field_key'], $rule['value']);
     }
 
     /** @param array<string, mixed> $rule */

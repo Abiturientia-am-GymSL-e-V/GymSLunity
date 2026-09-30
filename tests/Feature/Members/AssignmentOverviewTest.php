@@ -23,6 +23,8 @@ class AssignmentOverviewTest extends TestCase
     {
         parent::setUp();
         $this->travelTo('2026-06-15 12:00:00');
+        // The default office fields would appear alongside the fields of these tests.
+        MemberFieldDefinition::query()->whereIn('key', ['department_role', 'club_role'])->update(['is_active' => false]);
     }
 
     /** @param list<array<string, mixed>> $options */

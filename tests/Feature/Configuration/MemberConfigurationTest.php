@@ -157,7 +157,7 @@ class MemberConfigurationTest extends TestCase
         $this->patch(route('members.update', $member->member_number), ['lock_version' => 0, 'city' => 'Bonn'])->assertSessionHasNoErrors();
         $this->assertSame('Alte Angabe', $member->fresh()->custom_values[$field->key]);
         $this->patch(route('members.update', $member->member_number), ['lock_version' => 1, $field->key => 'Überschreiben'])->assertSessionHasErrors('form');
-        $this->get(route('members.show', $member->member_number))->assertInertia(fn (Assert $page) => $page->where('sections.6.title', 'Archivierte Angaben')->where('sections.6.fields.0.readOnly', true));
+        $this->get(route('members.show', $member->member_number))->assertInertia(fn (Assert $page) => $page->where('sections.5.title', 'Archivierte Angaben')->where('sections.5.fields.0.readOnly', true));
         $this->get(route('members.index'))->assertInertia(fn (Assert $page) => $page->missing('members.data.0.custom_values.'.$field->key));
     }
 

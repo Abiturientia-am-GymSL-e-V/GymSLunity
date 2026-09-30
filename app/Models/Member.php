@@ -50,7 +50,7 @@ class Member extends Model
         'id', 'member_number', 'first_name', 'middle_name', 'last_name',
         'email', 'mobile_phone', 'street', 'postal_code', 'city', 'country',
         'birth_date', 'membership_type',
-        'department_role', 'club_role', 'is_honorary', 'custom_values',
+        'is_honorary', 'custom_values',
         'joined_at', 'left_at', 'deceased_at',
     ];
 
@@ -59,7 +59,7 @@ class Member extends Model
         'member_number', 'first_name', 'middle_name', 'last_name',
         'email', 'mobile_phone', 'street', 'postal_code', 'city', 'country',
         'birth_date', 'membership_type',
-        'department_role', 'club_role', 'is_honorary', 'custom_values',
+        'is_honorary', 'custom_values',
         'joined_at', 'left_at', 'deceased_at',
         ...MemberFields::ADDITIONAL_FIELDS,
     ];

@@ -98,8 +98,6 @@ const selectionFilterKey = computed(() =>
     JSON.stringify([
         props.filters.q,
         props.filters.membership,
-        props.filters.department_role,
-        props.filters.club_role,
         props.filters.welcome,
         props.filters.custom,
     ]),
@@ -142,8 +140,6 @@ const number = new Intl.NumberFormat('de-DE');
 const filterLabels: Record<MemberFilterKey, string> = {
     q: 'Suche',
     membership: 'Mitgliedschaft',
-    department_role: 'Abteilung',
-    club_role: 'Hauptverein',
     welcome: 'Willkommensmail',
 };
 const welcomeLabels: Record<string, string> = {
@@ -159,13 +155,9 @@ const activeFilters = computed(() => [
             value:
                 key === 'welcome'
                     ? welcomeLabels[draft[key]] || draft[key]
-                    : draft[key] === '__none__'
-                      ? 'Ohne Funktion'
-                      : draft[key] === '__any__'
-                        ? 'Mit Funktion'
-                        : fieldOptions(
-                              key === 'membership' ? 'membership_type' : key,
-                          )[draft[key]] || draft[key],
+                    : fieldOptions(
+                          key === 'membership' ? 'membership_type' : key,
+                      )[draft[key]] || draft[key],
         })),
     ...Object.entries(draft.custom)
         .filter(([, value]) => value !== '')
@@ -434,34 +426,6 @@ const pages = computed(() => {
                     :options="filterOptions.memberships"
                     :labels="fieldOptions('membership_type')"
                     @change="filter('membership', $event)"
-                />
-                <MemberFilter
-                    v-if="
-                        fieldDefinitions.some(
-                            (field) => field.key === 'department_role',
-                        )
-                    "
-                    id="filter-department"
-                    label="Funktion in der Abteilung"
-                    :value="draft.department_role"
-                    :options="filterOptions.departmentRoles"
-                    :labels="fieldOptions('department_role')"
-                    with-presence
-                    @change="filter('department_role', $event)"
-                />
-                <MemberFilter
-                    v-if="
-                        fieldDefinitions.some(
-                            (field) => field.key === 'club_role',
-                        )
-                    "
-                    id="filter-club"
-                    label="Funktion im Hauptverein"
-                    :value="draft.club_role"
-                    :options="filterOptions.clubRoles"
-                    :labels="fieldOptions('club_role')"
-                    with-presence
-                    @change="filter('club_role', $event)"
                 />
                 <div v-if="canBulkEdit" class="grid min-w-0 gap-2">
                     <Label

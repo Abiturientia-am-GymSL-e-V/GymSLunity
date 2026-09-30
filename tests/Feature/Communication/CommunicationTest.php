@@ -34,12 +34,10 @@ class CommunicationTest extends TestCase
 
     public function test_recipient_preview_filters_member_properties_and_custom_fields(): void
     {
-        $matching = Member::factory()->create([
+        $matching = Member::factory()->withAssignment('department_role', 'Trainerin')->withAssignment('club_role', 'Vorstand')->create([
             'first_name' => 'Anna',
             'last_name' => 'Adler',
             'membership_type' => 'Fördermitglied',
-            'department_role' => 'Trainerin',
-            'club_role' => 'Vorstand',
             'gender' => 'w',
             'payment_method' => 'SEPA-Lastschrift',
             'city' => 'Berlin',

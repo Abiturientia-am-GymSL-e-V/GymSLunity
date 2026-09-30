@@ -7,7 +7,6 @@ export type MemberColumnKey =
     | 'contact'
     | 'location'
     | 'membership'
-    | 'roles'
     | 'address'
     | 'birth_date'
     | 'joined_at'
@@ -48,7 +47,6 @@ export function columnsFor(fields: MemberField[]): MemberColumn[] {
             sort: 'membership_type',
             defaultVisible: true,
         },
-        { key: 'roles', label: 'Funktionen', defaultVisible: true },
         { key: 'address', label: 'Straße / Land' },
         {
             key: 'birth_date',
@@ -79,7 +77,6 @@ export function columnsFor(fields: MemberField[]): MemberColumn[] {
     const sources: Record<string, string[]> = {
         contact: ['email', 'mobile_phone'],
         location: ['city', 'postal_code'],
-        roles: ['department_role', 'club_role'],
         address: ['street', 'country'],
         honorary: ['is_honorary'],
     };

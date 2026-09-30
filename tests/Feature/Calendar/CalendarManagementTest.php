@@ -206,7 +206,7 @@ class CalendarManagementTest extends TestCase
         $settings->update(['data' => [...$settings->data, 'selfservice_enabled' => true]]);
         $calendar = ClubCalendar::query()->where('type', 'general')->sole();
         $calendar->rules()->create(['field_key' => 'club_role', 'value' => 'Vorstand']);
-        $member = Member::factory()->create(['club_role' => 'Vorstand', 'joined_at' => '2020-01-01']);
+        $member = Member::factory()->withAssignment('club_role', 'Vorstand')->create(['joined_at' => '2020-01-01']);
         $token = bin2hex(random_bytes(24));
         DB::table('member_calendar_tokens')->insert(['member_id' => $member->id, 'token' => $token, 'created_at' => now(), 'updated_at' => now()]);
         $this->get(route('calendar.feed.member', $token))->assertOk();
@@ -230,7 +230,7 @@ class CalendarManagementTest extends TestCase
     {
         $calendar = ClubCalendar::query()->where('type', 'general')->sole();
         $calendar->rules()->create(['field_key' => 'club_role', 'value' => 'Vorstand']);
-        $member = Member::factory()->create(['club_role' => 'Vorstand']);
+        $member = Member::factory()->withAssignment('club_role', 'Vorstand')->create();
         $settings = ClubSetting::current();
         $settings->update(['data' => [...$settings->data, 'selfservice_enabled' => true]]);
 

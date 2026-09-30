@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Members;
 
 use App\Models\Member;
+use App\Models\MemberFieldDefinition;
 use App\Models\User;
 use Database\Seeders\DemoMembersSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -77,9 +78,9 @@ class MemberIndexTest extends TestCase
     public function test_combined_search_and_all_four_filters_apply_together(): void
     {
         $this->signIn();
-        Member::factory()->create([
+        Member::factory()->withAssignment('department_role', 'Delegierte')->withAssignment('club_role', 'Kassierer')->create([
             'first_name' => 'Anna', 'last_name' => 'Müller', 'custom_values' => ['custom_graduation_year' => 2015],
-            'membership_type' => 'Fördermitglieder', 'department_role' => 'Delegierte', 'club_role' => 'Kassierer',
+            'membership_type' => 'Fördermitglieder',
         ]);
         Member::factory()->create(['first_name' => 'Anna', 'last_name' => 'Müller', 'custom_values' => ['custom_graduation_year' => 2016]]);
         Member::factory()->create(['first_name' => 'Ben', 'last_name' => 'Müller', 'custom_values' => ['custom_graduation_year' => 2015]]);
@@ -116,19 +117,29 @@ class MemberIndexTest extends TestCase
         $this->get(route('members.index', ['q' => "' OR 1=1 --"]))->assertInertia(fn (Assert $page) => $page->where('members.total', 0));
     }
 
-    public function test_role_presence_filters_include_both_null_and_empty_values(): void
+    public function test_saved_role_filter_links_filter_current_offices(): void
     {
+        $this->travelTo('2026-06-15 12:00:00');
         $this->signIn();
-        Member::factory()->create(['department_role' => null, 'club_role' => null]);
-        Member::factory()->create(['department_role' => '', 'club_role' => '']);
-        Member::factory()->create(['department_role' => 'Delegierte', 'club_role' => 'Kassierer']);
+        Member::factory()->create();
+        Member::factory()->withAssignment('department_role', 'Delegierte', null, '2025-12-31')->withAssignment('club_role', 'Kassierer', null, '2025-12-31')->create();
+        Member::factory()->withAssignment('department_role', 'Delegierte')->withAssignment('club_role', 'Kassierer')->create();
 
-        foreach (['department_role', 'club_role'] as $key) {
-            $this->get(route('members.index', [$key => '__none__']))->assertInertia(fn (Assert $page) => $page->where('members.total', 2));
+        foreach (['department_role' => 'Delegierte', 'club_role' => 'Kassierer'] as $key => $option) {
+            $this->get(route('members.index', [$key => '__none__']))->assertInertia(fn (Assert $page) => $page->where('members.total', 2)->where('filters.custom.'.$key, '__none__'));
             $this->get(route('members.index', [$key => '__any__']))->assertInertia(fn (Assert $page) => $page->where('members.total', 1));
+            $this->get(route('members.index', [$key => $option]))->assertInertia(fn (Assert $page) => $page->where('members.total', 1));
+            $this->get(route('members.index', [$key => '__ever__']))->assertInertia(fn (Assert $page) => $page->where('members.total', 2));
+            // The new parameter wins over the old one.
+            $this->get(route('members.index', [$key => '__any__', 'custom' => [$key => '__none__']]))->assertInertia(fn (Assert $page) => $page->where('members.total', 2));
         }
         $this->get(route('members.index'))->assertInertia(fn (Assert $page) => $page
-            ->where('filterOptions.departmentRoles', ['Delegierte'])->where('filterOptions.clubRoles', ['Kassierer']));
+            ->missing('filterOptions.departmentRoles')->missing('filterOptions.clubRoles')
+            ->where('members.data', fn ($members): bool => collect($members)->every(fn (array $member): bool => ! array_key_exists('club_role', $member))));
+
+        // Without a filterable field of that key, old links are ignored instead of failing.
+        MemberFieldDefinition::query()->where('key', 'club_role')->update(['filterable' => false]);
+        $this->get(route('members.index', ['club_role' => 'Kassierer']))->assertOk()->assertInertia(fn (Assert $page) => $page->where('members.total', 3));
     }
 
     public function test_pagination_is_bounded_and_retains_filters_and_sorting(): void
@@ -173,7 +184,7 @@ class MemberIndexTest extends TestCase
         foreach ([
             ['sort' => 'password'], ['direction' => 'desc;DROP TABLE members'], ['q' => ['array']],
             ['q' => str_repeat('a', 121)], ['per_page' => 10000], ['custom' => ['custom_graduation_year' => 'invalid']],
-            ['department_role' => ['array']], ['page' => -1],
+            ['membership' => ['array']], ['page' => -1],
         ] as $query) {
             $this->getJson(route('members.index', $query))->assertUnprocessable()->assertJsonValidationErrors(isset($query['custom']) ? ['custom.custom_graduation_year'] : array_keys($query));
         }

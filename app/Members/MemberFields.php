@@ -11,7 +11,7 @@ use Illuminate\Support\Arr;
 final class MemberFields
 {
     public const SELFSERVICE_PROTECTED = [
-        'email', 'deceased_at', 'joined_at', 'left_at', 'department_role', 'club_role',
+        'email', 'deceased_at', 'joined_at', 'left_at',
         'iban', 'mandate_reference', 'mandate_signed_at', 'account_holder_first_name',
         'account_holder_last_name', 'account_holder_street', 'account_holder_postal_code',
         'account_holder_city', 'account_holder_country', 'mandate_type',
@@ -148,7 +148,7 @@ final class MemberFields
             'key' => $definition->key, 'label' => $definition->label, 'type' => $definition->type,
             'required' => $definition->required, 'max' => $definition->max_length, 'options' => $options,
             'activeOptions' => $activeOptions, 'readOnly' => false,
-            'emptyLabel' => in_array($definition->key, ['department_role', 'club_role'], true) ? 'Keine' : 'Nicht hinterlegt',
+            'emptyLabel' => 'Nicht hinterlegt',
             'custom' => $definition->is_custom, 'filterable' => $definition->filterable, 'showInTable' => $definition->show_in_table,
             'selfserviceVisible' => $definition->selfservice_visible,
             'selfserviceEditable' => $definition->selfservice_editable,

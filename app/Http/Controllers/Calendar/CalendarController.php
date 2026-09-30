@@ -7,9 +7,9 @@ namespace App\Http\Controllers\Calendar;
 use App\Calendar\CalendarEntries;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Calendar\CalendarIndexRequest;
+use App\Members\MemberFieldRule;
 use App\Models\ClubCalendar;
 use App\Models\ClubCalendarRule;
-use App\Models\MemberFieldDefinition;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -119,15 +119,7 @@ class CalendarController extends Controller
     /** @return list<array{key: string, label: string, options: list<array{value: string, label: string}>}> */
     private function shareFields(): array
     {
-        $result = [];
-        foreach (MemberFieldDefinition::query()->where('is_active', true)->whereIn('type', ['select', 'boolean'])->orderBy('position')->get() as $field) {
-            $options = $field->type === 'boolean'
-                ? [['value' => '1', 'label' => 'Ja'], ['value' => '0', 'label' => 'Nein']]
-                : array_values(collect($field->options)->filter(fn (array $option): bool => $option['active'])->map(fn (array $option): array => ['value' => $option['value'], 'label' => $option['label']])->all());
-            if ($options !== []) {
-                $result[] = ['key' => $field->key, 'label' => $field->label, 'options' => $options];
-            }
-        }
+        $result = MemberFieldRule::fields();
 
         $result[] = [
             'key' => '*',
