@@ -17,6 +17,9 @@ import {
     CalendarDays,
     CalendarRange,
     ScrollText,
+    Crown,
+    Network,
+    Award,
 } from '@lucide/vue';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
@@ -43,6 +46,7 @@ import {
     payments,
     statistics,
 } from '@/routes';
+import { departments, honors, offices } from '@/routes/assignments';
 import { index as auditIndex } from '@/routes/audit';
 import { index as members } from '@/routes/members';
 import { edit as clubSettings } from '@/routes/configuration/club';
@@ -57,6 +61,22 @@ const mainNavItems = computed<NavItem[]>(() => [
     },
     ...(page.props.can.viewMembers
         ? [{ title: 'Mitglieder', href: members(), icon: UsersRound }]
+        : []),
+    ...(page.props.can.viewAssignments.includes('office')
+        ? [
+              {
+                  title: 'Vorstand / Ämter',
+                  href: offices(),
+                  icon: Crown,
+                  isActive: page.url.startsWith('/aemter'),
+              },
+          ]
+        : []),
+    ...(page.props.can.viewAssignments.includes('department')
+        ? [{ title: 'Abteilungen', href: departments(), icon: Network }]
+        : []),
+    ...(page.props.can.viewAssignments.includes('honor')
+        ? [{ title: 'Ereignisse / Ehrungen', href: honors(), icon: Award }]
         : []),
     ...(page.props.can.viewPayments
         ? [{ title: 'Beiträge', href: payments(), icon: HandCoins }]

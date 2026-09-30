@@ -7,6 +7,7 @@ namespace App\SelfService;
 use App\Configuration\ClubData;
 use App\Configuration\ClubSettings;
 use App\Donations\DonationPurposes;
+use App\Members\AssignmentReports;
 use App\Support\Iban;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
@@ -50,6 +51,7 @@ TEXT,
             '{{verein.tax_privilege_notice_date}}',
             '{{verein.donation_purposes}}',
             '{{verein.deductible_scope}}',
+            '{{verein.vorstand}}',
         ]));
     }
 
@@ -105,6 +107,11 @@ TEXT,
         $replacements['{{verein.deductible_scope}}'] = ($data['contributions_tax_deductible'] ?? false)
             ? 'Spenden und Mitgliedsbeiträge'
             : 'Spenden';
+
+        // Current board members from the office assignments, only computed when used.
+        if (str_contains($text, '{{verein.vorstand}}')) {
+            $replacements['{{verein.vorstand}}'] = AssignmentReports::boardText();
+        }
 
         return strtr($text, $replacements);
     }

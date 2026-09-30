@@ -55,9 +55,10 @@ class UserManagementTest extends TestCase
         $this->admin();
 
         $this->get(route('configuration.users.index'))->assertInertia(fn (Assert $page) => $page
-            ->where('areas.admin', ['Mitglieder', 'Beiträge', 'Auswertungen', 'Buchhaltung', 'Formulare', 'Spenden', 'Inventar', 'Kalender', 'Buchungen', 'Kommunikation', 'Auditlog', 'Konfiguration'])
-            ->where('areas.vereinsverwaltung', ['Mitglieder', 'Auswertungen', 'Formulare', 'Inventar', 'Kalender', 'Buchungen', 'Kommunikation'])
-            ->where('areas.mv', ['Mitglieder', 'Auswertungen', 'Formulare', 'Kalender', 'Buchungen', 'Kommunikation'])
+            ->where('areas.admin', ['Mitglieder', 'Ämter, Abteilungen & Ehrungen', 'Beiträge', 'Auswertungen', 'Buchhaltung', 'Formulare', 'Spenden', 'Inventar', 'Kalender', 'Buchungen', 'Kommunikation', 'Auditlog', 'Konfiguration'])
+            ->where('areas.vereinsverwaltung', ['Mitglieder', 'Ämter, Abteilungen & Ehrungen', 'Auswertungen', 'Formulare', 'Inventar', 'Kalender', 'Buchungen', 'Kommunikation'])
+            ->where('areas.mv', ['Mitglieder', 'Ämter, Abteilungen & Ehrungen', 'Auswertungen', 'Formulare', 'Kalender', 'Buchungen', 'Kommunikation'])
+            ->where('areas.auditor', ['Mitglieder (Lesen)', 'Ämter, Abteilungen & Ehrungen (Lesen)', 'Auswertungen', 'Auditlog'])
             ->where('areas.bh', ['Auswertungen', 'Buchhaltung', 'Spenden'])
             ->where('areas.bv', ['Beiträge', 'Auswertungen'])
             ->where('areas.kp', ['Auswertungen', 'Buchhaltung', 'Auditlog']));

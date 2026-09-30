@@ -61,7 +61,7 @@ final class MemberReportValue
         return implode(', ', array_map($label, $current));
     }
 
-    private static function period(?string $start, ?string $end, bool $honor): string
+    public static function period(?string $start, ?string $end, bool $honor): string
     {
         $day = fn (string $date): string => self::format($date, ['type' => 'date']);
         if ($honor) {
