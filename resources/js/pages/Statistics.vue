@@ -16,6 +16,7 @@ import { computed, reactive } from 'vue';
 import BarBreakdown from '@/components/statistics/BarBreakdown.vue';
 import DataQualityReport from '@/components/statistics/DataQualityReport.vue';
 import FinanceReport from '@/components/statistics/FinanceReport.vue';
+import DepartmentTrendChart from '@/components/statistics/DepartmentTrendChart.vue';
 import MemberTrendChart from '@/components/statistics/MemberTrendChart.vue';
 import SearchableDropdown from '@/components/SearchableDropdown.vue';
 import { Button } from '@/components/ui/button';
@@ -58,6 +59,12 @@ const props = defineProps<{
         key: string;
         label: string;
         items: { label: string; count: number }[];
+    }[];
+    departmentTrend: {
+        key: string;
+        label: string;
+        months: string[];
+        series: { value: string; label: string; counts: number[] }[];
     }[];
     periods: { label: string; from: string; to: string }[];
     summary: {
@@ -370,6 +377,22 @@ const periodLabel = computed(
                     :items="field.items"
                 />
             </div>
+            <Card
+                v-for="field in departmentTrend"
+                :key="field.key"
+                class="gap-0 py-0"
+                ><CardHeader class="border-b py-5"
+                    ><CardTitle class="text-base"
+                        >Abteilungsentwicklung · {{ field.label }}</CardTitle
+                    ><CardDescription
+                        >Aktive Mitglieder je Abteilung am Monatsende ·
+                        {{ periodLabel }}</CardDescription
+                    ></CardHeader
+                ><CardContent class="overflow-hidden py-5"
+                    ><DepartmentTrendChart
+                        :months="field.months"
+                        :series="field.series" /></CardContent
+            ></Card>
             <Card class="gap-0 overflow-hidden py-0">
                 <CardHeader
                     class="border-b py-5 sm:flex-row sm:items-center sm:justify-between"

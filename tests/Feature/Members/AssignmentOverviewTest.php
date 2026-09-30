@@ -123,6 +123,8 @@ class AssignmentOverviewTest extends TestCase
             ->where('offices.0.options.0.holders.1.name', 'Grace Hopper')
             ->where('offices.0.options.1.vacant', false));
         $this->get('/aemter/verlauf?from=2010-01-01&to=2015-12-31')->assertInertia(fn (Assert $page) => $page->has('offices.0.options.0.holders', 0));
+        // The timeline view is a client-side choice and does not change the data.
+        $this->get('/aemter/verlauf?view=timeline')->assertOk()->assertInertia(fn (Assert $page) => $page->where('tab', 'history')->has('offices.0.options'));
         $this->get('/aemter/verlauf?from=2020-01-01&to=2010-01-01')->assertSessionHasErrors('to');
     }
 
