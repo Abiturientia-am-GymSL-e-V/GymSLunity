@@ -69,16 +69,9 @@ const someSelected = computed(() =>
         props.selected.includes(member.member_number),
     ),
 );
-function optionLabel(key: string, value: string) {
-    return (
-        props.definitions.find((field) => field.key === key)?.options[value] ||
-        value
-    );
-}
-
 function plainValue(member: Member, column: MemberColumnKey): string {
-    if (column.startsWith('custom_')) {
-        const field = props.definitions.find((field) => field.key === column);
+    const field = props.definitions.find((field) => field.key === column);
+    if (field?.custom) {
         return memberValue(
             isTemporal(field)
                 ? member.assignments?.[column]
@@ -329,28 +322,6 @@ function membershipStyle(type: string): string {
                                 )
                             }}</Badge
                         >
-                        <div
-                            v-else-if="column.key === 'roles'"
-                            class="min-w-36 space-y-1 text-xs whitespace-nowrap"
-                        >
-                            <p v-if="member.department_role">
-                                {{
-                                    `Abt.: ${optionLabel('department_role', member.department_role)}`
-                                }}
-                            </p>
-                            <p v-if="member.club_role">
-                                {{
-                                    `Verein: ${optionLabel('club_role', member.club_role)}`
-                                }}
-                            </p>
-                            <span
-                                v-if="
-                                    !member.department_role && !member.club_role
-                                "
-                                class="text-muted-foreground"
-                                >Keine</span
-                            >
-                        </div>
                         <span v-else class="whitespace-nowrap tabular-nums">{{
                             plainValue(member, column.key)
                         }}</span>

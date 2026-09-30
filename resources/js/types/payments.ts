@@ -39,7 +39,10 @@ export type ContributionFilterField = {
         | 'number'
         | 'decimal'
         | 'select'
-        | 'boolean';
+        | 'boolean'
+        | 'department'
+        | 'office'
+        | 'honor';
     options: Record<string, string>;
 };
 

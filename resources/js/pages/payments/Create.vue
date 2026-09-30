@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { localDateString } from '@/lib/format';
 import { firstError } from '@/lib/formErrors';
+import { assignmentFilterOptions, isTemporal } from '@/lib/memberFormatting';
 import type { ContributionFilterField, PaymentsClub } from '@/types/payments';
 
 type PeriodTemplate = {
@@ -103,6 +104,7 @@ function contributionValueOptions(key: string) {
             { value: '0', label: 'Nein' },
         ];
     }
+    if (field && isTemporal(field)) return assignmentFilterOptions(field);
     return Object.entries(field?.options || {}).map(([value, label]) => ({
         value,
         label,

@@ -37,7 +37,6 @@ const columnKeys = computed(() => {
         contact: ['email', 'mobile_phone'],
         location: ['postal_code', 'city'],
         membership: ['membership_type'],
-        roles: ['department_role', 'club_role'],
         address: ['street', 'country'],
         honorary: ['is_honorary'],
     };

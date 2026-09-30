@@ -118,8 +118,6 @@ const selfserviceProtected = computed(() =>
         'deceased_at',
         'joined_at',
         'left_at',
-        'department_role',
-        'club_role',
         'iban',
         'mandate_reference',
         'mandate_signed_at',

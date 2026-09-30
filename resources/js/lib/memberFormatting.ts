@@ -116,6 +116,9 @@ export function assignmentLines(
     field?: MemberField,
 ): string[] | null {
     if (!Array.isArray(value) && !isTemporal(field)) return null;
+    // Single values from before a field became an office field.
+    if (typeof value === 'string' && value !== '')
+        return [field?.options[value] || value];
     if (!Array.isArray(value) || value.length === 0) return ['Keine'];
 
     return value.map((assignment) => {

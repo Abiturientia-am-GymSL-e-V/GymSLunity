@@ -57,7 +57,7 @@ class MemberDetailTest extends TestCase
             ->where('member.birth_date', '1990-01-03')->where('member.gender', 'w')
             ->where('member.iban', 'DE89370400440532013000')->where('member.sponsor_contribution', '42.50')
             ->where('member.lock_version', 0)->where('history.total', 0)
-            ->has('sections', 6)->has('documents', 1)->where('documents.0.kind', 'application')
+            ->has('sections', 5)->has('documents', 1)->where('documents.0.kind', 'application')
             ->missing('documents.0.contents')->where('returnTo', '/mitglieder'));
     }
 

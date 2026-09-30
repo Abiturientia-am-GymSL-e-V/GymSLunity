@@ -6,8 +6,11 @@ namespace App\Demo;
 
 use App\Models\ClubSetting;
 use App\Models\Member;
+use App\Models\MemberAssignment;
+use App\Models\MemberFieldDefinition;
 use App\Models\User;
 use App\Support\Clock;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -41,6 +44,7 @@ final class DemoData
             $this->seedClub();
             $this->seedUsers();
             $this->seedMembers();
+            $this->seedAssignments();
             $this->modules->seed(User::query()->where('email', DemoAccounts::USERS[0]['email'])->firstOrFail());
         });
     }
@@ -114,7 +118,6 @@ final class DemoData
                 'birth_date' => $today->subYears(($i < 8 ? 28 : 7) + ($i * 7) % 50)->addDays($i < 2 ? 2 + $i * 3 : $i * 11)->toDateString(),
                 'membership_type' => $i % 5 === 4 ? 'Fördermitglied' : 'Aktiv/ordentliches Mitglied',
                 'sponsor_contribution' => $i % 5 === 4 ? '120.00' : null,
-                'club_role' => [0 => '1. Vorsitzende', 1 => '2. Vorsitzender', 4 => 'Kassenwartin', 7 => 'Kassenprüfer'][$i] ?? null,
                 'is_honorary' => $i === 29,
                 'joined_at' => $joinedAt->toDateString(),
                 'left_at' => in_array($i, [33, 37], true) ? $today->subDays(20 + $i)->toDateString() : null,
@@ -125,6 +128,85 @@ final class DemoData
                 'mandate_type' => 'recurring',
             ]);
         }
+    }
+
+    /**
+     * Board and offices with a predecessor, a vacant mandatory office,
+     * departments with a change and a few honors, so the overviews for
+     * offices, departments and honors have something to show.
+     */
+    private function seedAssignments(): void
+    {
+        $office = fn (string $value, string $label, bool $board, ?int $max = 1): array => ['value' => $value, 'label' => $label, 'active' => true, 'board' => $board, 'mandatory' => $board, 'max_holders' => $max];
+        // The board comes first in lists and overviews.
+        MemberFieldDefinition::query()->where('key', 'club_role')->firstOrFail()->update(['label' => 'Vorstand und Ämter im Hauptverein', 'position' => 1, 'options' => [
+            $office('1. Vorsitz', '1. Vorsitz', true), $office('2. Vorsitz', '2. Vorsitz', true), $office('Kasse', 'Kasse', true),
+            $office('Schriftführung', 'Schriftführung', true), $office('Kassenprüfung', 'Kassenprüfung', false, 2),
+        ]]);
+        MemberFieldDefinition::query()->where('key', 'department_role')->firstOrFail()->update(['allow_multiple' => true, 'options' => [
+            $office('Abteilungsleitung', 'Abteilungsleitung', false), $office('Übungsleitung', 'Übungsleitung', false, null),
+            $office('Jugendwart', 'Jugendwart', false),
+        ]]);
+        $position = (int) MemberFieldDefinition::query()->max('position');
+        $option = fn (string $label, bool $repeatable = false): array => ['value' => $label, 'label' => $label, 'active' => true, ...($repeatable ? ['repeatable' => true] : [])];
+        foreach ([
+            ['custom_demo_abteilung', 'Abteilungen', 'department', [$option('Turnen'), $option('Fußball'), $option('Leichtathletik'), $option('Tischtennis')]],
+            ['custom_demo_ehrung', 'Vereinsehrungen', 'honor', [$option('Ehrennadel Silber'), $option('Ehrennadel Gold'), $option('Ehrenurkunde', true)]],
+        ] as [$key, $label, $type, $options]) {
+            MemberFieldDefinition::query()->create([
+                'key' => $key, 'label' => $label, 'type' => $type, 'section' => MemberFieldDefinition::ASSIGNMENT_SECTION,
+                'position' => $position += 10, 'is_active' => true, 'is_custom' => true, 'required' => false, 'filterable' => true,
+                'show_in_table' => $type === 'department', 'selfservice_visible' => true, 'selfservice_editable' => false,
+                'allow_multiple' => false, 'max_length' => 255, 'options' => $options,
+            ]);
+        }
+        ClubSetting::query()->whereKey(1)->increment('fields_version');
+
+        $members = Member::query()->orderBy('member_number')->get()->values();
+        $assign = function (int $i, string $field, string $option, ?CarbonImmutable $start, ?CarbonImmutable $end = null, ?string $note = null) use ($members): void {
+            MemberAssignment::query()->create([
+                'member_id' => $members[$i]->id, 'field_key' => $field, 'option_value' => $option,
+                'starts_on' => $start?->toDateString(), 'ends_on' => $end?->toDateString(), 'note' => $note,
+            ]);
+        };
+        $joined = fn (int $i): CarbonImmutable => CarbonImmutable::parse($members[$i]->joined_at);
+        $left = fn (int $i): CarbonImmutable => CarbonImmutable::parse($members[$i]->left_at);
+
+        // Oskar led the club until he left, Anna followed him. The secretary post is vacant.
+        $assign(37, 'club_role', '1. Vorsitz', $joined(37)->addYears(2), $left(37));
+        $assign(0, 'club_role', '1. Vorsitz', $left(37)->addDay());
+        $assign(1, 'club_role', '2. Vorsitz', $joined(1));
+        $assign(4, 'club_role', 'Kasse', $joined(4));
+        $assign(33, 'club_role', 'Kassenprüfung', $joined(33)->addYear(), $left(33));
+        $assign(7, 'club_role', 'Kassenprüfung', $joined(7));
+        $assign(2, 'department_role', 'Abteilungsleitung', $joined(2), note: 'Turnen');
+        $assign(3, 'department_role', 'Übungsleitung', $joined(3));
+        $assign(6, 'department_role', 'Übungsleitung', $joined(6));
+        $assign(6, 'department_role', 'Jugendwart', $joined(6)->addMonths(6));
+
+        $departments = ['Turnen', 'Fußball', 'Leichtathletik', 'Tischtennis'];
+        foreach ($members as $i => $member) {
+            if ($i % 5 === 4) {
+                continue;
+            }
+            $department = $departments[$i % 4];
+            $end = $member->left_at ? $left($i) : null;
+            if ($i >= 10 && $i % 7 === 3) {
+                // Changed the department after a year.
+                $assign($i, 'custom_demo_abteilung', $department, $joined($i), $joined($i)->addYear());
+                $assign($i, 'custom_demo_abteilung', $departments[($i + 1) % 4], $joined($i)->addYear()->addDay(), $end);
+
+                continue;
+            }
+            $assign($i, 'custom_demo_abteilung', $department, $joined($i), $end);
+            if ($i % 6 === 0) {
+                $assign($i, 'custom_demo_abteilung', $departments[($i + 2) % 4], $joined($i)->addMonths(3), $end);
+            }
+        }
+
+        $assign(39, 'custom_demo_ehrung', 'Ehrennadel Silber', $joined(39)->addYears(10));
+        $assign(29, 'custom_demo_ehrung', 'Ehrenurkunde', $joined(29)->addYears(5), note: 'Ehrenmitgliedschaft');
+        $assign(37, 'custom_demo_ehrung', 'Ehrenurkunde', $left(37), note: 'Dank für die Jahre im Vorsitz');
     }
 
     private static function ascii(string $value): string

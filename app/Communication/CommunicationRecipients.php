@@ -20,8 +20,6 @@ final class CommunicationRecipients
         $query = MemberDirectory::query([
             'q' => $filters['q'],
             'membership' => '',
-            'department_role' => '',
-            'club_role' => '',
             'custom' => [],
             'sort' => 'name',
             'direction' => 'asc',

@@ -43,16 +43,6 @@ final class MemberDirectory
         if ($filters['membership'] !== '') {
             $query->where('membership_type', $filters['membership']);
         }
-        foreach (['department_role', 'club_role'] as $column) {
-            $value = $filters[$column];
-            if ($value === '__none__') {
-                $query->where(fn (Builder $q) => $q->whereNull($column)->orWhere($column, ''));
-            } elseif ($value === '__any__') {
-                $query->whereNotNull($column)->where($column, '<>', '');
-            } elseif ($value !== '') {
-                $query->where($column, $value);
-            }
-        }
 
         if (($filters['welcome'] ?? '') !== '') {
             WelcomeMails::whereReceived($query, $filters['welcome'] === 'received');

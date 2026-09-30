@@ -19,8 +19,10 @@ class DefaultMemberFieldsTest extends TestCase
         $this->assertNotContains('custom_graduation', $keys);
         $this->assertNotContains('custom_graduation_year', $keys);
         $this->assertNotContains('custom_is_former_student', $keys);
-        $this->assertFalse(MemberFieldDefinition::query()->where('is_custom', true)->exists());
+        $this->assertFalse(MemberFieldDefinition::query()->where('is_custom', true)->whereNotIn('type', MemberFieldDefinition::TEMPORAL_TYPES)->exists());
         $this->assertContains('membership_type', $keys);
-        $this->assertContains('club_role', $keys);
+        // The former single-value functions are office fields with assignments.
+        $this->assertSame('office', MemberFieldDefinition::query()->where('key', 'club_role')->value('type'));
+        $this->assertSame('office', MemberFieldDefinition::query()->where('key', 'department_role')->value('type'));
     }
 }
