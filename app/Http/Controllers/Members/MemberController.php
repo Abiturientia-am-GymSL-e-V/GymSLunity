@@ -69,6 +69,8 @@ class MemberController extends Controller
         return Inertia::render('members/Show', [
             'member' => [...Arr::only($member->attributesToArray(), ['id', 'member_number', 'lock_version', 'created_at', 'updated_at']), ...MemberFields::snapshot($member)],
             'sections' => MemberFields::sections($member),
+            'assignmentFields' => MemberFields::assignmentFields($member),
+            'assignments' => MemberFields::assignments($member),
             'configurationVersion' => $this->clubSettings->fieldsVersion(),
             'canEdit' => $request->user()?->can('update', $member) ?? false,
             'emailFilterViolation' => app(EmailAddressFilter::class)->requiresChange($member),

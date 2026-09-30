@@ -97,7 +97,8 @@ export type MemberField = {
         | 'number'
         | 'decimal'
         | 'select'
-        | 'boolean';
+        | 'boolean'
+        | AssignmentType;
     required: boolean;
     options: Record<string, string>;
     activeOptions: Record<string, string>;
@@ -132,13 +133,40 @@ export type MemberMandate = {
     created_at: string;
     url: string;
 };
+/** Department, office and honor fields hold time-bound assignments. */
+export type AssignmentType = 'department' | 'office' | 'honor';
+export type AssignmentOption = {
+    value: string;
+    label: string;
+    active: boolean;
+    board: boolean;
+    mandatory: boolean;
+    maxHolders: number | null;
+    repeatable: boolean;
+};
+export type AssignmentField = Omit<MemberField, 'type'> & {
+    type: AssignmentType;
+    allowMultiple: boolean;
+    optionDetails: AssignmentOption[];
+};
+/** An assignment as stored in the member history. */
+export type AssignmentSnapshot = {
+    option: string;
+    starts_on: string | null;
+    ends_on: string | null;
+    note: string | null;
+};
+export type MemberAssignment = AssignmentSnapshot & {
+    id: number;
+    source: string;
+};
 export type MemberChange = {
     field_schema: Record<string, MemberField> | null;
     id: number;
     actor_name: string;
     version: number;
-    before: Record<string, MemberValue>;
-    after: Record<string, MemberValue>;
+    before: Record<string, MemberValue | AssignmentSnapshot[]>;
+    after: Record<string, MemberValue | AssignmentSnapshot[]>;
     changed_fields: string[];
     created_at: string;
 };

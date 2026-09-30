@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
 import { ArrowDown, ArrowUp, Pencil, Plus, Save, Trash2 } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import ConfigurationNav from '@/components/configuration/ConfigurationNav.vue';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
@@ -19,7 +19,18 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { index, store, update, reorder } from '@/routes/configuration/fields';
 
-type Choice = { value: string; label: string; active: boolean };
+type Choice = {
+    value: string;
+    label: string;
+    active: boolean;
+    /** Office options only. */
+    board?: boolean;
+    mandatory?: boolean;
+    /** Empty means no limit. */
+    max_holders?: number | string | null;
+    /** Honor options only. */
+    repeatable?: boolean;
+};
 type Definition = {
     id: number;
     key: string;
@@ -34,6 +45,7 @@ type Definition = {
     show_in_table: boolean;
     selfservice_visible: boolean;
     selfservice_editable: boolean;
+    allow_multiple: boolean;
     options: Choice[];
 };
 const props = defineProps<{
@@ -67,9 +79,30 @@ const form = useForm({
     show_in_table: false,
     selfservice_visible: false,
     selfservice_editable: false,
+    allow_multiple: false,
     options: [] as Choice[],
     remove_options: [] as string[],
 });
+/** Department, office and honor fields record time-bound assignments. */
+const TEMPORAL_TYPES = ['department', 'office', 'honor'];
+const ASSIGNMENT_SECTION = 'assignments';
+const temporal = computed(() => TEMPORAL_TYPES.includes(form.type));
+const optionHeading = computed(
+    () =>
+        ({
+            department: 'Abteilungen',
+            office: 'Funktionen und Ämter',
+            honor: 'Ereignisse und Ehrungen',
+        })[form.type] ?? 'Auswahloptionen',
+);
+watch(
+    () => form.type,
+    () => {
+        if (temporal.value) form.section = ASSIGNMENT_SECTION;
+        else if (form.section === ASSIGNMENT_SECTION)
+            form.section = 'membership';
+    },
+);
 const orderForm = useForm({ version: props.version, ids: [] as number[] });
 const locked = computed(() =>
     ['first_name', 'last_name', 'membership_type'].includes(
@@ -109,7 +142,14 @@ function edit(field: Definition | null) {
         show_in_table: field?.show_in_table ?? false,
         selfservice_visible: field?.selfservice_visible ?? false,
         selfservice_editable: field?.selfservice_editable ?? false,
-        options: (field?.options || []).map((option) => ({ ...option })),
+        allow_multiple: field?.allow_multiple ?? false,
+        options: (field?.options || []).map((option) => ({
+            board: false,
+            mandatory: false,
+            repeatable: false,
+            ...option,
+            max_holders: option.max_holders ?? '',
+        })),
         remove_options: [],
     });
     form.reset();
@@ -121,6 +161,10 @@ function addOption() {
         value: 'option_' + crypto.randomUUID().replaceAll('-', ''),
         label: '',
         active: true,
+        board: false,
+        mandatory: false,
+        max_holders: '',
+        repeatable: false,
     });
 }
 function removeOption(index: number) {
@@ -246,9 +290,17 @@ function close(value: boolean) {
                                 >Portal: sichtbar</span
                             ><span v-if="field.selfservice_editable"
                                 >Portal: änderbar</span
-                            ><span v-if="field.type === 'select'">{{
-                                `${field.options.filter((option) => option.active).length} aktive Optionen`
-                            }}</span>
+                            ><span v-if="field.allow_multiple"
+                                >Mehrere Ämter gleichzeitig</span
+                            ><span
+                                v-if="
+                                    field.type === 'select' ||
+                                    TEMPORAL_TYPES.includes(field.type)
+                                "
+                                >{{
+                                    `${field.options.filter((option) => option.active).length} aktive Optionen`
+                                }}</span
+                            >
                         </div>
                     </div>
                     <Badge v-if="!field.is_active" variant="outline"
@@ -339,22 +391,31 @@ function close(value: boolean) {
                             </option></select
                         ><InputError :message="form.errors.type" />
                     </div>
-                    <div class="space-y-2">
+                    <div v-if="!temporal" class="space-y-2">
                         <Label for="field-section">Gruppe</Label
                         ><select
                             id="field-section"
                             v-model="form.section"
                             class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                         >
-                            <option
+                            <template
                                 v-for="(title, key) in sections"
                                 :key="key"
-                                :value="key"
-                            >
-                                {{ title }}
-                            </option></select
+                                ><option
+                                    v-if="key !== ASSIGNMENT_SECTION"
+                                    :value="key"
+                                >
+                                    {{ title }}
+                                </option></template
+                            ></select
                         ><InputError :message="form.errors.section" />
                     </div>
+                    <p v-else class="text-sm text-muted-foreground sm:pt-7">
+                        Zuordnungen werden mit Zeitraum bzw. Datum in der
+                        Mitgliederakte unter „{{
+                            sections[ASSIGNMENT_SECTION]
+                        }}“ gepflegt.
+                    </p>
                 </div>
                 <div class="grid gap-3 text-sm sm:grid-cols-2">
                     <label class="flex items-center gap-2"
@@ -365,48 +426,59 @@ function close(value: boolean) {
                             class="size-4 accent-primary"
                         />Feld aktiv</label
                     >
-                    <label class="flex items-center gap-2"
+                    <label
+                        v-if="form.type === 'office'"
+                        class="flex items-center gap-2"
                         ><input
-                            v-model="form.required"
-                            type="checkbox"
-                            :disabled="locked"
-                            class="size-4 accent-primary"
-                        />Pflichtfeld</label
-                    >
-                    <label class="flex items-center gap-2"
-                        ><input
-                            v-model="form.selfservice_visible"
+                            v-model="form.allow_multiple"
                             type="checkbox"
                             class="size-4 accent-primary"
-                            @change="updateSelfserviceVisibility"
-                        />Im Mitgliederportal anzeigen</label
+                        />Mehrere Ämter gleichzeitig erlaubt</label
                     >
-                    <label class="flex items-center gap-2"
-                        ><input
-                            v-model="form.selfservice_editable"
-                            type="checkbox"
-                            :disabled="
-                                !form.selfservice_visible ||
-                                selfserviceProtected
-                            "
-                            class="size-4 accent-primary"
-                        />Durch Mitglied änderbar</label
-                    >
-                    <template v-if="!selected || selected.is_custom"
-                        ><label class="flex items-center gap-2"
+                    <template v-if="!temporal">
+                        <label class="flex items-center gap-2"
                             ><input
-                                v-model="form.filterable"
+                                v-model="form.required"
+                                type="checkbox"
+                                :disabled="locked"
+                                class="size-4 accent-primary"
+                            />Pflichtfeld</label
+                        >
+                        <label class="flex items-center gap-2"
+                            ><input
+                                v-model="form.selfservice_visible"
                                 type="checkbox"
                                 class="size-4 accent-primary"
-                            />Als Filter anzeigen</label
-                        ><label class="flex items-center gap-2"
+                                @change="updateSelfserviceVisibility"
+                            />Im Mitgliederportal anzeigen</label
+                        >
+                        <label class="flex items-center gap-2"
                             ><input
-                                v-model="form.show_in_table"
+                                v-model="form.selfservice_editable"
                                 type="checkbox"
+                                :disabled="
+                                    !form.selfservice_visible ||
+                                    selfserviceProtected
+                                "
                                 class="size-4 accent-primary"
-                            />Spalte standardmäßig anzeigen</label
-                        ></template
-                    >
+                            />Durch Mitglied änderbar</label
+                        >
+                        <template v-if="!selected || selected.is_custom"
+                            ><label class="flex items-center gap-2"
+                                ><input
+                                    v-model="form.filterable"
+                                    type="checkbox"
+                                    class="size-4 accent-primary"
+                                />Als Filter anzeigen</label
+                            ><label class="flex items-center gap-2"
+                                ><input
+                                    v-model="form.show_in_table"
+                                    type="checkbox"
+                                    class="size-4 accent-primary"
+                                />Spalte standardmäßig anzeigen</label
+                            ></template
+                        >
+                    </template>
                 </div>
                 <InputError
                     :message="
@@ -425,11 +497,11 @@ function close(value: boolean) {
                     Bestätigungsweg geändert werden.
                 </p>
                 <div
-                    v-if="form.type === 'select'"
+                    v-if="form.type === 'select' || temporal"
                     class="space-y-3 rounded-lg border p-4"
                 >
                     <div class="flex items-center justify-between gap-2">
-                        <h3 class="text-sm font-medium">Auswahloptionen</h3>
+                        <h3 class="text-sm font-medium">{{ optionHeading }}</h3>
                         <Button
                             type="button"
                             size="sm"
@@ -441,6 +513,12 @@ function close(value: boolean) {
                     <p class="text-xs text-muted-foreground">
                         Deaktivierte Optionen können nicht neu gewählt werden.
                         Bisherige Werte bleiben erhalten.
+                        <template v-if="form.type === 'office'"
+                            >„Vorstand“ kennzeichnet Vorstandsämter, ein
+                            Pflichtamt wird als unbesetzt hervorgehoben, und bei
+                            mehr gleichzeitigen Inhabern als vorgesehen
+                            erscheint eine Warnung.</template
+                        >
                     </p>
                     <div
                         v-for="(option, i) in form.options"
@@ -469,10 +547,54 @@ function close(value: boolean) {
                                 ><Trash2 class="size-4"
                             /></Button>
                         </div>
+                        <div
+                            v-if="form.type === 'office'"
+                            class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm"
+                        >
+                            <label class="flex items-center gap-2"
+                                ><input
+                                    v-model="option.board"
+                                    type="checkbox"
+                                    class="size-4 accent-primary"
+                                />Vorstand</label
+                            ><label class="flex items-center gap-2"
+                                ><input
+                                    v-model="option.mandatory"
+                                    type="checkbox"
+                                    class="size-4 accent-primary"
+                                />Pflichtamt</label
+                            ><span class="flex items-center gap-2"
+                                ><Label
+                                    :for="`option-max-${i}`"
+                                    class="font-normal"
+                                    >Höchstens gleichzeitig</Label
+                                ><Input
+                                    :id="`option-max-${i}`"
+                                    :model-value="option.max_holders ?? ''"
+                                    @update:model-value="
+                                        option.max_holders = $event
+                                    "
+                                    type="number"
+                                    min="1"
+                                    max="999"
+                                    class="w-20"
+                                    placeholder="–"
+                            /></span>
+                        </div>
+                        <label
+                            v-else-if="form.type === 'honor'"
+                            class="flex items-center gap-2 text-sm"
+                            ><input
+                                v-model="option.repeatable"
+                                type="checkbox"
+                                class="size-4 accent-primary"
+                            />Mehrfach vergebbar</label
+                        >
                         <InputError
                             :message="
                                 form.errors[`options.${i}.label`] ||
-                                form.errors[`options.${i}.value`]
+                                form.errors[`options.${i}.value`] ||
+                                form.errors[`options.${i}.max_holders`]
                             "
                         />
                     </div>

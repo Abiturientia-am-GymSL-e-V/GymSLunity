@@ -3,8 +3,18 @@ import { router } from '@inertiajs/vue3';
 import { ChevronLeft, ChevronRight, History } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { Button } from '@/components/ui/button';
-import { memberTimestamp, memberValue } from '@/lib/memberFormatting';
-import type { MemberHistory, MemberSection } from '@/types/members';
+import {
+    assignmentLines,
+    memberTimestamp,
+    memberValue,
+} from '@/lib/memberFormatting';
+import type {
+    AssignmentSnapshot,
+    MemberField,
+    MemberHistory,
+    MemberSection,
+    MemberValue,
+} from '@/types/members';
 
 const props = defineProps<{
     history: MemberHistory;
@@ -18,6 +28,17 @@ const fields = computed(() =>
         ),
     ),
 );
+/** Assignment lists appear line by line, all other values as one text. */
+function lines(
+    value: MemberValue | AssignmentSnapshot[] | undefined,
+    field?: MemberField,
+): string[] {
+    return (
+        assignmentLines(value, field) ?? [
+            memberValue(Array.isArray(value) ? null : value, field),
+        ]
+    );
+}
 const loading = ref(false);
 function visit(url: string | null) {
     if (!url || props.disabled || loading.value) return;
@@ -99,27 +120,39 @@ function visit(url: string | null) {
                                 }}
                             </dt>
                             <dd class="mt-1 space-y-1 break-words">
-                                <p class="text-muted-foreground">
-                                    <span class="mr-1 font-medium">Vorher:</span
-                                    >{{
-                                        memberValue(
-                                            entry.before[key],
+                                <div
+                                    v-for="side in [
+                                        {
+                                            label: 'Vorher:',
+                                            value: entry.before[key],
+                                            muted: true,
+                                        },
+                                        {
+                                            label: 'Nachher:',
+                                            value: entry.after[key],
+                                            muted: false,
+                                        },
+                                    ]"
+                                    :key="side.label"
+                                    :class="{
+                                        'text-muted-foreground': side.muted,
+                                    }"
+                                >
+                                    <span class="mr-1 font-medium">{{
+                                        side.label
+                                    }}</span>
+                                    <template
+                                        v-for="(line, index) in lines(
+                                            side.value,
                                             entry.field_schema?.[key] ||
                                                 fields[key],
-                                        )
-                                    }}
-                                </p>
-                                <p>
-                                    <span class="mr-1 font-medium"
-                                        >Nachher:</span
-                                    >{{
-                                        memberValue(
-                                            entry.after[key],
-                                            entry.field_schema?.[key] ||
-                                                fields[key],
-                                        )
-                                    }}
-                                </p>
+                                        )"
+                                        :key="index"
+                                        ><br v-if="index > 0" />{{
+                                            line
+                                        }}</template
+                                    >
+                                </div>
                             </dd>
                         </div>
                     </dl>
