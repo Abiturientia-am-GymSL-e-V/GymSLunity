@@ -94,8 +94,15 @@ jobs:
   demo:
     needs: release
     if: vars.DEMO_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
-      contents: read
-    uses: ./.github/workflows/demo-deploy.yml
-    with:
-      target: release
+      actions: write
+    steps:
+      # A dispatched run gets the secrets of the "demo" environment, a called
+      # workflow does not. Unlike other events, workflow_dispatch also starts
+      # a run when it is created with GITHUB_TOKEN.
+      - name: Start demo deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run demo-deploy.yml --repo "$GITHUB_REPOSITORY" --ref main -f target=release
