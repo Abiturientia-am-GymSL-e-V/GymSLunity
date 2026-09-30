@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+use Tests\Concerns\ChangesDatabaseSchema;
 use Tests\TestCase;
 
 class InstallationWebTest extends TestCase
 {
-    use RefreshDatabase;
+    use ChangesDatabaseSchema;
 
     public function test_browser_installer_form_is_available_before_first_user_exists(): void
     {

@@ -67,7 +67,8 @@
             "Composer\\Config::disableProcessTimeout",
             "npm run check",
             "npm run types:check",
-            "@test"
+            "@test",
+            "@test:mariadb"
         ],
         "types:check": [
             "phpstan analyse"
@@ -76,6 +77,17 @@
             "@php artisan config:clear --ansi",
             "@lint:check",
             "@types:check",
+            "@php artisan test"
+        ],
+        "test:mariadb": [
+            "Composer\\Config::disableProcessTimeout",
+            "@putenv DB_CONNECTION=mariadb",
+            "@putenv DB_HOST=127.0.0.1",
+            "@putenv DB_PORT=3306",
+            "@putenv DB_DATABASE=gymslunity_testing",
+            "@putenv DB_USERNAME=gymslunity_testing",
+            "@putenv DB_PASSWORD=testing",
+            "@php artisan config:clear --ansi",
             "@php artisan test"
         ],
         "post-autoload-dump": [

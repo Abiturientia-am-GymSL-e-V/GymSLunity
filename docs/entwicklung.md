@@ -8,12 +8,24 @@ Diese Seite beschreibt, wie der Code aufgebaut ist und welche Regeln im Projekt 
 composer setup        # Erstinstallation für die Entwicklung
 composer run dev      # Entwicklungsserver
 composer ci:check     # alles, was die CI prüft (vor jedem Push ausführen)
+composer test:mariadb # nur die PHPUnit-Tests gegen MariaDB
 composer lint         # PHP automatisch formatieren
 npm run check:fix     # Frontend automatisch formatieren
 php artisan test --filter=NameDesTests
 ```
 
-`composer ci:check` führt Frontend-Lint und Formatierung, `vue-tsc`, Pint, PHPStan (Level 7) und alle PHPUnit-Tests aus. Tests brauchen eine eigene Datenbank, deren Name auf `_testing` endet, oder SQLite `:memory:`. Eine Vorlage liegt in `.env.testing.example`.
+`composer ci:check` führt Frontend-Lint und Formatierung, `vue-tsc`, Pint, PHPStan (Level 7) und alle PHPUnit-Tests aus, einmal mit SQLite `:memory:` (Vorlage in `.env.testing.example`) und einmal mit MariaDB. SQLite ist nachsichtiger als MariaDB/MySQL, etwa bei der Länge von Bezeichnern, Spaltengrößen und Tabellenänderungen in Transaktionen; Fehler dort fallen nur im zweiten Lauf auf.
+
+Für den MariaDB-Lauf braucht es lokal einen Server auf `127.0.0.1:3306` mit einer eigenen Testdatenbank, zum Beispiel unter macOS:
+
+```bash
+brew install mariadb && brew services start mariadb
+mariadb -e "CREATE DATABASE gymslunity_testing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+  CREATE USER 'gymslunity_testing'@'127.0.0.1' IDENTIFIED BY 'testing';
+  GRANT ALL ON gymslunity_testing.* TO 'gymslunity_testing'@'127.0.0.1';"
+```
+
+Die Tests leeren diese Datenbank bei jedem Lauf; verwende nie eine Datenbank mit echten Daten. Tests, die das Schema ändern (Migrationen ausführen, Tabellen löschen), nutzen `Tests\Concerns\ChangesDatabaseSchema` statt `RefreshDatabase`: MariaDB/MySQL bestätigen Schemaänderungen sofort, eine Test-Transaktion kann sie nicht zurückrollen.
 
 ## Aufbau des Backends
 
