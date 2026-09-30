@@ -271,9 +271,16 @@ class MemberConfigurationTest extends TestCase
             ['value' => 'auditor', 'label' => 'Kassenprüfung', 'active' => true, 'board' => false, 'mandatory' => false, 'max_holders' => null],
         ], $office->options);
 
-        $honor = $this->createField(['label' => 'Ehrungen', 'type' => 'honor', 'allow_multiple' => true, 'options' => [['value' => 'gold', 'label' => 'Ehrennadel Gold', 'active' => true, 'repeatable' => true, 'board' => true]]]);
+        $honor = $this->createField(['label' => 'Ehrungen', 'type' => 'honor', 'allow_multiple' => true, 'options' => [
+            ['value' => 'gold', 'label' => 'Ehrennadel Gold', 'active' => true, 'repeatable' => true, 'board' => true],
+            ['value' => 'silver', 'label' => 'Ehrennadel Silber', 'active' => true, 'jubilee_years' => '25'],
+        ]]);
         $this->assertFalse($honor->allow_multiple);
-        $this->assertSame([['value' => 'gold', 'label' => 'Ehrennadel Gold', 'active' => true, 'repeatable' => true]], $honor->options);
+        $this->assertSame([
+            ['value' => 'gold', 'label' => 'Ehrennadel Gold', 'active' => true, 'repeatable' => true, 'jubilee_years' => null],
+            ['value' => 'silver', 'label' => 'Ehrennadel Silber', 'active' => true, 'repeatable' => false, 'jubilee_years' => 25],
+        ], $honor->options);
+        $this->post(route('configuration.fields.store'), $this->fieldData(['type' => 'honor', 'options' => [['value' => 'x', 'label' => 'X', 'active' => true, 'jubilee_years' => 0]]]))->assertSessionHasErrors('options.0.jubilee_years');
 
         $select = $this->createField(['options' => [['value' => 'a', 'label' => 'Gruppe A', 'active' => true, 'board' => true]]]);
         $this->assertSame([['value' => 'a', 'label' => 'Gruppe A', 'active' => true]], $select->options);

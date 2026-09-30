@@ -209,6 +209,7 @@ Auswertende Übersichten wie `resources/js/pages/assignments/` folgen diesem Mus
 - Filter stehen in einer Werkzeugleiste `grid gap-4 rounded-xl border bg-card p-4 sm:grid-cols-2 xl:grid-cols-4 xl:items-end` und werden sofort angewendet. Der Filterzustand steht in der URL; `applyOverviewFilters` und `withQuery` aus `resources/js/lib/assignmentOverview.ts` lassen leere Werte weg.
 - CSV- und PDF-Export mit den aktuellen Filtern bietet `ExportLinks` (`resources/js/components/assignments/ExportLinks.vue`) an. Die Exportrouten sind wie alle Datenexporte mit `throttle:sensitive`, `reconfirm` und `audit:data_export` abgesichert.
 - Mitglieder in solchen Listen zeigt `AssignmentMember` mit Link zur Mitgliederakte, Mitgliedsnummer, Zeitraum und Notiz; ehemalige Mitglieder und Kontakte sind als „kein aktuelles Mitglied“ gekennzeichnet.
+- Zuordnungen für mehrere ausgewählte Mitglieder (hinzufügen oder beenden) laufen über `BulkAssignDialog` (`resources/js/components/assignments/BulkAssignDialog.vue`). Mit `preset` sind Feld und Auswahl fest vorgegeben, etwa „Ehrung vergeben“ bei fälligen Jubiläen. Die Aktion gilt für alle Ausgewählten oder bei einem Konflikt für niemanden; der Fehler nennt das betroffene Mitglied.
 
 ## Responsive Verhalten
 

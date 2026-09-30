@@ -134,6 +134,8 @@ export type AssignmentOption = {
     mandatory: boolean;
     maxHolders: number | null;
     repeatable: boolean;
+    /** Honor options: due after this many years of membership. */
+    jubileeYears: number | null;
 };
 export type AssignmentField = Omit<MemberField, 'type'> & {
     type: AssignmentType;

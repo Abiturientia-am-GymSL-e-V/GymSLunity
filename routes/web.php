@@ -38,6 +38,7 @@ use App\Http\Controllers\Inventory\InventoryController;
 use App\Http\Controllers\Inventory\InventoryDocumentController;
 use App\Http\Controllers\Inventory\InventorySheetController;
 use App\Http\Controllers\Members\AssignmentOverviewController;
+use App\Http\Controllers\Members\BulkAssignMemberController;
 use App\Http\Controllers\Members\BulkUpdateMemberController;
 use App\Http\Controllers\Members\MemberAssignmentController;
 use App\Http\Controllers\Members\MemberCardController;
@@ -258,6 +259,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('mitglieder/importieren/abschliessen', [MemberImportController::class, 'store'])->name('members.import.store');
     Route::post('mitglieder/export', MemberExportController::class)->middleware(['throttle:20,1', 'reconfirm', 'audit:data_export'])->name('members.export');
     Route::patch('mitglieder/massenbearbeitung', BulkUpdateMemberController::class)->middleware('throttle:10,1')->name('members.bulk-update');
+    Route::post('mitglieder/massenzuordnung', BulkAssignMemberController::class)->middleware(['can:manage-assignments', 'throttle:10,1'])->name('members.bulk-assign');
     Route::post('mitglieder/willkommensmail', WelcomeMailController::class)->middleware('throttle:10,1')->name('members.welcome-mail');
     Route::get('mitglieder/{member:member_number}/karteiblatt', MemberCardController::class)->middleware(['throttle:sensitive', 'audit:document_access'])->name('members.card');
     Route::get('mitglieder/{member:member_number}', [MemberController::class, 'show'])->middleware('audit:member_viewed')->name('members.show');
@@ -270,7 +272,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('aemter/export', [AssignmentOverviewController::class, 'exportOffices'])->middleware($export)->name('assignments.offices.export');
         Route::get('abteilungen', [AssignmentOverviewController::class, 'departments'])->name('assignments.departments');
         Route::get('abteilungen/export', [AssignmentOverviewController::class, 'exportDepartments'])->middleware($export)->name('assignments.departments.export');
-        Route::get('ehrungen', [AssignmentOverviewController::class, 'honors'])->name('assignments.honors');
+        Route::get('ehrungen', [AssignmentOverviewController::class, 'honors'])->defaults('tab', 'list')->name('assignments.honors');
+        Route::get('ehrungen/jubilaeen', [AssignmentOverviewController::class, 'honors'])->defaults('tab', 'jubilees')->name('assignments.honors.jubilees');
         Route::get('ehrungen/export', [AssignmentOverviewController::class, 'exportHonors'])->middleware($export)->name('assignments.honors.export');
     });
     Route::post('mitglieder/{member:member_number}/zuordnungen', [MemberAssignmentController::class, 'store'])->middleware('can:manage-assignments')->name('members.assignments.store');

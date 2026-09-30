@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property bool $selfservice_editable
  * @property bool $selfservice_visible
  * @property bool $allow_multiple
- * @property list<array{value: string, label: string, active: bool, board?: bool, mandatory?: bool, max_holders?: int|null, repeatable?: bool}> $options
+ * @property list<array{value: string, label: string, active: bool, board?: bool, mandatory?: bool, max_holders?: int|null, repeatable?: bool, jubilee_years?: int|null}> $options
  */
 class MemberFieldDefinition extends Model
 {

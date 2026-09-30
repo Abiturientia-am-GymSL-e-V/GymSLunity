@@ -29,11 +29,13 @@ class MemberFieldRequest extends FormRequest
             'selfservice_editable' => ['sometimes', 'boolean'],
             'allow_multiple' => ['sometimes', 'boolean'],
             'options' => ['present', 'array', 'max:100'],
-            'options.*' => ['array:value,label,active,board,mandatory,max_holders,repeatable'],
+            'options.*' => ['array:value,label,active,board,mandatory,max_holders,repeatable,jubilee_years'],
             'options.*.value' => ['required', 'string', 'max:'.($field->max_length ?? 255), 'distinct:strict', Rule::notIn(['__empty__', '__all__', '__any__', '__none__'])],
             'options.*.label' => ['required', 'string', 'max:120'], 'options.*.active' => ['required', 'boolean'],
             'options.*.board' => ['sometimes', 'boolean'], 'options.*.mandatory' => ['sometimes', 'boolean'],
             'options.*.max_holders' => ['sometimes', 'nullable', 'integer', 'between:1,999'], 'options.*.repeatable' => ['sometimes', 'boolean'],
+            // Honor options: members become due after this many years of membership.
+            'options.*.jubilee_years' => ['sometimes', 'nullable', 'integer', 'between:1,100'],
             'remove_options' => ['sometimes', 'array', 'max:100'],
             'remove_options.*' => ['required', 'string', 'distinct'],
         ];

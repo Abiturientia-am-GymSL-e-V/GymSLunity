@@ -1,6 +1,6 @@
 # Planung: Zeitliche Zuordnungen zu Abteilungen, Funktionen/Ämtern und Ereignissen/Ehrungen
 
-Stand: 30.09.2026 · Status: **Alle fachlichen Fragen F1–F17 am 30.09.2026 entschieden (siehe Abschnitt 6.2); Umsetzung am 30.09.2026 freigegeben; Phasen 1 bis 5 umgesetzt**
+Stand: 30.09.2026 · Status: **Alle fachlichen Fragen F1–F17 am 30.09.2026 entschieden (siehe Abschnitt 6.2); Umsetzung am 30.09.2026 freigegeben; Phasen 1 bis 5 und Teil 1 von Phase 6 umgesetzt**
 
 Kennzeichnung im Dokument:
 
@@ -337,6 +337,11 @@ Anmerkungen zur Umsetzung von Phase 5:
 - Alte Links der Mitgliederliste mit `department_role=` oder `club_role=` werden auf den Filter des Amtsfelds übertragen; gespeicherte Kommunikationsfilter funktionieren unverändert weiter. Beide beziehen sich jetzt auf die _aktuellen_ Ämter.
 - Kalender- und Buchungsfreigaben können Abteilungen, Ämter und Ehrungen als Bedingung nutzen; es zählen die heute gültigen Zuordnungen. Beitragsläufe filtern typisierte Felder ebenso über die aktuellen Zuordnungen.
 - Die Demo enthält Vorstand mit Vorgänger und unbesetztem Pflichtamt, Abteilungen mit Wechseln und einige Ehrungen.
+
+Anmerkungen zur Umsetzung von Phase 6 (Teil 1: Massenbearbeitung und Jubiläen):
+
+- In der Mitgliederliste fügt „Zuordnung“ für die ausgewählten Mitglieder (höchstens 250) eine Abteilung, ein Amt oder eine Ehrung hinzu oder beendet laufende Zuordnungen zu einem Datum, wahlweise nur einer Auswahl. Jedes Mitglied erhält einen eigenen Historieneintrag. Bei einem Konflikt, etwa einer schon vergebenen Ehrung, wird nichts gespeichert und das betroffene Mitglied genannt. Gleiche Warnungen mehrerer Mitglieder werden zusammengefasst. Route: `POST /mitglieder/massenzuordnung` mit `manage-assignments`.
+- Ehrungsoptionen haben die optionale Regel „Fällig nach … Mitgliedsjahren“ (`jubilee_years`, 1–100). Der Tab „Fällige Jubiläen“ unter `/ehrungen/jubilaeen` listet je Option aktuelle Mitglieder, deren Mitgliedschaft laut `joined_at` die Jahre bis zum gewählten Datum (Standard: Jahresende) erreicht und die diese Ehrung noch nicht haben; noch nicht erreichte Jubiläen sind als „Bevorstehend“ markiert. Unterbrechungen der Mitgliedschaft werden nicht berücksichtigt. Ausgewählte Mitglieder erhalten die Ehrung gemeinsam; der Export steht wie bei den anderen Übersichten zur Verfügung.
 
 ---
 

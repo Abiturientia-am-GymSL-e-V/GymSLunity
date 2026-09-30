@@ -21,6 +21,7 @@ import {
 } from 'vue';
 import { columnsFor } from '@/components/members/columns';
 import type { MemberColumnKey } from '@/components/members/columns';
+import BulkAssignDialog from '@/components/assignments/BulkAssignDialog.vue';
 import BulkEditMembers from '@/components/members/BulkEditMembers.vue';
 import MemberExport from '@/components/members/MemberExport.vue';
 import MemberFilter from '@/components/members/MemberFilter.vue';
@@ -70,6 +71,7 @@ const props = defineProps<{
     fieldDefinitions: MemberField[];
     configurationVersion: number;
     canBulkEdit: boolean;
+    canManageAssignments: boolean;
     welcomeMailAvailable: boolean;
 }>();
 
@@ -611,6 +613,13 @@ const pages = computed(() => {
                         :fields="fieldDefinitions"
                         :configuration-version="configurationVersion"
                         @updated="selection.numbers = []"
+                    />
+                    <BulkAssignDialog
+                        v-if="canManageAssignments"
+                        :selected="selection.numbers"
+                        :fields="fieldDefinitions"
+                        :configuration-version="configurationVersion"
+                        @done="selection.numbers = []"
                     />
                     <SendWelcomeMails
                         v-if="canBulkEdit"

@@ -30,6 +30,8 @@ type Choice = {
     max_holders?: number | string | null;
     /** Honor options only. */
     repeatable?: boolean;
+    /** Empty means no jubilee rule. */
+    jubilee_years?: number | string | null;
 };
 type Definition = {
     id: number;
@@ -150,6 +152,7 @@ function edit(field: Definition | null) {
             repeatable: false,
             ...option,
             max_holders: option.max_holders ?? '',
+            jubilee_years: option.jubilee_years ?? '',
         })),
         remove_options: [],
     });
@@ -166,6 +169,7 @@ function addOption() {
         mandatory: false,
         max_holders: '',
         repeatable: false,
+        jubilee_years: '',
     });
 }
 function removeOption(index: number) {
@@ -521,6 +525,11 @@ function close(value: boolean) {
                             Pflichtamt wird als unbesetzt hervorgehoben, und bei
                             mehr gleichzeitigen Inhabern als vorgesehen
                             erscheint eine Warnung.</template
+                        ><template v-else-if="form.type === 'honor'"
+                            >Mit „Fällig nach … Mitgliedsjahren“ erscheinen
+                            Mitglieder unter Ereignisse / Ehrungen → Fällige
+                            Jubiläen, sobald sie so lange Mitglied
+                            sind.</template
                         >
                     </p>
                     <div
@@ -584,20 +593,41 @@ function close(value: boolean) {
                                     placeholder="–"
                             /></span>
                         </div>
-                        <label
+                        <div
                             v-else-if="form.type === 'honor'"
-                            class="flex items-center gap-2 text-sm"
-                            ><input
-                                v-model="option.repeatable"
-                                type="checkbox"
-                                class="size-4 accent-primary"
-                            />Mehrfach vergebbar</label
+                            class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm"
                         >
+                            <label class="flex items-center gap-2"
+                                ><input
+                                    v-model="option.repeatable"
+                                    type="checkbox"
+                                    class="size-4 accent-primary"
+                                />Mehrfach vergebbar</label
+                            ><span class="flex items-center gap-2"
+                                ><Label
+                                    :for="`option-jubilee-${i}`"
+                                    class="font-normal"
+                                    >Fällig nach</Label
+                                ><Input
+                                    :id="`option-jubilee-${i}`"
+                                    :model-value="option.jubilee_years ?? ''"
+                                    @update:model-value="
+                                        option.jubilee_years = $event
+                                    "
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    class="w-20"
+                                    placeholder="–"
+                                />Mitgliedsjahren</span
+                            >
+                        </div>
                         <InputError
                             :message="
                                 form.errors[`options.${i}.label`] ||
                                 form.errors[`options.${i}.value`] ||
-                                form.errors[`options.${i}.max_holders`]
+                                form.errors[`options.${i}.max_holders`] ||
+                                form.errors[`options.${i}.jubilee_years`]
                             "
                         />
                     </div>

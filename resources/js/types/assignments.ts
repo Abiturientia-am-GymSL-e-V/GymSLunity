@@ -46,3 +46,19 @@ export type AssignmentFilters = {
     board: boolean;
     members: 'all' | 'current';
 };
+/** Members due for an honor with a jubilee rule. */
+export type JubileeGroup = {
+    field: string;
+    field_label: string;
+    option: string;
+    label: string;
+    years: number;
+    members: {
+        member_number: number;
+        name: string;
+        current_member: boolean;
+        joined_at: string;
+        jubilee_on: string;
+        due: boolean;
+    }[];
+};

@@ -170,7 +170,8 @@ class MemberFieldController extends Controller
         return match ($type) {
             'office' => [...$base, 'board' => (bool) ($option['board'] ?? false), 'mandatory' => (bool) ($option['mandatory'] ?? false),
                 'max_holders' => isset($option['max_holders']) ? (int) $option['max_holders'] : null],
-            'honor' => [...$base, 'repeatable' => (bool) ($option['repeatable'] ?? false)],
+            'honor' => [...$base, 'repeatable' => (bool) ($option['repeatable'] ?? false),
+                'jubilee_years' => isset($option['jubilee_years']) ? (int) $option['jubilee_years'] : null],
             default => $base,
         };
     }

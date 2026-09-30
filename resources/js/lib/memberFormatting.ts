@@ -93,7 +93,8 @@ export function assignmentFilterOptions(field: {
     ];
 }
 
-function day(value: string): string {
+/** Calendar date as DD.MM.YYYY, as in all assignment overviews. */
+export function day(value: string): string {
     return value.slice(0, 10).split('-').reverse().join('.');
 }
 
