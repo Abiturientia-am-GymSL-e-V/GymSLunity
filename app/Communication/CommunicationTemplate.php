@@ -34,7 +34,6 @@ final class CommunicationTemplate
     {
         $this->fields = MemberFieldDefinition::query()
             ->where('is_active', true)
-            ->whereNotIn('type', MemberFieldDefinition::TEMPORAL_TYPES)
             ->where(function ($query): void {
                 $query->where('is_custom', true)->orWhereIn('key', self::SAFE_MEMBER_FIELDS);
             })
@@ -104,7 +103,8 @@ final class CommunicationTemplate
     /** @return array<string, string> */
     private function replacements(Member $member): array
     {
-        $snapshot = MemberFields::snapshot($member);
+        // Department, office and honor fields name the options valid today.
+        $snapshot = MemberFields::reportSnapshot($member);
         $name = collect([$member->first_name, $member->middle_name, $member->last_name])->filter()->join(' ');
         $salutation = match ($member->gender) {
             'w' => 'Frau',

@@ -31,7 +31,7 @@ class MemberFieldController extends Controller
     {
         return Inertia::render('configuration/MemberFields', [
             'fields' => MemberFieldDefinition::query()->orderBy('position')->orderBy('id')->get(),
-            'sections' => [...MemberFields::SECTIONS, MemberFieldDefinition::ASSIGNMENT_SECTION => 'Abteilungen, Ämter & Ehrungen'],
+            'sections' => [...MemberFields::SECTIONS, MemberFieldDefinition::ASSIGNMENT_SECTION => MemberFields::ASSIGNMENT_TITLE],
             'version' => $this->clubSettings->fieldsVersion(),
             'types' => [
                 'text' => 'Text', 'number' => 'Ganze Zahl', 'decimal' => 'Dezimalzahl', 'date' => 'Datum', 'boolean' => 'Ja / Nein', 'select' => 'Auswahl',
@@ -69,8 +69,8 @@ class MemberFieldController extends Controller
             if (! $temporal && $data['section'] === MemberFieldDefinition::ASSIGNMENT_SECTION) {
                 throw ValidationException::withMessages(['section' => 'Dieser Abschnitt ist Abteilungen, Ämtern und Ehrungen vorbehalten.']);
             }
-            // Temporal fields are not part of the member form, filters or the portal (yet).
-            $selfserviceVisible = ! $temporal && (bool) ($data['selfservice_visible'] ?? $current->selfservice_visible ?? $current->selfservice_editable ?? false);
+            // Temporal fields are never part of the member form; the portal shows them read-only.
+            $selfserviceVisible = (bool) ($data['selfservice_visible'] ?? $current->selfservice_visible ?? $current->selfservice_editable ?? false);
             $selfserviceEditable = ! $temporal && (bool) ($data['selfservice_editable'] ?? $current->selfservice_editable ?? false);
             if ($selfserviceEditable && ! $selfserviceVisible) {
                 throw ValidationException::withMessages(['selfservice_editable' => 'Ein im Mitgliederportal änderbares Feld muss dort auch angezeigt werden.']);
@@ -83,7 +83,7 @@ class MemberFieldController extends Controller
             $values['selfservice_editable'] = $selfserviceEditable;
             $values['allow_multiple'] = $data['type'] === 'office' && (bool) ($data['allow_multiple'] ?? false);
             if ($temporal) {
-                $values = [...$values, 'section' => MemberFieldDefinition::ASSIGNMENT_SECTION, 'required' => false, 'filterable' => false, 'show_in_table' => false];
+                $values = [...$values, 'section' => MemberFieldDefinition::ASSIGNMENT_SECTION, 'required' => false];
             }
             $values['options'] = $data['type'] === 'select' || $temporal
                 ? array_map(fn (array $option): array => $this->option($data['type'], $option), $data['options'])

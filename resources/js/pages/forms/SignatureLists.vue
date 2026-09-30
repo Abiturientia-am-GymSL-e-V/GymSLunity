@@ -18,6 +18,7 @@ import type {
 } from '@/types/members';
 import { saveBlob, xsrfToken } from '@/lib/download';
 import { localDateString } from '@/lib/format';
+import { isTemporal } from '@/lib/memberFormatting';
 
 type Member = {
     member_number: number;
@@ -25,7 +26,8 @@ type Member = {
     email: string | null;
     mobile_phone: string | null;
     status: 'active' | 'contacts' | 'former' | 'future' | 'other';
-    filter_values: Record<string, string | number | boolean | null>;
+    /** Department, office and honor fields list every matching filter value. */
+    filter_values: Record<string, string | number | boolean | string[] | null>;
 };
 type Column = { key: string; label: string };
 type FilterField = Pick<MemberField, 'key' | 'label' | 'type' | 'options'>;
@@ -116,6 +118,12 @@ function matchesFilter(member: Member, filter: MemberFilter) {
     }
 
     const actual = member.filter_values[field.key];
+    if (isTemporal(field)) {
+        if (!filter.value) return true;
+        return (Array.isArray(actual) ? actual : ['__none__']).includes(
+            filter.value,
+        );
+    }
     if (field.type === 'date') {
         if (actual === null || actual === undefined || actual === '') {
             return !filter.value && !filter.valueTo;

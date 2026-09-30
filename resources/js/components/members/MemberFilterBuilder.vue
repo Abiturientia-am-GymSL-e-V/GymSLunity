@@ -5,6 +5,7 @@ import SearchableDropdown from '@/components/SearchableDropdown.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { assignmentFilterOptions, isTemporal } from '@/lib/memberFormatting';
 import type { MemberFilter, MemberFilterField } from '@/types/members';
 
 /**
@@ -42,6 +43,7 @@ const fieldOptions = computed(() => [
 function valueOptions(key: string) {
     const item = field(key);
     if (!item) return [];
+    if (isTemporal(item)) return assignmentFilterOptions(item);
     const options =
         item.type === 'boolean'
             ? [
@@ -123,7 +125,9 @@ function remove(id: number) {
                 </div>
                 <SearchableDropdown
                     v-if="
-                        choiceTypes.includes(field(filterItem.key)?.type || '')
+                        choiceTypes.includes(
+                            field(filterItem.key)?.type || '',
+                        ) || isTemporal(field(filterItem.key))
                     "
                     :id="`${idPrefix}-${filterItem.id}`"
                     v-model="filterItem.value"

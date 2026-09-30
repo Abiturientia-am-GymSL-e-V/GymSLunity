@@ -8,10 +8,12 @@ use App\Configuration\ClubSettings;
 use App\Forms\SignatureListColumns;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Forms\SignatureListRequest;
+use App\Members\CurrentAssignments;
 use App\Members\MemberFields;
 use App\Members\MemberReportValue;
 use App\Members\MemberReportWriter;
 use App\Models\Member;
+use App\Models\MemberFieldDefinition;
 use App\Support\Clock;
 use Illuminate\Http\Response as HttpResponse;
 use Inertia\Inertia;
@@ -35,11 +37,14 @@ class SignatureListController extends Controller
             ->filter(fn (array $field): bool => ! $field['custom'] || $field['filterable'])
             ->values();
         $filterKeys = $filterFields->pluck('key');
+        $temporalKeys = $filterFields->whereIn('type', MemberFieldDefinition::TEMPORAL_TYPES)->pluck('key')->all();
         $members = Member::query()
+            ->when($temporalKeys !== [], fn ($query) => $query->with(['assignments' => fn ($assignments) => $assignments->whereIn('field_key', $temporalKeys)]))
             ->orderBy('last_name')->orderBy('first_name')
             ->get()
-            ->map(function (Member $member) use ($filterKeys, $today): array {
-                $snapshot = MemberFields::snapshot($member);
+            ->map(function (Member $member) use ($filterKeys, $temporalKeys, $today): array {
+                // Department, office and honor fields carry every matching filter value.
+                $snapshot = [...MemberFields::snapshot($member), ...($temporalKeys === [] ? [] : CurrentAssignments::filterTokens($member))];
 
                 return [
                     'member_number' => $member->member_number,
@@ -71,13 +76,13 @@ class SignatureListController extends Controller
         $data = $request->validated();
         $selected = $request->collect('member_numbers')
             ->mapWithKeys(fn (mixed $number, int $position): array => [(int) $number => $position]);
-        $members = Member::query()->whereIn('member_number', $selected->keys())->get(Member::LIST_FIELDS)
+        $members = Member::query()->whereIn('member_number', $selected->keys())->with('currentAssignments')->get(Member::LIST_FIELDS)
             ->sortBy(fn (Member $member): int => $selected[$member->member_number])->values();
         $headers = array_map(fn (string $key): string => match ($key) {
             'member_number' => 'Mitgliedsnummer', 'signature' => 'Unterschrift', default => $available[$key]['label'],
         }, $data['columns']);
         $rows = $members->map(function (Member $member) use ($data, $available): array {
-            $snapshot = [...MemberFields::snapshot($member), 'member_number' => $member->member_number];
+            $snapshot = [...MemberFields::reportSnapshot($member), 'member_number' => $member->member_number];
 
             return array_map(fn (string $key): string => $key === 'signature' ? '' : MemberReportValue::format($snapshot[$key] ?? null, $available[$key] ?? []), $data['columns']);
         })->all();

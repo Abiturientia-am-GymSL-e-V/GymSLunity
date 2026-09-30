@@ -12,6 +12,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { isTemporal } from '@/lib/memberFormatting';
 import type { MemberField, MemberValue } from '@/types/members';
 
 const props = defineProps<{
@@ -29,8 +30,15 @@ function stringValue(key: string): string | null {
 </script>
 
 <template>
+    <!-- Department, office and honor fields are only ever shown, as the current labels. -->
+    <Input
+        v-if="isTemporal(field)"
+        :id="`member-${field.key}`"
+        :model-value="value == null || value === '' ? 'Keine' : String(value)"
+        disabled
+    />
     <PhoneInput
-        v-if="field.key === 'mobile_phone'"
+        v-else-if="field.key === 'mobile_phone'"
         :id="`member-${field.key}`"
         :model-value="value == null ? '' : String(value)"
         :default-country="page.props.defaultCountry"

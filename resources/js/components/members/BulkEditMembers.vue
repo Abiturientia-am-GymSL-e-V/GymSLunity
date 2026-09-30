@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { isTemporal } from '@/lib/memberFormatting';
 import { bulkUpdate } from '@/routes/members';
 import type { MemberField, MemberValue } from '@/types/members';
 
@@ -39,7 +40,11 @@ const form = useForm<{
     values: {},
 });
 const availableFields = computed(() =>
-    props.fields.filter((field) => !selectedFields.value.includes(field.key)),
+    props.fields.filter(
+        // Assignments change only in the member record.
+        (field) =>
+            !isTemporal(field) && !selectedFields.value.includes(field.key),
+    ),
 );
 const editingFields = computed(() =>
     selectedFields.value

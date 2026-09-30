@@ -8,6 +8,8 @@ use App\Calendar\CalendarAccess;
 use App\Configuration\SoftwareModules;
 use App\Http\Controllers\Controller;
 use App\Members\MemberFields;
+use App\Members\MemberReportValue;
+use App\Models\Member;
 use App\SelfService\Access;
 use App\SelfService\EmailAddressFilter;
 use App\SelfService\PortalRules;
@@ -55,7 +57,7 @@ class PortalController extends Controller
 
         return Inertia::render('selfservice/Portal', [
             'member' => [
-                ...Arr::only(MemberFields::snapshot($member), $visibleKeys),
+                ...Arr::only($this->portalValues($member), $visibleKeys),
                 ...Arr::only($member->attributesToArray(), ['member_number', 'first_name', 'email', 'membership_type', 'payment_method', 'sponsor_contribution', 'joined_at', 'left_at', 'lock_version']),
             ],
             'profileSections' => $profileSections,
@@ -104,5 +106,21 @@ class PortalController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Der Kalender-Abo-Link wurde erneuert. Der bisherige Link funktioniert nicht mehr.']);
 
         return back();
+    }
+
+    /**
+     * Member values for the portal. Department, office and honor fields are
+     * shown read-only as the labels of the current assignments.
+     *
+     * @return array<string, mixed>
+     */
+    private function portalValues(Member $member): array
+    {
+        $values = MemberFields::reportSnapshot($member);
+        foreach (MemberFields::temporalFields() as $field) {
+            $values[$field['key']] = MemberReportValue::format($values[$field['key']] ?? null, $field) ?: null;
+        }
+
+        return $values;
     }
 }

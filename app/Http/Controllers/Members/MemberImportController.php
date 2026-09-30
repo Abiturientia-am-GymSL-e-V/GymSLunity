@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Members;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Members\PreviewMemberImportRequest;
 use App\Members\CreateMember;
+use App\Members\MemberAssignments;
 use App\Members\MemberCsvImport;
 use App\Members\MemberFields;
 use App\Models\Member;
@@ -104,12 +105,12 @@ class MemberImportController extends Controller
         return to_route('members.import.index', ['token' => $validated['token']]);
     }
 
-    public function store(Request $request, MemberCsvImport $import, CreateMember $create): RedirectResponse
+    public function store(Request $request, MemberCsvImport $import, CreateMember $create, MemberAssignments $assignments): RedirectResponse
     {
         Gate::authorize('create', Member::class);
         $validated = $request->validate(['token' => ['required', 'string', 'size:48', 'alpha_num']]);
         try {
-            $count = $import->import($validated['token'], $request->user(), $create);
+            $count = $import->import($validated['token'], $request->user(), $create, $assignments);
         } catch (ValidationException $exception) {
             throw $exception->redirectTo(route('members.import.index', ['token' => $validated['token']]));
         }
