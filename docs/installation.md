@@ -14,6 +14,29 @@ In den Beispielen werden folgende Werte verwendet. Ersetze sie überall durch de
 
 Alle Einstellungen in der `.env` sind in [konfiguration.md](konfiguration.md) beschrieben.
 
+## Automatische Installation
+
+Das Skript [`scripts/install-server.sh`](../scripts/install-server.sh) erledigt die Schritte 1 bis 11 auf einem Server mit **Debian 12/13 oder Ubuntu 22.04/24.04** und installiert das neueste Release:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/Abiturientia-am-GymSL-e-V/GymSLunity/main/scripts/install-server.sh
+sudo bash install-server.sh
+```
+
+Es fragt nach Domain, Installationsverzeichnis, HTTPS-Variante (Let's Encrypt, vorhandenes Zertifikat oder vorgeschalteter Reverse Proxy), Datenbank (MariaDB oder SQLite), Vereinsname und Absenderadresse, Backup-Verzeichnis und dem ersten Administratorkonto. Danach:
+
+1. prüft es, dass nichts Bestehendes überschrieben würde: Benutzer, Verzeichnisse, Datenbank, Nginx-Sites mit derselben Domain, belegte Ports 80/443, eine fehlerhafte Nginx-Konfiguration,
+2. installiert es fehlende Pakete (Nginx, Certbot, PHP 8.4 mit Erweiterungen, bei Bedarf MariaDB). Ein vorhandenes anderes PHP bleibt Standard; fehlt PHP 8.4 in den Paketquellen, fragt es vor dem Hinzufügen von `ppa:ondrej/php` bzw. `packages.sury.org`. Vorhandene Pakete werden nicht aktualisiert,
+3. legt einen eigenen Systembenutzer mit eigenem PHP-FPM-Pool an. Der Code gehört root; PHP darf nur `storage/`, `bootstrap/cache/` und das Backup-Verzeichnis beschreiben, die `.env` nur lesen. Nginx sieht nur `public/`,
+4. legt Datenbank und Datenbankbenutzer mit zufälligem Passwort an (MariaDB) bzw. die Datenbankdatei unter `storage/database/` (SQLite), erzeugt die `.env` aus `.env.example` mit zufälligem `APP_KEY` und `PASSKEYS_USER_HANDLE_SECRET` und führt `app:install` mit dem Administratorkonto aus. Der Browser-Installer ist danach gesperrt,
+5. richtet Nginx mit HTTPS sowie Queue-Worker und Scheduler als systemd-Dienste (`<name>-queue`, `<name>-schedule.timer`) ein und prüft zum Schluss `/up`, die Anmeldeseite und `security:check`.
+
+Nach dem Skript fehlt nur noch der E-Mail-Versand (Schritt 10). Sichere außerdem die `.env` an einem zweiten Ort und kopiere die Backups regelmäßig auf ein anderes System (Schritt 12).
+
+Schlägt ein Schritt fehl oder wird das Skript mit Strg+C abgebrochen, macht es alle bisherigen Änderungen rückgängig, einschließlich der dabei installierten Pakete. `sudo bash install-server.sh --uninstall` entfernt die Instanz später wieder. Datenbank, Dateien, `.env` und Backups bleiben dabei erhalten, außer ihre Löschung wird ausdrücklich bestätigt; dann legt das Skript vorher ein letztes Backup unter `/root/` ab. `--help` listet die Umgebungsvariablen für unbeaufsichtigte Installationen (`--yes`).
+
+Updates bleiben Handarbeit, siehe [Abschnitt 13](#13-updates). Die übrigen Abschnitte beschreiben die Installation von Hand.
+
 ## 1. Voraussetzungen
 
 - Linux-Server mit Root- oder sudo-Zugang und einer Domain, deren DNS-Eintrag auf den Server zeigt
@@ -426,16 +449,42 @@ sudo -u www-data php artisan down
 rsync -a --delete \
     --exclude=.env \
     --exclude=storage/ \
+    --exclude=bootstrap/cache/ \
     --exclude=database/database.sqlite \
     --exclude=public/storage \
     /tmp/gymslunity-v$VERSION/ /var/www/gymslunity/
+sudo -u www-data php artisan optimize:clear
 sudo -u www-data php artisan migrate --force
 sudo -u www-data php artisan optimize
 sudo -u www-data php artisan queue:restart
 sudo -u www-data php artisan up
 ```
 
-Setze bei Bedarf die Dateirechte erneut wie in Schritt 5.
+`storage/` und `bootstrap/cache/` bleiben dabei unberührt, sodass die Dateirechte aus Schritt 5 erhalten bleiben. `optimize:clear` verwirft die Caches der alten Version.
+
+#### Mit `install-server.sh` eingerichtete Instanz
+
+Der Code gehört root, und PHP läuft als eigener Benutzer (Vorgabe `gymslunity`) mit PHP 8.4 unter `/usr/bin/php8.4`. Nach dem Herunterladen und Prüfen wie oben:
+
+```bash
+cd /var/www/gymslunity
+sudo -u gymslunity php8.4 artisan app:backup --prune
+sudo -u gymslunity php8.4 artisan down
+sudo rsync -a --delete \
+    --exclude=.env \
+    --exclude=storage/ \
+    --exclude=bootstrap/cache/ \
+    --exclude=database/database.sqlite \
+    --exclude=public/storage \
+    /tmp/gymslunity-v$VERSION/ /var/www/gymslunity/
+sudo -u gymslunity php8.4 artisan optimize:clear
+sudo -u gymslunity php8.4 artisan migrate --force
+sudo -u gymslunity php8.4 artisan optimize
+sudo -u gymslunity php8.4 artisan queue:restart
+sudo -u gymslunity php8.4 artisan up
+```
+
+Dateirechte müssen danach nicht gesetzt werden.
 
 ### Git
 

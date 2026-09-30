@@ -15,7 +15,10 @@ class InstallApplication extends Command
         {--force : Installation ohne Rückfrage in der Produktivumgebung ausführen}
         {--no-user : Kein Administratorkonto anlegen}
         {--skip-migrations : Datenbankmigrationen nicht ausführen}
-        {--skip-storage-link : Öffentlichen Storage-Link nicht anlegen}';
+        {--skip-storage-link : Öffentlichen Storage-Link nicht anlegen}
+        {--admin-name= : Name des Administratorkontos ohne Rückfrage}
+        {--admin-email= : E-Mail-Adresse des Administratorkontos ohne Rückfrage}
+        {--admin-password-file= : Passwort des Administratorkontos aus dieser Datei, "-" liest die Standardeingabe}';
 
     protected $description = 'GymSLunity nach dem Bearbeiten der .env sicher einrichten';
 
@@ -75,7 +78,12 @@ class InstallApplication extends Command
         if (! $this->option('no-user')) {
             if (User::query()->exists()) {
                 $this->components->info('Es ist bereits mindestens ein Benutzerkonto vorhanden; es wird kein weiteres angelegt.');
-            } elseif ($this->call('app:create-user', ['--role' => ['admin']]) !== self::SUCCESS) {
+            } elseif ($this->call('app:create-user', array_filter([
+                '--role' => ['admin'],
+                '--name' => $this->option('admin-name'),
+                '--email' => $this->option('admin-email'),
+                '--password-file' => $this->option('admin-password-file'),
+            ], fn (mixed $value): bool => $value !== null)) !== self::SUCCESS) {
                 return self::FAILURE;
             }
         }
