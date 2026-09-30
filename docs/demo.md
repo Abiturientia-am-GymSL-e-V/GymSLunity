@@ -27,7 +27,7 @@ Es fragt nach den Domains beider Instanzen, dem Installationsverzeichnis, der HT
 2. installiert es fehlende Pakete (Nginx, Certbot, PHP 8.4 mit Erweiterungen). Ein vorhandenes anderes PHP bleibt Standard; fehlt PHP 8.4 in den Paketquellen, fragt es vor dem Hinzufügen von `ppa:ondrej/php` bzw. `packages.sury.org`. Vorhandene Pakete werden nicht aktualisiert,
 3. legt Benutzer, Verzeichnisse, `.env`-Dateien, PHP-FPM-Pool, Nginx-Site und Zertifikat an. Nginx und PHP-FPM werden nur neu geladen, nicht neu gestartet,
 4. stellt das neueste Release in beiden Instanzen bereit und startet Queue-Worker und Scheduler als systemd-Dienste (`<name>-queue@<instanz>`, `<name>-schedule@<instanz>.timer`) statt Cron,
-5. richtet den Deploy-Schlüssel ein und gibt am Ende die `gh`-Befehle aus, die Secrets und Variablen in GitHub setzen (Schritt 5). Sie laufen auf einem Rechner mit angemeldeter GitHub-CLI.
+5. richtet den Deploy-Schlüssel ein. Beschränkt der SSH-Server die Anmeldung mit `AllowUsers` oder `AllowGroups`, ergänzt es nach Rückfrage den Demo-Benutzer in `/etc/ssh/sshd_config.d/<name>.conf`; bestehende Einträge bleiben gültig. Am Ende gibt es die `gh`-Befehle aus, die Secrets und Variablen in GitHub setzen (Schritt 5). Sie laufen auf einem Rechner mit angemeldeter GitHub-CLI.
 
 Schlägt ein Schritt fehl oder wird das Skript mit Strg+C abgebrochen, macht es alle bisherigen Änderungen in umgekehrter Reihenfolge rückgängig, einschließlich der dabei installierten Pakete. Dasselbe Protokoll unter `/var/lib/gymslunity-demo-installer/` nutzt die Deinstallation:
 

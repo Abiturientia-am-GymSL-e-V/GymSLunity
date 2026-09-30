@@ -51,6 +51,8 @@ completed=false
 work_dir=""
 deploy_key=""
 key_owner=root
+sshd_allow=""
+readonly sshd_dropin_dir=/etc/ssh/sshd_config.d
 
 # --- Output and questions ----------------------------------------------------
 
@@ -279,6 +281,13 @@ undo_remove_user() {
     fi
 }
 
+undo_remove_sshd_dropin() {
+    rm -f -- "$1"
+    if sshd -t 2> /dev/null && systemctl is-active -q ssh; then
+        systemctl reload ssh
+    fi
+}
+
 undo_remove_apt_source() {
     rm -f -- "$@"
     apt-get update -qq || true
@@ -338,6 +347,19 @@ random_base64() {
     openssl rand -base64 32
 }
 
+# Prints the AllowUsers/AllowGroups lines sshd needs so that the demo user
+# may log in, or nothing if it already may (or sshd restricts nothing).
+sshd_missing_allow() {
+    local config
+    config="$(sshd -T 2> /dev/null)" || return 0
+    if grep -q '^allowusers ' <<< "$config" && ! grep -qx "allowusers $DEMO_NAME" <<< "$config"; then
+        echo "AllowUsers $DEMO_NAME"
+    fi
+    if grep -q '^allowgroups ' <<< "$config" && ! grep -qx "allowgroups $DEMO_NAME" <<< "$config"; then
+        echo "AllowGroups $DEMO_NAME"
+    fi
+}
+
 detect_ssh_port() {
     local port
     port="$(sshd -T 2> /dev/null | awk '$1 == "port" { print $2; exit }')" || true
@@ -376,6 +398,7 @@ Umgebungsvariablen (Antworten auf die Rückfragen):
   DEMO_MAIL_FROM         Absenderadresse (noreply@<release-domain>)
   DEMO_GITHUB_DEPLOY     1/0: Deploy-Schlüssel für GitHub Actions einrichten (1)
   DEMO_SSH_HOST, DEMO_SSH_PORT   SSH-Adresse des Servers für GitHub Actions
+  DEMO_SSHD_ALLOW        1/0: Demo-Benutzer bei AllowUsers/AllowGroups ergänzen, falls nötig (1)
   DEMO_OPEN_FIREWALL     1/0: Ports 80/443 in ufw freigeben, falls aktiv (1)
   DEMO_RELEASE_TAG       Release für das erste Deployment (neuestes)
   GYMSLUNITY_REPO        GitHub-Repository ($repo)
@@ -468,6 +491,26 @@ configure() {
         # over SSH without a sudo password.
         key_owner=${SUDO_USER:-root}
         deploy_key="$(getent passwd "$key_owner" | cut -d: -f6)/$DEMO_NAME-deploy-key"
+
+        local missing_allow
+        missing_allow="$(sshd_missing_allow)"
+        if [[ -n $missing_allow ]]; then
+            echo
+            info "sshd lässt nur bestimmte Benutzer oder Gruppen zu (AllowUsers/AllowGroups),"
+            info "'$DEMO_NAME' ist nicht dabei. Ohne Freigabe scheitern die Deployments."
+            if ! grep -Eqi "^[[:space:]]*Include[[:space:]]+$sshd_dropin_dir/\*\.conf" /etc/ssh/sshd_config 2> /dev/null; then
+                warn "/etc/ssh/sshd_config bindet $sshd_dropin_dir nicht ein. Bitte '$DEMO_NAME' dort selbst bei AllowUsers/AllowGroups ergänzen."
+            else
+                local allow_default=y
+                [[ ${DEMO_SSHD_ALLOW:-1} == 0 ]] && allow_default=n
+                info "Die bestehenden Einträge bleiben erhalten, es wird nur '$DEMO_NAME' ergänzt."
+                if confirm "Freigabe in $sshd_dropin_dir/$DEMO_NAME.conf anlegen?" "$allow_default"; then
+                    sshd_allow=$missing_allow
+                else
+                    warn "Dann '$DEMO_NAME' bitte selbst bei AllowUsers/AllowGroups ergänzen."
+                fi
+            fi
+        fi
     else
         github_deploy=false
     fi
@@ -504,6 +547,7 @@ check_conflicts() {
         "/etc/systemd/system/$DEMO_NAME-schedule@.timer" \
         "/etc/letsencrypt/renewal/$DEMO_NAME.conf" \
         "/var/www/$DEMO_NAME-acme" \
+        "$sshd_dropin_dir/$DEMO_NAME.conf" \
         ${deploy_key:+"$deploy_key"}; do
         [[ ! -e $path ]] || problems+=("$path existiert bereits.")
     done
@@ -555,6 +599,7 @@ summary() {
     info "HTTPS:             $DEMO_TLS"
     info "Zurücksetzung:     täglich um $DEMO_RESET_AT"
     info "GitHub Actions:    $($github_deploy && echo "ja, SSH $DEMO_SSH_HOST:$DEMO_SSH_PORT" || echo nein)"
+    [[ -z $sshd_allow ]] || info "SSH-Freigabe:      $sshd_allow ($sshd_dropin_dir/$DEMO_NAME.conf)"
     echo
     info "Beide Instanzen löschen bei jedem Deployment und jede Nacht alle Daten."
     info "Niemals auf einem Server mit echten Vereinsdaten im selben Verzeichnis betreiben."
@@ -1166,12 +1211,32 @@ setup_deploy_key() {
         ssh_target="ssh://$DEMO_NAME@$DEMO_SSH_HOST:$DEMO_SSH_PORT"
     fi
 
+    if [[ -n $sshd_allow ]]; then
+        # AllowUsers and AllowGroups add up across files, the existing
+        # entries stay valid.
+        local dropin="$sshd_dropin_dir/$DEMO_NAME.conf"
+        record core undo_remove_sshd_dropin "$dropin"
+        install -m 0644 /dev/null "$dropin"
+        {
+            echo "# Erzeugt von install-demo-server.sh: Deployments der GitHub-Demo '$DEMO_NAME'."
+            echo "$sshd_allow"
+        } > "$dropin"
+        sshd -t || die "Die SSH-Konfiguration ist mit $dropin ungültig (sshd -t)."
+        if systemctl is-active -q ssh; then
+            systemctl reload ssh
+        fi
+        [[ -z "$(sshd_missing_allow)" ]] || die "sshd übernimmt die Freigabe aus $dropin nicht."
+        info "sshd lässt '$DEMO_NAME' zu ($dropin)."
+    fi
+
     local sshd_config
     if sshd_config="$(sshd -T 2> /dev/null)"; then
-        grep -Eq '^(allowusers|allowgroups) ' <<< "$sshd_config" &&
+        if [[ -n "$(sshd_missing_allow)" ]]; then
             warn "sshd beschränkt die Anmeldung mit AllowUsers/AllowGroups. '$DEMO_NAME' dort ergänzen, sonst scheitern die Deployments."
-        grep -q '^pubkeyauthentication no' <<< "$sshd_config" &&
+        fi
+        if grep -q '^pubkeyauthentication no' <<< "$sshd_config"; then
             warn "sshd erlaubt keine Anmeldung mit Schlüsseln (PubkeyAuthentication no)."
+        fi
     else
         warn "Kein SSH-Server gefunden. GitHub Actions braucht SSH-Zugang zu diesem Server."
     fi
@@ -1301,7 +1366,7 @@ uninstall_demo() {
     [[ -f $state_dir/config ]] || warn "Die Installation wurde nicht abgeschlossen; es wird entfernt, was angelegt wurde."
     echo
     info "Entfernt werden Benutzer, Verzeichnisse mit allen Demo-Daten, Nginx-Site,"
-    info "PHP-FPM-Pool, Dienste, Deploy-Skript und das Let's-Encrypt-Zertifikat der Demo."
+    info "PHP-FPM-Pool, Dienste, Deploy-Skript, SSH-Freigabe und das Let's-Encrypt-Zertifikat der Demo."
     confirm "Demo '$DEMO_NAME' vollständig entfernen?" "$($assume_yes && echo y || echo n)" || exit 1
 
     local with_packages=false entry extras=()
