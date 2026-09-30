@@ -11,6 +11,7 @@ use App\Http\Requests\Configuration\MemberFieldRequest;
 use App\Members\MemberFields;
 use App\Models\ClubSetting;
 use App\Models\Member;
+use App\Models\MemberAssignment;
 use App\Models\MemberChange;
 use App\Models\MemberFieldDefinition;
 use Illuminate\Http\RedirectResponse;
@@ -57,11 +58,16 @@ class MemberFieldController extends Controller
             if ($current->exists && in_array($current->key, ['first_name', 'last_name', 'membership_type'], true) && (! $data['is_active'] || ! $data['required'])) {
                 throw ValidationException::withMessages(['is_active' => 'Vorname, Nachname und Mitgliedschaft bleiben aktive Pflichtfelder.']);
             }
-            if ($current->exists && $data['type'] !== $current->type && $this->hasValues($current->key)) {
+            if ($current->exists && $data['type'] !== $current->type && $this->hasValues($current)) {
                 throw ValidationException::withMessages(['type' => 'Für dieses Feld sind bereits Werte gespeichert. Bitte ein neues Feld mit dem gewünschten Datentyp anlegen.']);
             }
-            $selfserviceVisible = (bool) ($data['selfservice_visible'] ?? $current->selfservice_visible ?? $current->selfservice_editable ?? false);
-            $selfserviceEditable = (bool) ($data['selfservice_editable'] ?? $current->selfservice_editable ?? false);
+            $temporal = in_array($data['type'], MemberFieldDefinition::TEMPORAL_TYPES, true);
+            if (! $temporal && $data['section'] === MemberFieldDefinition::ASSIGNMENT_SECTION) {
+                throw ValidationException::withMessages(['section' => 'Dieser Abschnitt ist Abteilungen, Ämtern und Ehrungen vorbehalten.']);
+            }
+            // Temporal fields are not part of the member form, filters or the portal (yet).
+            $selfserviceVisible = ! $temporal && (bool) ($data['selfservice_visible'] ?? $current->selfservice_visible ?? $current->selfservice_editable ?? false);
+            $selfserviceEditable = ! $temporal && (bool) ($data['selfservice_editable'] ?? $current->selfservice_editable ?? false);
             if ($selfserviceEditable && ! $selfserviceVisible) {
                 throw ValidationException::withMessages(['selfservice_editable' => 'Ein im Mitgliederportal änderbares Feld muss dort auch angezeigt werden.']);
             }
@@ -71,14 +77,19 @@ class MemberFieldController extends Controller
             $values = Arr::except($data, ['version', 'remove_options']);
             $values['selfservice_visible'] = $selfserviceVisible;
             $values['selfservice_editable'] = $selfserviceEditable;
-            if ($data['type'] !== 'select') {
-                $values['options'] = [];
-            } elseif ($data['required'] && ! array_filter($data['options'], fn ($option) => $option['active'])) {
+            $values['allow_multiple'] = $data['type'] === 'office' && (bool) ($data['allow_multiple'] ?? false);
+            if ($temporal) {
+                $values = [...$values, 'section' => MemberFieldDefinition::ASSIGNMENT_SECTION, 'required' => false, 'filterable' => false, 'show_in_table' => false];
+            }
+            $values['options'] = $data['type'] === 'select' || $temporal
+                ? array_map(fn (array $option): array => $this->option($data['type'], $option), $data['options'])
+                : [];
+            if ($data['type'] === 'select' && $data['required'] && ! array_filter($data['options'], fn ($option) => $option['active'])) {
                 throw ValidationException::withMessages(['options' => 'Ein Auswahl-Pflichtfeld benötigt mindestens eine aktive Option.']);
             }
             // Removed options remain as inactive labels for existing data and history.
             foreach ($current->options ?? [] as $option) {
-                if ($data['type'] === 'select' && ! in_array($option['value'], array_column($values['options'], 'value'), true)) {
+                if (($data['type'] === 'select' || $temporal) && ! in_array($option['value'], array_column($values['options'], 'value'), true)) {
                     if (in_array($option['value'], $data['remove_options'] ?? [], true)) {
                         if ($this->optionIsInUse($current, $option['value'])) {
                             throw ValidationException::withMessages(['options' => 'Diese Option wird in Mitgliedern oder der Änderungshistorie verwendet. Bitte stattdessen deaktivieren.']);
@@ -142,8 +153,30 @@ class MemberFieldController extends Controller
         return $settings;
     }
 
-    private function hasValues(string $key): bool
+    /**
+     * Only the attributes meaningful for the field type are kept.
+     *
+     * @param  array<string, mixed>  $option
+     * @return array<string, mixed>
+     */
+    private function option(string $type, array $option): array
     {
+        $base = ['value' => $option['value'], 'label' => $option['label'], 'active' => (bool) $option['active']];
+
+        return match ($type) {
+            'office' => [...$base, 'board' => (bool) ($option['board'] ?? false), 'mandatory' => (bool) ($option['mandatory'] ?? false),
+                'max_holders' => isset($option['max_holders']) ? (int) $option['max_holders'] : null],
+            'honor' => [...$base, 'repeatable' => (bool) ($option['repeatable'] ?? false)],
+            default => $base,
+        };
+    }
+
+    private function hasValues(MemberFieldDefinition $field): bool
+    {
+        if ($field->isTemporal()) {
+            return MemberAssignment::query()->where('field_key', $field->key)->exists();
+        }
+        $key = $field->key;
         foreach (Member::query()->select('id', 'custom_values')->cursor() as $member) {
             $value = ($member->custom_values ?? [])[$key] ?? null;
             if ($value !== null && $value !== '') {
@@ -157,6 +190,21 @@ class MemberFieldController extends Controller
     private function optionIsInUse(MemberFieldDefinition $field, string $value): bool
     {
         if (! $field->exists) {
+            return false;
+        }
+        if ($field->isTemporal()) {
+            if (MemberAssignment::query()->where('field_key', $field->key)->where('option_value', $value)->exists()) {
+                return true;
+            }
+            $history = MemberChange::query()->where(fn ($query) => $query->whereNotNull('before->'.$field->key)->orWhereNotNull('after->'.$field->key));
+            foreach ($history->cursor() as $change) {
+                foreach ([$change->before[$field->key] ?? [], $change->after[$field->key] ?? []] as $rows) {
+                    if (is_array($rows) && in_array($value, array_column($rows, 'option'), true)) {
+                        return true;
+                    }
+                }
+            }
+
             return false;
         }
         $memberQuery = Member::query();

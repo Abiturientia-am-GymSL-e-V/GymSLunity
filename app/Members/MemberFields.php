@@ -35,10 +35,15 @@ final class MemberFields
         return array_values(array_diff([...Member::LIST_FIELDS, ...self::ADDITIONAL_FIELDS], ['id', 'member_number', 'custom_values']));
     }
 
-    /** @return list<string> */
+    /**
+     * Keys writable through the member form. Department, office and honor
+     * fields change only through MemberAssignments.
+     *
+     * @return list<string>
+     */
     public static function writable(): array
     {
-        return array_values(MemberFieldDefinition::query()->where('is_active', true)->orderBy('id')->pluck('key')->map(fn ($key): string => (string) $key)->all());
+        return array_values(MemberFieldDefinition::query()->where('is_active', true)->whereNotIn('type', MemberFieldDefinition::TEMPORAL_TYPES)->orderBy('id')->pluck('key')->map(fn ($key): string => (string) $key)->all());
     }
 
     /** @return array<string, mixed> */

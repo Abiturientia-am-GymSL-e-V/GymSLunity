@@ -7,6 +7,7 @@ namespace App\Backup;
 use App\Configuration\ClubSettings;
 use App\Configuration\MailSettingsData;
 use App\Members\MemberFields;
+use App\Models\MemberFieldDefinition;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -19,19 +20,19 @@ class ConfigurationBackup
 {
     private const FORMAT = 'gymslunity-configuration-backup';
 
-    private const VERSION = 2;
+    private const VERSION = 3;
 
     /** @var list<string> */
     private const CLUB_COLUMNS = ['id', 'data', 'version', 'fields_version', 'created_at', 'updated_at'];
 
     /** @var list<string> */
-    private const FIELD_COLUMNS = ['id', 'key', 'label', 'type', 'section', 'position', 'is_active', 'is_custom', 'required', 'filterable', 'show_in_table', 'selfservice_visible', 'selfservice_editable', 'options', 'max_length', 'created_at', 'updated_at'];
+    private const FIELD_COLUMNS = ['id', 'key', 'label', 'type', 'section', 'position', 'is_active', 'is_custom', 'required', 'filterable', 'show_in_table', 'selfservice_visible', 'selfservice_editable', 'allow_multiple', 'options', 'max_length', 'created_at', 'updated_at'];
 
     /** @var list<string> */
     private const MAIL_COLUMNS = ['id', 'driver', 'from_address', 'from_name', 'reply_to_address', 'reply_to_name', 'smtp_host', 'smtp_port', 'smtp_security', 'smtp_username', 'smtp_password', 'smtp_timeout', 'smtp_local_domain', 'sendmail_path', 'version', 'created_at', 'updated_at'];
 
     /** @var list<string> */
-    private const FIELD_TYPES = ['text', 'select', 'date', 'email', 'tel', 'decimal', 'number', 'boolean'];
+    private const FIELD_TYPES = ['text', 'select', 'date', 'email', 'tel', 'decimal', 'number', 'boolean', ...MemberFieldDefinition::TEMPORAL_TYPES];
 
     public function __construct(
         private readonly ClubSettings $clubSettings,
@@ -72,7 +73,7 @@ class ConfigurationBackup
         }
         if (! is_array($document)
             || ($document['format'] ?? null) !== self::FORMAT
-            || ! in_array($document['format_version'] ?? null, [1, self::VERSION], true)
+            || ! in_array($document['format_version'] ?? null, [1, 2, self::VERSION], true)
             || ! is_array($document['payload'] ?? null)
             || ! is_string($document['checksum'] ?? null)) {
             throw new RuntimeException('Format oder Version der Konfigurationssicherung wird nicht unterstützt.');
@@ -87,6 +88,9 @@ class ConfigurationBackup
         }
         if ($document['format_version'] === 1) {
             $payload = $this->upgradeVersionOnePayload($payload);
+        }
+        if ($document['format_version'] < 3) {
+            $payload = $this->upgradeVersionTwoPayload($payload);
         }
         $club = $this->validatedRow($payload['club_settings'] ?? null, self::CLUB_COLUMNS, 'Vereinskonfiguration');
         $mail = $this->validatedRow($payload['mail_settings'] ?? null, self::MAIL_COLUMNS, 'E-Mail-Konfiguration');
@@ -121,6 +125,7 @@ class ConfigurationBackup
                 $mail['updated_at'] = now();
                 DB::table('club_settings')->where('id', 1)->update($club);
                 DB::table('mail_settings')->where('id', 1)->update($mail);
+                $this->assertAssignmentsKeepTheirFields($validatedFields);
                 DB::table('member_field_definitions')->delete();
                 DB::table('member_field_definitions')->insert($validatedFields);
             });
@@ -209,7 +214,7 @@ class ConfigurationBackup
         $validator = Validator::make($field, [
             'key' => ['required', 'string', 'regex:/^[a-z][a-z0-9_]{0,63}$/'],
             'type' => ['required', Rule::in(self::FIELD_TYPES)],
-            'section' => ['required', Rule::in(array_keys(MemberFields::SECTIONS))],
+            'section' => ['required', Rule::in([...array_keys(MemberFields::SECTIONS), MemberFieldDefinition::ASSIGNMENT_SECTION])],
         ]);
         if ($validator->fails()) {
             throw new RuntimeException('Die Mitgliedsfelder in der Sicherung enthalten unzulässige Werte.');
@@ -306,6 +311,54 @@ class ConfigurationBackup
         }, $fields);
 
         return $payload;
+    }
+
+    /**
+     * Backups before format 3 know no office fields; nothing allows multiple offices.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function upgradeVersionTwoPayload(array $payload): array
+    {
+        $fields = $payload['member_field_definitions'] ?? null;
+        if (! is_array($fields)) {
+            return $payload;
+        }
+        $payload['member_field_definitions'] = array_map(function (mixed $field): mixed {
+            if (! is_array($field) || array_key_exists('allow_multiple', $field)) {
+                return $field;
+            }
+            $upgraded = [];
+            foreach ($field as $key => $value) {
+                $upgraded[$key] = $value;
+                if ($key === 'selfservice_editable') {
+                    $upgraded['allow_multiple'] = false;
+                }
+            }
+
+            return $upgraded;
+        }, $fields);
+
+        return $payload;
+    }
+
+    /**
+     * Assignments reference their field by key. A restore must not drop such a
+     * field or turn it into another type, otherwise the assignments lose their meaning.
+     *
+     * @param  list<array<string, mixed>>  $fields
+     */
+    private function assertAssignmentsKeepTheirFields(array $fields): void
+    {
+        $restored = array_column($fields, 'type', 'key');
+        $used = DB::table('member_assignments')->distinct()->pluck('field_key');
+        $current = DB::table('member_field_definitions')->whereIn('key', $used)->pluck('type', 'key');
+        foreach ($used as $key) {
+            if (($restored[$key] ?? null) !== ($current[$key] ?? null)) {
+                throw new RuntimeException('Die Sicherung enthält das Feld „'.$key.'“ nicht mehr oder mit anderem Typ, obwohl dafür Zuordnungen gespeichert sind. Die Wiederherstellung wurde abgebrochen.');
+            }
+        }
     }
 
     private function applicationVersion(): ?string

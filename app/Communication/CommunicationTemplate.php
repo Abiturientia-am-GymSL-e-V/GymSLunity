@@ -34,6 +34,7 @@ final class CommunicationTemplate
     {
         $this->fields = MemberFieldDefinition::query()
             ->where('is_active', true)
+            ->whereNotIn('type', MemberFieldDefinition::TEMPORAL_TYPES)
             ->where(function ($query): void {
                 $query->where('is_custom', true)->orWhereIn('key', self::SAFE_MEMBER_FIELDS);
             })

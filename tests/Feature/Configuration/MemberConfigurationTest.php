@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Configuration;
 
+use App\Members\MemberAssignments;
 use App\Members\MemberFields;
 use App\Models\ClubSetting;
 use App\Models\Member;
+use App\Models\MemberAssignment;
 use App\Models\MemberChange;
 use App\Models\MemberFieldDefinition;
 use App\Models\User;
@@ -244,5 +246,61 @@ class MemberConfigurationTest extends TestCase
             'selfservice_editable' => true,
         ]))->assertSessionHasErrors('selfservice_editable');
         $this->assertFalse($email->fresh()->selfservice_editable);
+    }
+
+    public function test_temporal_fields_get_their_own_section_and_type_specific_option_attributes(): void
+    {
+        $this->admin();
+        $office = $this->createField([
+            'label' => 'Vorstand', 'type' => 'office', 'section' => 'membership', 'required' => true, 'filterable' => true,
+            'show_in_table' => true, 'selfservice_visible' => true, 'selfservice_editable' => true, 'allow_multiple' => true,
+            'options' => [
+                ['value' => 'chair', 'label' => '1. Vorsitz', 'active' => true, 'board' => true, 'mandatory' => true, 'max_holders' => 1, 'repeatable' => true],
+                ['value' => 'auditor', 'label' => 'Kassenprüfung', 'active' => true],
+            ],
+        ]);
+
+        $this->assertSame('office', $office->type);
+        $this->assertSame(MemberFieldDefinition::ASSIGNMENT_SECTION, $office->section);
+        $this->assertTrue($office->allow_multiple);
+        $this->assertFalse($office->required || $office->filterable || $office->show_in_table || $office->selfservice_visible || $office->selfservice_editable);
+        $this->assertSame([
+            ['value' => 'chair', 'label' => '1. Vorsitz', 'active' => true, 'board' => true, 'mandatory' => true, 'max_holders' => 1],
+            ['value' => 'auditor', 'label' => 'Kassenprüfung', 'active' => true, 'board' => false, 'mandatory' => false, 'max_holders' => null],
+        ], $office->options);
+
+        $honor = $this->createField(['label' => 'Ehrungen', 'type' => 'honor', 'allow_multiple' => true, 'options' => [['value' => 'gold', 'label' => 'Ehrennadel Gold', 'active' => true, 'repeatable' => true, 'board' => true]]]);
+        $this->assertFalse($honor->allow_multiple);
+        $this->assertSame([['value' => 'gold', 'label' => 'Ehrennadel Gold', 'active' => true, 'repeatable' => true]], $honor->options);
+
+        $select = $this->createField(['options' => [['value' => 'a', 'label' => 'Gruppe A', 'active' => true, 'board' => true]]]);
+        $this->assertSame([['value' => 'a', 'label' => 'Gruppe A', 'active' => true]], $select->options);
+        $this->post(route('configuration.fields.store'), $this->fieldData(['section' => MemberFieldDefinition::ASSIGNMENT_SECTION]))->assertSessionHasErrors('section');
+        $this->post(route('configuration.fields.store'), $this->fieldData(['type' => 'office', 'options' => [['value' => 'x', 'label' => 'X', 'active' => true, 'max_holders' => 0]]]))->assertSessionHasErrors('options.0.max_holders');
+        $this->assertNotContains($office->key, MemberFields::writable());
+    }
+
+    public function test_temporal_field_types_and_used_options_are_protected(): void
+    {
+        $actor = $this->admin();
+        $field = $this->createField(['label' => 'Abteilungen', 'type' => 'department', 'options' => [
+            ['value' => 'football', 'label' => 'Fußball', 'active' => true], ['value' => 'gym', 'label' => 'Turnen', 'active' => true],
+            ['value' => 'chess', 'label' => 'Schach', 'active' => true],
+        ]]);
+        $member = Member::factory()->create();
+        $assignments = app(MemberAssignments::class);
+        $assignments->add($member, $actor, 0, $field->key, ['option' => 'football', 'starts_on' => '2020-01-01']);
+        $assignments->add($member, $actor, 1, $field->key, ['option' => 'gym', 'starts_on' => '2020-01-01']);
+        $assignments->delete($member, $actor, 2, MemberAssignment::query()->where('option_value', 'gym')->sole());
+        $update = fn (array $overrides) => $this->patch(route('configuration.fields.update', $field), $this->fieldData([
+            'label' => 'Abteilungen', 'type' => 'department', 'options' => [['value' => 'football', 'label' => 'Fußball', 'active' => true]], ...$overrides,
+        ]));
+
+        $update(['type' => 'office'])->assertSessionHasErrors('type');
+        $update(['remove_options' => ['gym']])->assertSessionHasErrors('options');
+        $update(['remove_options' => ['chess']])->assertSessionHasNoErrors();
+        $this->assertSame(['football' => true, 'gym' => false], array_column($field->fresh()->options, 'active', 'value'));
+        $update(['options' => [], 'remove_options' => ['gym']])->assertSessionHasErrors('options');
+        $update(['options' => [], 'remove_options' => ['football']])->assertSessionHasErrors('options');
     }
 }
