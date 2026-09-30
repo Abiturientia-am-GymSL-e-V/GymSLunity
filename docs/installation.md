@@ -219,7 +219,8 @@ Wähle **eine** der beiden Varianten.
     cat /var/www/gymslunity/storage/app/setup-token
     ```
 
-3. Gib Adresse, Datenbankzugang und das erste Administratorkonto ein.
+3. Gib Adresse und Datenbankzugang ein. Der Installer testet die Verbindung, bevor er die `.env` schreibt, und meldet falsche Zugangsdaten direkt im Formular.
+4. Lege im zweiten Schritt das erste Administratorkonto an. Erst dabei werden die Datenbanktabellen angelegt; bis dahin leitet jede Seite auf `/install` um.
 
 Der Installer legt die `.env` an, erzeugt zufällige Werte für `APP_KEY` und `PASSKEYS_USER_HANDLE_SECRET`, führt alle Migrationen aus und legt das Administratorkonto an. Danach ist er gesperrt. Entziehe anschließend das temporäre Schreibrecht und schütze die `.env`:
 

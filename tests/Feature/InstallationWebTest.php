@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class InstallationWebTest extends TestCase
@@ -41,6 +42,19 @@ class InstallationWebTest extends TestCase
         } finally {
             File::delete($file);
         }
+    }
+
+    public function test_pages_redirect_to_the_installer_until_the_database_is_migrated(): void
+    {
+        Schema::drop('club_settings');
+
+        $this->get(route('home'))->assertRedirect(route('install.create'));
+        $this->get(route('login'))->assertRedirect(route('install.create'));
+    }
+
+    public function test_pages_do_not_redirect_once_the_database_is_migrated(): void
+    {
+        $this->get(route('home'))->assertOk();
     }
 
     public function test_browser_installer_is_disabled_after_a_user_exists(): void

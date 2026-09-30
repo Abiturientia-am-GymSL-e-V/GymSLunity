@@ -72,6 +72,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Das Anwendungsverzeichnis ist für PHP nicht beschreibbar. Erlaube dies vorübergehend für die Einrichtung.';
     }
 
+    // Test the credentials before writing .env: afterwards Laravel boots
+    // with them, and a wrong value only surfaces as a server error.
+    if ($errors === [] && $connection !== 'sqlite') {
+        if (! extension_loaded('pdo_mysql')) {
+            $errors[] = 'Die PHP-Erweiterung pdo_mysql fehlt.';
+        } elseif (! ctype_digit($dbPort)) {
+            $errors[] = 'Der Port muss eine Zahl sein.';
+        } elseif (preg_match('/[;\s]/', $dbHost.$dbDatabase) === 1) {
+            $errors[] = 'Host und Datenbankname dürfen keine Leerzeichen oder Semikolons enthalten.';
+        } else {
+            try {
+                new PDO(
+                    'mysql:host='.$dbHost.';port='.$dbPort.';dbname='.$dbDatabase.';charset=utf8mb4',
+                    $dbUsername,
+                    $dbPassword,
+                    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 5],
+                );
+            } catch (PDOException $exception) {
+                $errors[] = match ((int) ($exception->errorInfo[1] ?? $exception->getCode())) {
+                    1045 => 'Die Datenbank hat die Anmeldung abgelehnt. Bitte Benutzername und Passwort prüfen.',
+                    1044, 1049 => 'Die Datenbank „'.$dbDatabase.'“ existiert nicht oder der Benutzer hat keinen Zugriff darauf.',
+                    2002, 2005 => 'Der Datenbankserver „'.$dbHost.'“ ist nicht erreichbar. Bitte Host und Port prüfen.',
+                    default => 'Die Verbindung zur Datenbank ist fehlgeschlagen: '.$exception->getMessage(),
+                };
+            }
+        }
+    } elseif ($errors === [] && ! extension_loaded('pdo_sqlite')) {
+        $errors[] = 'Die PHP-Erweiterung pdo_sqlite fehlt.';
+    }
+
     if ($errors === []) {
         $example = file_get_contents($basePath.'/.env.example');
         if (! is_string($example)) {
