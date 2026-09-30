@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Members;
 
 use App\Models\Member;
+use App\Models\MemberFieldDefinition;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Applies filters chosen field by field (as in the signature lists) on the
  * server. Core fields are member columns, custom fields live in the
- * custom_values JSON column. Unknown keys never reach the query.
+ * custom_values JSON column, department, office and honor fields in
+ * member_assignments. Unknown keys never reach the query.
  */
 final class MemberFieldFilter
 {
@@ -51,6 +53,11 @@ final class MemberFieldFilter
             $column = $field['custom'] ? 'custom_values->'.$field['key'] : $field['key'];
             $value = trim($filter['value']);
             $to = trim($filter['value_to']);
+            if (in_array($field['type'], MemberFieldDefinition::TEMPORAL_TYPES, true)) {
+                CurrentAssignments::filter($query, $field['key'], $value);
+
+                continue;
+            }
 
             $textual = in_array($field['type'], ['text', 'email', 'tel', 'select'], true);
             if ($value === self::NONE) {

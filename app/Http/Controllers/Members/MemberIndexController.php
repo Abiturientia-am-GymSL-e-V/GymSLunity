@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Members;
 use App\Configuration\ClubSettings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Members\IndexMembersRequest;
+use App\Members\CurrentAssignments;
 use App\Members\MemberDirectory;
 use App\Members\MemberFields;
 use App\Members\WelcomeMails;
@@ -33,13 +34,22 @@ class MemberIndexController extends Controller
         // JSON may contain hidden or archived fields. Only configured directory
         // fields leave the server in a list response.
         $inactive = MemberFieldDefinition::query()->where('is_active', false)->where('is_custom', false)->pluck('key')->all();
-        $members->getCollection()->each(function (Member $member) use ($customFields, $inactive): void {
+        $temporalKeys = $customFields->filter(fn (MemberFieldDefinition $field): bool => $field->isTemporal())->keys()->all();
+        if ($temporalKeys !== []) {
+            $members->getCollection()->load('currentAssignments');
+        }
+        $members->getCollection()->each(function (Member $member) use ($customFields, $inactive, $temporalKeys): void {
             foreach ($inactive as $key) {
                 if (in_array($key, Member::LIST_FIELDS, true)) {
                     $member->setAttribute($key, null);
                 }
             }
             $member->custom_values = Arr::only($member->custom_values ?? [], $customFields->keys()->all());
+            if ($temporalKeys !== []) {
+                // Current option values of department, office and honor fields.
+                $member->setAttribute('assignments', (object) Arr::only(CurrentAssignments::values($member), $temporalKeys));
+                $member->unsetRelation('currentAssignments');
+            }
         });
         $members->appends(array_filter($filters, fn ($value) => $value !== ''));
 

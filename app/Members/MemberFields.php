@@ -29,6 +29,8 @@ final class MemberFields
         'bank' => 'Bankverbindung & SEPA', 'account' => 'Abweichender Kontoinhaber', 'additional' => 'Weitere Angaben',
     ];
 
+    public const ASSIGNMENT_TITLE = 'Abteilungen, Ämter & Ehrungen';
+
     /** @return list<string> */
     public static function core(): array
     {
@@ -50,6 +52,17 @@ final class MemberFields
     public static function snapshot(Member $member): array
     {
         return [...Arr::only($member->attributesToArray(), self::core()), ...($member->custom_values ?? [])];
+    }
+
+    /**
+     * Snapshot for lists, exports and placeholders: department, office and
+     * honor fields hold the option values valid today.
+     *
+     * @return array<string, mixed>
+     */
+    public static function reportSnapshot(Member $member): array
+    {
+        return [...self::snapshot($member), ...CurrentAssignments::values($member)];
     }
 
     /** @return list<array{key: string, title: string, fields: list<array<string, mixed>>}> */
@@ -150,10 +163,21 @@ final class MemberFields
         ];
     }
 
-    /** @return list<array{key: string, title: string, fields: list<array<string, mixed>>}> */
+    /**
+     * Sections visible in the member portal. Department, office and honor
+     * fields are always read-only there.
+     *
+     * @return list<array{key: string, title: string, fields: list<array<string, mixed>>}>
+     */
     public static function selfserviceSections(?Member $member = null): array
     {
-        return array_values(collect(self::sections($member))
+        $assignments = self::temporalFields();
+        $sections = $assignments === [] ? self::sections($member) : [
+            ...self::sections($member),
+            ['key' => MemberFieldDefinition::ASSIGNMENT_SECTION, 'title' => self::ASSIGNMENT_TITLE, 'fields' => array_map(fn (array $field): array => [...$field, 'selfserviceEditable' => false], $assignments)],
+        ];
+
+        return array_values(collect($sections)
             ->map(fn (array $section): array => [
                 ...$section,
                 'fields' => array_values(array_map(
@@ -169,12 +193,26 @@ final class MemberFields
             ->all());
     }
 
-    /** @return list<array<string, mixed>> */
+    /**
+     * Fields for lists, filters, exports and imports, including active
+     * department, office and honor fields.
+     *
+     * @return list<array<string, mixed>>
+     */
     public static function directoryFields(): array
     {
-        return array_merge(...array_map(
+        return [...array_merge(...array_map(
             fn (array $section): array => $section['fields'],
             self::sections(),
-        ));
+        )), ...self::temporalFields()];
+    }
+
+    /** @return list<array<string, mixed>> active department, office and honor fields */
+    public static function temporalFields(): array
+    {
+        return array_values(MemberFieldDefinition::query()->where('is_active', true)->whereIn('type', MemberFieldDefinition::TEMPORAL_TYPES)
+            ->orderBy('position')->orderBy('id')->get()
+            ->map(fn (MemberFieldDefinition $definition): array => self::descriptor($definition))
+            ->all());
     }
 }

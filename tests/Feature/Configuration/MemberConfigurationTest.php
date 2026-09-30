@@ -263,7 +263,9 @@ class MemberConfigurationTest extends TestCase
         $this->assertSame('office', $office->type);
         $this->assertSame(MemberFieldDefinition::ASSIGNMENT_SECTION, $office->section);
         $this->assertTrue($office->allow_multiple);
-        $this->assertFalse($office->required || $office->filterable || $office->show_in_table || $office->selfservice_visible || $office->selfservice_editable);
+        $this->assertFalse($office->required || $office->selfservice_editable);
+        // Filters, table columns and the read-only portal display work with the current assignments.
+        $this->assertTrue($office->filterable && $office->show_in_table && $office->selfservice_visible);
         $this->assertSame([
             ['value' => 'chair', 'label' => '1. Vorsitz', 'active' => true, 'board' => true, 'mandatory' => true, 'max_holders' => 1],
             ['value' => 'auditor', 'label' => 'Kassenprüfung', 'active' => true, 'board' => false, 'mandatory' => false, 'max_holders' => null],

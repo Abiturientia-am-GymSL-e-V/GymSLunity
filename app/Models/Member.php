@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Casts\EncryptedString;
 use App\Members\MemberFields;
+use App\Support\Clock;
 use Carbon\CarbonImmutable;
 use Database\Factories\MemberFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -130,6 +131,12 @@ class Member extends Model
     public function assignments(): HasMany
     {
         return $this->hasMany(MemberAssignment::class);
+    }
+
+    /** @return HasMany<MemberAssignment, $this> assignments valid today */
+    public function currentAssignments(): HasMany
+    {
+        return $this->hasMany(MemberAssignment::class)->activeOn(Clock::today());
     }
 
     /** @return HasMany<MemberPasskey, $this> */

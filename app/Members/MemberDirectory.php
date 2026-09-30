@@ -31,6 +31,11 @@ final class MemberDirectory
         $customFields = MemberFieldDefinition::query()->where('is_active', true)->where('is_custom', true)->get()->keyBy('key');
         foreach ($filters['custom'] as $key => $value) {
             $type = $customFields->get($key)?->type;
+            if (in_array($type, MemberFieldDefinition::TEMPORAL_TYPES, true)) {
+                CurrentAssignments::filter($query, $key, (string) $value);
+
+                continue;
+            }
             $query->where('custom_values->'.$key, match ($type) {
                 'number' => (int) $value, 'boolean' => $value === '1', 'decimal' => number_format((float) $value, 2, '.', ''), default => $value,
             });

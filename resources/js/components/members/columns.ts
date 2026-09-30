@@ -1,3 +1,4 @@
+import { isTemporal } from '@/lib/memberFormatting';
 import type { MemberField, MemberSort } from '@/types/members';
 
 export type MemberColumnKey =
@@ -70,7 +71,7 @@ export function columnsFor(fields: MemberField[]): MemberColumn[] {
             .map((field) => ({
                 key: field.key as MemberColumnKey,
                 label: field.label,
-                sort: field.key as MemberSort,
+                sort: isTemporal(field) ? undefined : (field.key as MemberSort),
                 defaultVisible: field.showInTable,
                 field,
             })),

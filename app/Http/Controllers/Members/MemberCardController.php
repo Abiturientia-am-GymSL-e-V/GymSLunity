@@ -39,6 +39,14 @@ class MemberCardController extends Controller
             }
             $sections[] = ['title' => $section['title'], 'rows' => $rows];
         }
+        $assignments = MemberFields::assignments($member);
+        $rows = [];
+        foreach (MemberFields::assignmentFields($member) as $field) {
+            $rows[] = ['label' => $field['label'], 'value' => MemberReportValue::format($assignments[$field['key']] ?? null, $field)];
+        }
+        if ($rows !== []) {
+            $sections[] = ['title' => MemberFields::ASSIGNMENT_TITLE, 'rows' => $rows];
+        }
         $unknown = array_diff(array_keys($snapshot), $defined);
         if ($unknown !== []) {
             $sections[] = ['title' => 'Weitere gespeicherte Angaben', 'rows' => array_map(fn (string $key): array => ['label' => $key, 'value' => MemberReportValue::format($snapshot[$key])], $unknown)];

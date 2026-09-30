@@ -1,6 +1,6 @@
 # Planung: Zeitliche Zuordnungen zu Abteilungen, Funktionen/Ämtern und Ereignissen/Ehrungen
 
-Stand: 30.09.2026 · Status: **Alle fachlichen Fragen F1–F17 am 30.09.2026 entschieden (siehe Abschnitt 6.2); Umsetzung am 30.09.2026 freigegeben; Phasen 1 und 2 umgesetzt**
+Stand: 30.09.2026 · Status: **Alle fachlichen Fragen F1–F17 am 30.09.2026 entschieden (siehe Abschnitt 6.2); Umsetzung am 30.09.2026 freigegeben; Phasen 1 bis 3 umgesetzt**
 
 Kennzeichnung im Dokument:
 
@@ -313,6 +313,13 @@ Jede Phase ist ein eigener PR mit grünem `composer ci:check`. Wayfinder-Routen 
 | **4 – Übersichten**                        | Seiten und Routen `/aemter`, `/abteilungen` und `/ehrungen`, Sidebar, Gates, Exporte, Platzhalter `{{verein.vorstand}}`                                                                                                                                                                                  | `routes/web.php`, neue Controller unter `app/Http/Controllers/Members/`, `AppSidebar.vue`, neue Seiten unter `resources/js/pages/`                                         | Zugriffsschutz je Rolle, Stichtags- und Zeitraumfilter, Vakanzanzeige, Export mit Audit-Eintrag                                                                                                                                                                                                                                                         |
 | **5 – Migration Altfunktionen**            | Datenmigration `department_role` und `club_role` → Zuordnungen, Umstellung der Feldtypen, Entfernen der Sonderlogik, Demo-Daten und Seeder                                                                                                                                                               | Migration, `DemoData`, `DemoMembersSeeder`, bestehende Tests                                                                                                               | Migration auf Beispieldaten inklusive Ausgetretener. Idempotenz und Rollback-Pfad. Platzhalter in vorhandenen Vorlagen funktionieren weiter                                                                                                                                                                                                             |
 | **6 – Ausbau (optional)**                  | Zuordnungsimport, Massenbearbeitung, Abteilungsstatistik, fällige Jubiläen, spätere Entfernung der Altspalten                                                                                                                                                                                            | `BulkUpdateMembers`, `StatisticsReport`, Importseiten                                                                                                                      | Jeweils Feature-Tests                                                                                                                                                                                                                                                                                                                                   |
+
+Anmerkungen zur Umsetzung von Phase 3:
+
+- Filterwerte typisierter Felder: Optionswert = aktuell, `__any__` / `__none__` = aktuell beliebige / keine, `__ever__` = jemals beliebige, `__ever__:<Option>` = jemals diese Option. Bei Ehrungen entfallen die „Jemals“-Varianten, weil Ehrungen kein Ende haben.
+- Die festen Filter „Funktion in der Abteilung“ und „Funktion im Hauptverein“ bleiben bis zur Migration in Phase 5 bestehen.
+- Die Massenbearbeitung bietet typisierte Felder nicht an; „Zuordnung hinzufügen oder beenden“ für mehrere Mitglieder folgt in Phase 6.
+- Die Karteikarte zeigt die Zuordnungen mit Zeiträumen und in der Änderungshistorie.
 
 ---
 

@@ -28,6 +28,7 @@ import MemberPageHeader from '@/components/members/MemberPageHeader.vue';
 import MembersNav from '@/components/members/MembersNav.vue';
 import MemberTable from '@/components/members/MemberTable.vue';
 import SendWelcomeMails from '@/components/members/SendWelcomeMails.vue';
+import SearchableDropdown from '@/components/SearchableDropdown.vue';
 import StatusAlert from '@/components/StatusAlert.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,6 +51,7 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { index } from '@/routes/members';
+import { assignmentFilterOptions, isTemporal } from '@/lib/memberFormatting';
 import { restoreMemberList } from '@/lib/memberNavigation';
 import type {
     MemberFilterKey,
@@ -179,7 +181,11 @@ const activeFilters = computed(() => [
                         ? value === '1'
                             ? 'Ja'
                             : 'Nein'
-                        : field?.options[value] || value,
+                        : field && isTemporal(field)
+                          ? assignmentFilterOptions(field).find(
+                                (option) => option.value === value,
+                            )?.label || value
+                          : field?.options[value] || value,
             };
         }),
 ]);
@@ -489,8 +495,25 @@ const pages = computed(() => {
                         class="text-xs text-muted-foreground"
                         >{{ field.label }}</Label
                     >
+                    <SearchableDropdown
+                        v-if="isTemporal(field)"
+                        :id="`filter-${field.key}`"
+                        :model-value="draft.custom[field.key] || ''"
+                        :options="[
+                            { value: '', label: 'Alle' },
+                            ...assignmentFilterOptions(field),
+                        ]"
+                        placeholder="Alle"
+                        search-placeholder="Auswahl suchen"
+                        empty-text="Keine Auswahl gefunden."
+                        :aria-label="field.label"
+                        trigger-class="h-9 w-full rounded-md border border-input bg-background px-3"
+                        @update:model-value="
+                            filter(`custom:${field.key}`, $event)
+                        "
+                    />
                     <select
-                        v-if="
+                        v-else-if="
                             field.type === 'select' || field.type === 'boolean'
                         "
                         :id="`filter-${field.key}`"

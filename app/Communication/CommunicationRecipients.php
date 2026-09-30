@@ -27,6 +27,8 @@ final class CommunicationRecipients
             'direction' => 'asc',
         ]);
         MemberFieldFilter::apply($query, $filters['fields'] ?? []);
+        // Placeholders of department, office and honor fields need the current assignments.
+        $query->with('currentAssignments');
         $today = Clock::today()->toDateString();
 
         match ($filters['status']) {

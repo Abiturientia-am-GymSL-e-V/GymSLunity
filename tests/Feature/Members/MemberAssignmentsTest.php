@@ -280,6 +280,7 @@ class MemberAssignmentsTest extends TestCase
         $field = $this->office();
 
         $this->assertNotContains($field->key, MemberFields::writable());
-        $this->assertNotContains($field->key, array_column(MemberFields::directoryFields(), 'key'));
+        $this->assertNotContains($field->key, array_column(array_merge(...array_column(MemberFields::sections(), 'fields')), 'key'));
+        $this->assertContains($field->key, array_column(MemberFields::directoryFields(), 'key'));
     }
 }

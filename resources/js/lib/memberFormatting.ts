@@ -8,9 +8,11 @@ import { formatDateTime } from '@/lib/format';
 import { formatIban } from '@/lib/formatIban';
 
 export function memberValue(
-    value: MemberValue | undefined,
+    value: MemberValue | string[] | undefined,
     field?: MemberField,
 ): string {
+    if (isTemporal(field) || Array.isArray(value))
+        return currentAssignments(value, field);
     if (value === null || value === undefined || value === '')
         return field?.emptyLabel || 'Nicht hinterlegt';
     if (typeof value === 'boolean') return value ? 'Ja' : 'Nein';
@@ -32,7 +34,64 @@ export function memberValue(
     return field?.options[String(value)] || String(value);
 }
 
-const TEMPORAL_TYPES = ['department', 'office', 'honor'];
+export const TEMPORAL_TYPES = ['department', 'office', 'honor'];
+
+export function isTemporal(field?: { type: string }): boolean {
+    return TEMPORAL_TYPES.includes(field?.type ?? '');
+}
+
+/** Current options of a department, office or honor field in rank order. */
+function currentAssignments(
+    value: MemberValue | string[] | undefined,
+    field?: MemberField,
+): string {
+    const values = Array.isArray(value)
+        ? value
+        : value === null || value === undefined || value === ''
+          ? []
+          : [String(value)];
+    if (values.length === 0) return 'Keine';
+    const rank = Object.keys(field?.options ?? {});
+    const position = (option: string) =>
+        rank.includes(option) ? rank.indexOf(option) : rank.length;
+
+    return [...values]
+        .sort((a, b) => position(a) - position(b))
+        .map((option) => field?.options[option] || option)
+        .join(', ');
+}
+
+/**
+ * Filter choices of a department, office or honor field. Plain option values
+ * mean "currently", the "__ever__" variants "at any time". Honors never end,
+ * so "currently" already covers them.
+ */
+export function assignmentFilterOptions(field: {
+    type: string;
+    options: Record<string, string>;
+}): { value: string; label: string }[] {
+    const options = Object.entries(field.options);
+    if (field.type === 'honor')
+        return [
+            { value: '__any__', label: 'Beliebige' },
+            { value: '__none__', label: 'Keine' },
+            ...options.map(([value, label]) => ({ value, label })),
+        ];
+
+    return [
+        { value: '__any__', label: 'Aktuell: beliebige' },
+        { value: '__none__', label: 'Aktuell: keine' },
+        { value: '__ever__', label: 'Jemals: beliebige' },
+        ...options.map(([value, label]) => ({
+            value,
+            label: `Aktuell: ${label}`,
+        })),
+        ...options.map(([value, label]) => ({
+            value: `__ever__:${value}`,
+            label: `Jemals: ${label}`,
+        })),
+    ];
+}
 
 function day(value: string): string {
     return value.slice(0, 10).split('-').reverse().join('.');
@@ -56,8 +115,7 @@ export function assignmentLines(
     value: MemberValue | AssignmentSnapshot[] | undefined,
     field?: MemberField,
 ): string[] | null {
-    if (!Array.isArray(value) && !TEMPORAL_TYPES.includes(field?.type ?? ''))
-        return null;
+    if (!Array.isArray(value) && !isTemporal(field)) return null;
     if (!Array.isArray(value) || value.length === 0) return ['Keine'];
 
     return value.map((assignment) => {

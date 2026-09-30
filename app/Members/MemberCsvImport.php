@@ -7,7 +7,9 @@ namespace App\Members;
 use App\Configuration\ClubSettings;
 use App\Models\Member;
 use App\Models\User;
+use App\Support\Clock;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -165,7 +167,7 @@ final class MemberCsvImport
         return is_array($payload) && ($payload['user_id'] ?? null) === $user->getKey() ? $payload : null;
     }
 
-    public function import(string $token, User $user, CreateMember $create): int
+    public function import(string $token, User $user, CreateMember $create, MemberAssignments $assignments): int
     {
         $payload = $this->get($token, $user);
         if ($payload === null) {
@@ -183,12 +185,19 @@ final class MemberCsvImport
             throw ValidationException::withMessages(['form' => 'Der Import enthält inzwischen Fehler. Bitte die aktualisierte Vorschau prüfen.']);
         }
 
-        DB::transaction(function () use ($current, $user, $create, $payload): void {
+        $temporal = array_column(MemberFields::temporalFields(), 'key');
+        DB::transaction(function () use ($current, $user, $create, $assignments, $payload, $temporal): void {
+            $today = Clock::todayString();
             foreach ($current['valid_rows'] as $row) {
                 $number = (int) $row['values']['member_number'];
-                $values = $row['values'];
-                unset($values['member_number']);
-                $create->handle($user, $number, $values, $payload['configuration_version']);
+                $values = Arr::except($row['values'], ['member_number', ...$temporal]);
+                $member = $create->handle($user, $number, $values, $payload['configuration_version']);
+                // Department, office and honor values become assignments from the import date on.
+                foreach (Arr::only($row['values'], $temporal) as $key => $options) {
+                    foreach (is_array($options) ? $options : [] as $option) {
+                        $assignments->add($member, $user, (int) $member->lock_version, $key, ['option' => $option, 'starts_on' => $today], 'import');
+                    }
+                }
             }
         }, attempts: 3);
         Cache::forget($this->cacheKey($token));
@@ -378,6 +387,7 @@ final class MemberCsvImport
             } elseif (is_int($number)) {
                 $seen[$number] = $rawRow['line'];
             }
+            $errors = [...$errors, ...$this->assignmentErrors($values)];
             try {
                 MemberValidation::validateDates($values);
             } catch (ValidationException $exception) {
@@ -412,6 +422,9 @@ final class MemberCsvImport
                 $fields[$field['key']] = $field;
             }
         }
+        foreach (MemberFields::temporalFields() as $field) {
+            $fields[$field['key']] = $field;
+        }
         $normalized = [];
         foreach ($values as $key => $value) {
             $value = is_string($value) ? trim($value) : $value;
@@ -433,11 +446,57 @@ final class MemberCsvImport
                 'boolean' => $this->boolean($value),
                 'number' => is_string($value) && preg_match('/^-?\d+$/', $value) ? (int) $value : $value,
                 'decimal' => is_string($value) ? str_replace(',', '.', $value) : $value,
+                'department', 'office', 'honor' => $this->options((string) $value, $field),
                 default => $key === 'iban' && is_string($value) ? strtoupper(preg_replace('/\s+/', '', $value) ?? '') : $value,
             };
         }
 
         return $normalized;
+    }
+
+    /**
+     * Option values of a department, office or honor cell. A cell names one
+     * option or several separated by commas or semicolons, by value or label.
+     * Unknown names stay as they are and fail validation.
+     *
+     * @param  array<string, mixed>  $field
+     * @return list<string>
+     */
+    private function options(string $value, array $field): array
+    {
+        $lookup = [];
+        foreach ($field['activeOptions'] as $option => $label) {
+            $lookup[mb_strtolower((string) $option)] = (string) $option;
+            $lookup[mb_strtolower((string) $label)] ??= (string) $option;
+        }
+        $parts = isset($lookup[mb_strtolower($value)]) ? [$value] : (preg_split('/\s*[,;]\s*/u', $value, flags: PREG_SPLIT_NO_EMPTY) ?: []);
+
+        return array_values(array_unique(array_map(fn (string $part): string => $lookup[mb_strtolower(trim($part))] ?? trim($part), $parts)));
+    }
+
+    /**
+     * @param  array<string, mixed>  $values
+     * @return list<string>
+     */
+    private function assignmentErrors(array $values): array
+    {
+        $errors = [];
+        foreach (MemberFields::temporalFields() as $field) {
+            $options = $values[$field['key']] ?? null;
+            if (! is_array($options)) {
+                continue;
+            }
+            foreach ($options as $option) {
+                if (! array_key_exists($option, $field['activeOptions'])) {
+                    $errors[] = $field['label'].': „'.$option.'“ ist keine aktive Auswahl.';
+                }
+            }
+            if ($field['type'] === 'office' && ! $field['allowMultiple'] && count($options) > 1) {
+                $errors[] = $field['label'].': Es ist nur ein Amt gleichzeitig erlaubt.';
+            }
+        }
+
+        return $errors;
     }
 
     private function boolean(mixed $value): mixed

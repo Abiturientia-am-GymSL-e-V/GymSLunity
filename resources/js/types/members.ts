@@ -16,6 +16,8 @@ export type Member = {
     club_role: string | null;
     is_honorary: boolean;
     custom_values: Record<string, MemberValue> | null;
+    /** Current option values of department, office and honor fields. */
+    assignments?: Record<string, string[]>;
     joined_at: string | null;
     left_at: string | null;
     deceased_at: string | null;

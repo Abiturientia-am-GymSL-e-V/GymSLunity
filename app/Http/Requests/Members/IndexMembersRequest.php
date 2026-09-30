@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Members;
 
+use App\Members\MemberFields;
 use App\Models\Member;
 use App\Models\MemberFieldDefinition;
 use Closure;
@@ -21,7 +22,8 @@ class IndexMembersRequest extends FormRequest
     public function rules(): array
     {
         $custom = MemberFieldDefinition::query()->where('is_active', true)->where('is_custom', true)->whereNotIn('type', MemberFieldDefinition::TEMPORAL_TYPES)->get();
-        $filterKeys = $custom->where('filterable', true)->pluck('key')->all();
+        $temporal = collect(MemberFields::temporalFields())->where('filterable', true);
+        $filterKeys = [...$custom->where('filterable', true)->pluck('key')->all(), ...$temporal->pluck('key')->all()];
         $rules = [
             'q' => ['nullable', 'string', 'max:120'],
             'membership' => ['nullable', 'string', 'max:80'],
@@ -43,6 +45,9 @@ class IndexMembersRequest extends FormRequest
                 'boolean' => [Rule::in(['0', '1'])], 'number' => ['integer', 'between:-2147483648,2147483647'],
                 'decimal' => ['numeric', 'between:-99999999.99,99999999.99'], 'date' => ['date_format:Y-m-d'], default => ['string', 'max:255'],
             }];
+        }
+        foreach ($temporal as $field) {
+            $rules['custom.'.$field['key']] = ['nullable', 'string', 'max:300'];
         }
 
         return $rules;

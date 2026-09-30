@@ -19,7 +19,7 @@ import type {
 import type { MemberColumn, MemberColumnKey } from './columns';
 import { rememberMemberList } from '@/lib/memberNavigation';
 import { show } from '@/routes/members';
-import { memberValue } from '@/lib/memberFormatting';
+import { isTemporal, memberValue } from '@/lib/memberFormatting';
 
 const page = usePage();
 const returnTo = computed(() => page.url);
@@ -77,11 +77,15 @@ function optionLabel(key: string, value: string) {
 }
 
 function plainValue(member: Member, column: MemberColumnKey): string {
-    if (column.startsWith('custom_'))
+    if (column.startsWith('custom_')) {
+        const field = props.definitions.find((field) => field.key === column);
         return memberValue(
-            member.custom_values?.[column],
-            props.definitions.find((field) => field.key === column),
+            isTemporal(field)
+                ? member.assignments?.[column]
+                : member.custom_values?.[column],
+            field,
         );
+    }
     switch (column) {
         case 'number':
             return String(member.member_number);

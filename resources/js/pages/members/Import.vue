@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { firstError } from '@/lib/formErrors';
+import { isTemporal } from '@/lib/memberFormatting';
 import { index as members } from '@/routes/members';
 import {
     index,
@@ -120,6 +121,8 @@ function syntax(field: MemberField): string {
     if (field.type === 'select')
         return `Einer dieser Werte: ${Object.keys(field.activeOptions).join(', ')}`;
     if (field.type === 'email') return 'Gültige E-Mail-Adresse';
+    if (isTemporal(field))
+        return `Zuordnung ab Importdatum, mehrere durch Komma getrennt: ${Object.values(field.activeOptions).join(', ')}`;
     return field.required ? 'Text, darf nicht leer sein' : 'Text oder leer';
 }
 function required(field: MemberField): boolean {

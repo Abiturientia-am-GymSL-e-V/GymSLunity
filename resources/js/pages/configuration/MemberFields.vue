@@ -98,9 +98,12 @@ const optionHeading = computed(
 watch(
     () => form.type,
     () => {
-        if (temporal.value) form.section = ASSIGNMENT_SECTION;
-        else if (form.section === ASSIGNMENT_SECTION)
+        if (temporal.value) {
+            form.section = ASSIGNMENT_SECTION;
+            form.selfservice_editable = false;
+        } else if (form.section === ASSIGNMENT_SECTION) {
             form.section = 'membership';
+        }
     },
 );
 const orderForm = useForm({ version: props.version, ids: [] as number[] });
@@ -435,50 +438,52 @@ function close(value: boolean) {
                             class="size-4 accent-primary"
                         />Mehrere Ämter gleichzeitig erlaubt</label
                     >
-                    <template v-if="!temporal">
-                        <label class="flex items-center gap-2"
+                    <label v-if="!temporal" class="flex items-center gap-2"
+                        ><input
+                            v-model="form.required"
+                            type="checkbox"
+                            :disabled="locked"
+                            class="size-4 accent-primary"
+                        />Pflichtfeld</label
+                    >
+                    <label class="flex items-center gap-2"
+                        ><input
+                            v-model="form.selfservice_visible"
+                            type="checkbox"
+                            class="size-4 accent-primary"
+                            @change="updateSelfserviceVisibility"
+                        />{{
+                            temporal
+                                ? 'Im Mitgliederportal anzeigen (nur lesend)'
+                                : 'Im Mitgliederportal anzeigen'
+                        }}</label
+                    >
+                    <label v-if="!temporal" class="flex items-center gap-2"
+                        ><input
+                            v-model="form.selfservice_editable"
+                            type="checkbox"
+                            :disabled="
+                                !form.selfservice_visible ||
+                                selfserviceProtected
+                            "
+                            class="size-4 accent-primary"
+                        />Durch Mitglied änderbar</label
+                    >
+                    <template v-if="!selected || selected.is_custom"
+                        ><label class="flex items-center gap-2"
                             ><input
-                                v-model="form.required"
+                                v-model="form.filterable"
                                 type="checkbox"
-                                :disabled="locked"
                                 class="size-4 accent-primary"
-                            />Pflichtfeld</label
-                        >
-                        <label class="flex items-center gap-2"
+                            />Als Filter anzeigen</label
+                        ><label class="flex items-center gap-2"
                             ><input
-                                v-model="form.selfservice_visible"
+                                v-model="form.show_in_table"
                                 type="checkbox"
                                 class="size-4 accent-primary"
-                                @change="updateSelfserviceVisibility"
-                            />Im Mitgliederportal anzeigen</label
-                        >
-                        <label class="flex items-center gap-2"
-                            ><input
-                                v-model="form.selfservice_editable"
-                                type="checkbox"
-                                :disabled="
-                                    !form.selfservice_visible ||
-                                    selfserviceProtected
-                                "
-                                class="size-4 accent-primary"
-                            />Durch Mitglied änderbar</label
-                        >
-                        <template v-if="!selected || selected.is_custom"
-                            ><label class="flex items-center gap-2"
-                                ><input
-                                    v-model="form.filterable"
-                                    type="checkbox"
-                                    class="size-4 accent-primary"
-                                />Als Filter anzeigen</label
-                            ><label class="flex items-center gap-2"
-                                ><input
-                                    v-model="form.show_in_table"
-                                    type="checkbox"
-                                    class="size-4 accent-primary"
-                                />Spalte standardmäßig anzeigen</label
-                            ></template
-                        >
-                    </template>
+                            />Spalte standardmäßig anzeigen</label
+                        ></template
+                    >
                 </div>
                 <InputError
                     :message="

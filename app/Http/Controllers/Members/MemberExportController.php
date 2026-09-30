@@ -28,7 +28,7 @@ class MemberExportController extends Controller
         $data = $request->validated();
         $fields = collect(MemberFields::directoryFields())->keyBy('key')->all();
         $columns = $data['columns'];
-        $query = MemberDirectory::query($request->filters())->select(Member::LIST_FIELDS);
+        $query = MemberDirectory::query($request->filters())->select(Member::LIST_FIELDS)->with('currentAssignments');
         if ($data['scope'] === 'selected') {
             $query->whereIn('member_number', $data['selected']);
         }
@@ -49,14 +49,14 @@ class MemberExportController extends Controller
                 fwrite($output, '[');
             }
             $first = true;
-            foreach ($query->cursor() as $member) {
-                $values = MemberFields::snapshot($member);
+            foreach ($query->lazy(500) as $member) {
+                $values = MemberFields::reportSnapshot($member);
                 $values['member_number'] = $member->member_number;
                 $row = [];
                 foreach ($columns as $key) {
                     $value = $values[$key] ?? null;
                     if ($csv) {
-                        $value = is_bool($value) ? ($value ? 'Ja' : 'Nein') : ($fields[$key]['options'][$value ?? ''] ?? $value ?? '');
+                        $value = is_bool($value) ? ($value ? 'Ja' : 'Nein') : (is_array($value) ? MemberReportValue::format($value, $fields[$key]) : ($fields[$key]['options'][$value ?? ''] ?? $value ?? ''));
                         $row[$key] = SafeCsv::value($value);
                     } else {
                         $row[$key] = $value;
@@ -92,8 +92,8 @@ class MemberExportController extends Controller
         }
         $headers = array_map(fn (string $key): string => $key === 'member_number' ? 'Mitgliedsnummer' : $fields[$key]['label'], $columns);
         $rows = [];
-        foreach ($query->cursor() as $member) {
-            $snapshot = MemberFields::snapshot($member);
+        foreach ($query->lazy(500) as $member) {
+            $snapshot = MemberFields::reportSnapshot($member);
             $snapshot['member_number'] = $member->member_number;
             $rows[] = array_map(fn (string $key): string => MemberReportValue::format($snapshot[$key] ?? null, $key === 'member_number' ? [] : $fields[$key]), $columns);
         }
