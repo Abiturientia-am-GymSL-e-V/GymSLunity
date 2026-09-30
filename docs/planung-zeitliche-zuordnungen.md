@@ -1,6 +1,6 @@
 # Planung: Zeitliche Zuordnungen zu Abteilungen, Funktionen/Ämtern und Ereignissen/Ehrungen
 
-Stand: 30.09.2026 · Status: **Alle fachlichen Fragen F1–F17 am 30.09.2026 entschieden (siehe Abschnitt 6.2); Umsetzung am 30.09.2026 freigegeben; Phasen 1 bis 5 und Teil 1 von Phase 6 umgesetzt**
+Stand: 30.09.2026 · Status: **Alle fachlichen Fragen F1–F17 am 30.09.2026 entschieden (siehe Abschnitt 6.2); Umsetzung am 30.09.2026 freigegeben; Phasen 1 bis 6 umgesetzt; offen ist nur die Entfernung der Altspalten im Folgerelease**
 
 Kennzeichnung im Dokument:
 
@@ -342,6 +342,13 @@ Anmerkungen zur Umsetzung von Phase 6 (Teil 1: Massenbearbeitung und Jubiläen):
 
 - In der Mitgliederliste fügt „Zuordnung“ für die ausgewählten Mitglieder (höchstens 250) eine Abteilung, ein Amt oder eine Ehrung hinzu oder beendet laufende Zuordnungen zu einem Datum, wahlweise nur einer Auswahl. Jedes Mitglied erhält einen eigenen Historieneintrag. Bei einem Konflikt, etwa einer schon vergebenen Ehrung, wird nichts gespeichert und das betroffene Mitglied genannt. Gleiche Warnungen mehrerer Mitglieder werden zusammengefasst. Route: `POST /mitglieder/massenzuordnung` mit `manage-assignments`.
 - Ehrungsoptionen haben die optionale Regel „Fällig nach … Mitgliedsjahren“ (`jubilee_years`, 1–100). Der Tab „Fällige Jubiläen“ unter `/ehrungen/jubilaeen` listet je Option aktuelle Mitglieder, deren Mitgliedschaft laut `joined_at` die Jahre bis zum gewählten Datum (Standard: Jahresende) erreicht und die diese Ehrung noch nicht haben; noch nicht erreichte Jubiläen sind als „Bevorstehend“ markiert. Unterbrechungen der Mitgliedschaft werden nicht berücksichtigt. Ausgewählte Mitglieder erhalten die Ehrung gemeinsam; der Export steht wie bei den anderen Übersichten zur Verfügung.
+
+Anmerkungen zur Umsetzung von Phase 6 (Teil 2: Zuordnungsimport und Abteilungsstatistik):
+
+- Unter Mitglieder → „Zuordnungen importieren“ (`/mitglieder/importieren/zuordnungen`, `manage-assignments`) werden Zuordnungen vorhandener Mitglieder aus einer CSV-Datei übernommen. Spalten: Mitgliedsnummer, Feld, Auswahl, Von, Bis, Notiz (mit gängigen Aliassen). Feld und Auswahl werden über Bezeichnung oder Wert erkannt, Datumsangaben als TT.MM.JJJJ oder JJJJ-MM-TT. Die Vorschau führt jede Zeile in einer zurückgerollten Transaktion über `MemberAssignments` aus und zeigt dadurch Dubletten und Überschneidungen – auch innerhalb der Datei – sowie Warnungen. Importiert wird nur fehlerfrei und vollständig (`source = import`, ein Historieneintrag je Zeile).
+- Das Lesen der CSV-Datei (Kodierung, Trennzeichen, Kopfzeile) teilen sich Mitglieder- und Zuordnungsimport in `App\Support\CsvUpload`.
+- Auswertungen → Mitglieder zeigt je aktivem Abteilungsfeld den aktiven Bestand je Abteilung zum Stichtag (Mehrfachzugehörigkeit möglich, dazu „Ohne Abteilung“). Die Bestandsstruktur nach Geburtsjahr lässt sich auf eine Abteilung einschränken, etwa für Meldungen an Fachverbände; CSV-Export und PDF-Bericht übernehmen die Auswahl.
+- Offen bzw. bewusst später: die Entfernung der Spalten `members.department_role` und `members.club_role` (ein Release nach Phase 5, eigene Migration), ein Diagramm der Abteilungsentwicklung und die Zeitstrahl-Darstellung im Ämterverlauf.
 
 ---
 

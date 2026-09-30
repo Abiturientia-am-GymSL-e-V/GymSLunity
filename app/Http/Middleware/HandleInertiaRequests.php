@@ -65,6 +65,7 @@ class HandleInertiaRequests extends Middleware
             'can' => [
                 'viewMembers' => $request->user()?->can('viewAny', Member::class) ?? false,
                 'createMembers' => $request->user()?->can('create', Member::class) ?? false,
+                'manageAssignments' => $request->user()?->can('manage-assignments') ?? false,
                 'manageConfiguration' => $request->user()?->can('manage-configuration') ?? false,
                 'viewPayments' => fn () => ($request->user()?->can('view-payments') ?? false) && $moduleValues()['payments'],
                 'viewStatistics' => fn () => ($request->user()?->can('view-statistics') ?? false) && $moduleValues()['statistics'],

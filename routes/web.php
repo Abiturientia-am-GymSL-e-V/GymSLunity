@@ -37,6 +37,7 @@ use App\Http\Controllers\InstallController;
 use App\Http\Controllers\Inventory\InventoryController;
 use App\Http\Controllers\Inventory\InventoryDocumentController;
 use App\Http\Controllers\Inventory\InventorySheetController;
+use App\Http\Controllers\Members\AssignmentImportController;
 use App\Http\Controllers\Members\AssignmentOverviewController;
 use App\Http\Controllers\Members\BulkAssignMemberController;
 use App\Http\Controllers\Members\BulkUpdateMemberController;
@@ -257,6 +258,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('mitglieder/importieren/vorschau', [MemberImportController::class, 'preview'])->name('members.import.preview');
     Route::post('mitglieder/importieren/zuordnen', [MemberImportController::class, 'map'])->name('members.import.map');
     Route::post('mitglieder/importieren/abschliessen', [MemberImportController::class, 'store'])->name('members.import.store');
+    Route::middleware('can:manage-assignments')->group(function () {
+        Route::get('mitglieder/importieren/zuordnungen', [AssignmentImportController::class, 'index'])->name('members.assignment-import.index');
+        Route::get('mitglieder/importieren/zuordnungen/vorlage', [AssignmentImportController::class, 'template'])->name('members.assignment-import.template');
+        Route::post('mitglieder/importieren/zuordnungen/vorschau', [AssignmentImportController::class, 'preview'])->middleware('throttle:10,1')->name('members.assignment-import.preview');
+        Route::post('mitglieder/importieren/zuordnungen/abschliessen', [AssignmentImportController::class, 'store'])->middleware('throttle:10,1')->name('members.assignment-import.store');
+    });
     Route::post('mitglieder/export', MemberExportController::class)->middleware(['throttle:20,1', 'reconfirm', 'audit:data_export'])->name('members.export');
     Route::patch('mitglieder/massenbearbeitung', BulkUpdateMemberController::class)->middleware('throttle:10,1')->name('members.bulk-update');
     Route::post('mitglieder/massenzuordnung', BulkAssignMemberController::class)->middleware(['can:manage-assignments', 'throttle:10,1'])->name('members.bulk-assign');

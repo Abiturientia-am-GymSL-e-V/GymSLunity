@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { FileUp, UserMinus, UserPlus, UsersRound } from '@lucide/vue';
+import {
+    CalendarRange,
+    FileUp,
+    UserMinus,
+    UserPlus,
+    UsersRound,
+} from '@lucide/vue';
 import { create, index } from '@/routes/members';
+import { index as importAssignments } from '@/routes/members/assignment-import';
 import { index as importMembers } from '@/routes/members/import';
 
 const page = usePage();
@@ -30,6 +37,14 @@ const links = [
         url: importMembers.url(),
         icon: FileUp,
         visible: page.props.can.createMembers,
+    },
+    {
+        label: 'Zuordnungen importieren',
+        url: importAssignments.url(),
+        icon: CalendarRange,
+        visible:
+            page.props.can.manageAssignments &&
+            page.props.can.viewAssignments.length > 0,
     },
 ];
 </script>

@@ -17,6 +17,7 @@ import BarBreakdown from '@/components/statistics/BarBreakdown.vue';
 import DataQualityReport from '@/components/statistics/DataQualityReport.vue';
 import FinanceReport from '@/components/statistics/FinanceReport.vue';
 import MemberTrendChart from '@/components/statistics/MemberTrendChart.vue';
+import SearchableDropdown from '@/components/SearchableDropdown.vue';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -51,7 +52,13 @@ type StockRow = {
 
 const props = defineProps<{
     activeTab: Tab;
-    filters: { from: string; to: string; as_of: string };
+    filters: { from: string; to: string; as_of: string; department: string };
+    departmentChoices: { value: string; label: string }[];
+    departments: {
+        key: string;
+        label: string;
+        items: { label: string; count: number }[];
+    }[];
     periods: { label: string; from: string; to: string }[];
     summary: {
         active_members: number;
@@ -355,6 +362,13 @@ const periodLabel = computed(
                     description="Die acht häufigsten Orte"
                     :items="memberBreakdowns.cities"
                 />
+                <BarBreakdown
+                    v-for="field in departments"
+                    :key="field.key"
+                    :title="field.label"
+                    description="Aktiver Bestand je Abteilung zum Stichtag; Mehrfachzugehörigkeit möglich"
+                    :items="field.items"
+                />
             </div>
             <Card class="gap-0 overflow-hidden py-0">
                 <CardHeader
@@ -367,11 +381,33 @@ const periodLabel = computed(
                             Stichtag</CardDescription
                         >
                     </div>
-                    <Button as-child variant="outline" size="sm"
-                        ><a :href="exportUrl"
-                            ><Download /> CSV exportieren</a
-                        ></Button
-                    ></CardHeader
+                    <div
+                        class="flex flex-col gap-2 sm:flex-row sm:items-center"
+                    >
+                        <SearchableDropdown
+                            v-if="departmentChoices.length"
+                            id="stock-department"
+                            :model-value="filterForm.department"
+                            :options="[
+                                { value: '', label: 'Alle Mitglieder' },
+                                ...departmentChoices,
+                            ]"
+                            placeholder="Alle Mitglieder"
+                            search-placeholder="Abteilung suchen"
+                            empty-text="Keine Abteilung gefunden."
+                            aria-label="Abteilung"
+                            trigger-class="h-8 w-full rounded-md border border-input bg-background px-3 sm:w-60"
+                            @update:model-value="
+                                filterForm.department = $event;
+                                applyFilters();
+                            "
+                        />
+                        <Button as-child variant="outline" size="sm"
+                            ><a :href="exportUrl"
+                                ><Download /> CSV exportieren</a
+                            ></Button
+                        >
+                    </div></CardHeader
                 >
                 <CardContent class="overflow-x-auto p-0">
                     <table class="w-full min-w-[680px] text-sm">
