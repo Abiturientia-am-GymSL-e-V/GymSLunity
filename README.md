@@ -10,6 +10,22 @@
 
 ---
 
+<div align="center">
+
+## Live Demoversion
+
+### Letzte Release-Version
+
+[https://demo.gymslunity.de](https://demo.gymslunity.de)
+
+### Aktuelles main-Branch (alle Neuerungen)
+
+[https://next.demo.gymslunity.de](https://next.demo.gymslunity.de)
+
+</div>
+
+---
+
 GymSLunity ist eine webbasierte Komplettlösung für die tägliche Vereinsverwaltung. Die Anwendung verbindet Mitgliederverwaltung, Finanzen, Kalender, Kommunikation und Dokumente in einer gemeinsamen, rollenbasierten Arbeitsumgebung.
 
 Das Projekt ist aus den praktischen Anforderungen eines Schulvereins entstanden und wird von Schülerinnen und Schülern getragen. Ziel ist eine offene, selbst betreibbare Alternative zu kostenpflichtigen SaaS-Angeboten, die Vereine verstehen, anpassen und gemeinsam weiterentwickeln können.
