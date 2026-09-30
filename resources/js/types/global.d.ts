@@ -36,6 +36,7 @@ declare module '@inertiajs/core' {
                 viewCommunication: boolean;
                 /** Field types (department, office, honor) with an overview page. */
                 viewAssignments: string[];
+                manageAssignments: boolean;
             };
             defaultCountry: string;
             formOfAddress: 'du' | 'sie';

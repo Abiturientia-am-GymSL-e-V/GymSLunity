@@ -100,8 +100,23 @@
             </table>
         </div>
     @endforeach
+    @foreach ($departments as $field)
+        <div class="keep">
+            <h3>{{ $field['label'] }}</h3>
+            <table class="compact breakdown">
+                <thead><tr><th>Abteilung</th><th class="number">Mitglieder</th></tr></thead>
+                <tbody>
+                @forelse ($field['items'] as $item)
+                    <tr><td>{{ $item['label'] }}</td><td class="number">{{ $number($item['count']) }}</td></tr>
+                @empty
+                    <tr><td colspan="2">Keine Daten vorhanden.</td></tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
+    @endforeach
 
-    <h3>Bestandsstruktur nach Geburtsjahr</h3>
+    <h3>Bestandsstruktur nach Geburtsjahr{{ $departmentLabel !== '' ? ' · '.$departmentLabel : '' }}</h3>
     <table class="compact">
         <thead>
         <tr><th>Geburtsjahr</th><th class="number">Weiblich</th><th class="number">Männlich</th><th class="number">Divers</th><th class="number">Ohne Angabe</th><th class="number">Gesamt</th></tr>

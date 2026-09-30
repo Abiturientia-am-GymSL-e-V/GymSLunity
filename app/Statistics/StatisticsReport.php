@@ -7,6 +7,8 @@ namespace App\Statistics;
 use App\Models\Contribution;
 use App\Models\Donation;
 use App\Models\Member;
+use App\Models\MemberAssignment;
+use App\Models\MemberFieldDefinition;
 use App\Support\Clock;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -29,6 +31,8 @@ final class StatisticsReport
         private readonly CarbonImmutable $from,
         private readonly CarbonImmutable $to,
         private readonly CarbonImmutable $asOf,
+        /** "field_key:option" limits the stock report to one department. */
+        private readonly string $department = '',
     ) {
         $this->members = Member::query()->get([
             'id', 'joined_at', 'left_at', 'deceased_at', 'membership_type', 'birth_date',
@@ -57,6 +61,7 @@ final class StatisticsReport
             'summary' => $this->summary(),
             'memberTrend' => $memberTrend,
             'memberBreakdowns' => $this->memberBreakdowns(),
+            'departments' => $this->departments(),
             'stockReport' => $this->stockReport(),
             'finances' => $this->finances($contributions, $donations, $memberTrend),
             'dataQuality' => $this->dataQuality(),
@@ -112,10 +117,47 @@ final class StatisticsReport
         ];
     }
 
+    /**
+     * Active members per department on the reference date, per active
+     * department field in option order. A member in several departments
+     * counts in each of them.
+     *
+     * @return list<array{key: string, label: string, items: list<array{label: string, count: int}>}>
+     */
+    private function departments(): array
+    {
+        $fields = MemberFieldDefinition::query()->where('type', 'department')->where('is_active', true)->orderBy('position')->orderBy('id')->get();
+        if ($fields->isEmpty()) {
+            return [];
+        }
+        $active = $this->activeMembers->pluck('id')->flip();
+        $assignments = MemberAssignment::query()->whereIn('field_key', $fields->pluck('key'))->activeOn($this->asOf)
+            ->get(['member_id', 'field_key', 'option_value'])
+            ->filter(fn (MemberAssignment $assignment): bool => $active->has($assignment->member_id));
+        $result = [];
+        foreach ($fields as $field) {
+            $inField = $assignments->where('field_key', $field->key);
+            $items = [];
+            foreach ($field->options as $option) {
+                $count = $inField->where('option_value', $option['value'])->pluck('member_id')->unique()->count();
+                if ($count > 0) {
+                    $items[] = ['label' => $option['label'], 'count' => $count];
+                }
+            }
+            $without = $this->activeMembers->count() - $inField->pluck('member_id')->unique()->count();
+            if ($without > 0) {
+                $items[] = ['label' => 'Ohne Abteilung', 'count' => $without];
+            }
+            $result[] = ['key' => $field->key, 'label' => $field->label, 'items' => $items];
+        }
+
+        return $result;
+    }
+
     /** @return list<array{birth_year: int|null, label: string, female: int, male: int, diverse: int, unspecified: int, total: int}> */
     public function stockReport(): array
     {
-        return array_values($this->activeMembers
+        return array_values($this->stockMembers()
             ->groupBy(fn (Member $member): string => $member->birth_date?->format('Y') ?? 'unknown')
             ->map(function (EloquentCollection $members, string $year): array {
                 return [
@@ -281,6 +323,18 @@ final class StatisticsReport
     private function label(?string $value): string
     {
         return $this->blank($value) ? 'Nicht hinterlegt' : trim((string) $value);
+    }
+
+    /** @return EloquentCollection<int, Member> active members, optionally of one department */
+    private function stockMembers(): EloquentCollection
+    {
+        if ($this->department === '') {
+            return $this->activeMembers;
+        }
+        [$field, $option] = explode(':', $this->department, 2);
+        $members = MemberAssignment::query()->where('field_key', $field)->where('option_value', $option)->activeOn($this->asOf)->pluck('member_id')->flip();
+
+        return $this->activeMembers->filter(fn (Member $member): bool => $members->has($member->id))->values();
     }
 
     private function isActiveAt(Member $member, CarbonImmutable $date): bool

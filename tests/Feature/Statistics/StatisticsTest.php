@@ -8,6 +8,7 @@ use App\Models\ClubSetting;
 use App\Models\Contribution;
 use App\Models\Donation;
 use App\Models\Member;
+use App\Models\MemberFieldDefinition;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -142,6 +143,39 @@ class StatisticsTest extends TestCase
         $content = $response->streamedContent();
         $this->assertStringContainsString('Geburtsjahr;Weiblich;Männlich;Divers;"Ohne Angabe";Gesamt', $content);
         $this->assertStringContainsString('1990;1;1;0;0;2', $content);
+    }
+
+    public function test_departments_are_counted_on_the_reference_date_and_limit_the_stock_report(): void
+    {
+        MemberFieldDefinition::query()->create([
+            'key' => 'custom_sport', 'label' => 'Sparten', 'type' => 'department', 'section' => MemberFieldDefinition::ASSIGNMENT_SECTION,
+            'position' => 1000, 'is_active' => true, 'is_custom' => true, 'required' => false, 'filterable' => true, 'show_in_table' => false,
+            'selfservice_visible' => false, 'selfservice_editable' => false, 'allow_multiple' => false, 'max_length' => 255,
+            'options' => [['value' => 'gym', 'label' => 'Turnen', 'active' => true], ['value' => 'ball', 'label' => 'Fußball', 'active' => true], ['value' => 'chess', 'label' => 'Schach', 'active' => true]],
+        ]);
+        $both = Member::factory()->withAssignment('custom_sport', 'gym', '2020-01-01')->withAssignment('custom_sport', 'ball', '2021-01-01')
+            ->create(['joined_at' => '2020-01-01', 'birth_date' => '1990-05-10', 'gender' => 'w']);
+        Member::factory()->withAssignment('custom_sport', 'gym', '2020-01-01', '2026-06-30')->create(['joined_at' => '2020-01-01', 'birth_date' => '1985-01-01', 'gender' => 'm']);
+        // Former members do not count, even with an open department.
+        Member::factory()->withAssignment('custom_sport', 'gym', '2020-01-01')->create(['joined_at' => '2020-01-01', 'left_at' => '2025-12-31']);
+        $this->assertTrue($both->isCurrentMember());
+
+        $parameters = ['from' => '2026-01-01', 'to' => '2026-09-23', 'as_of' => '2026-09-23'];
+        $this->get(route('statistics.members', $parameters))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('departments.0.label', 'Sparten')
+            ->where('departments.0.items', [['label' => 'Turnen', 'count' => 1], ['label' => 'Fußball', 'count' => 1], ['label' => 'Ohne Abteilung', 'count' => 1]])
+            ->where('departmentChoices.0', ['value' => 'custom_sport:gym', 'label' => 'Turnen'])
+            ->has('stockReport', 2));
+        $this->get(route('statistics.members', [...$parameters, 'as_of' => '2026-06-30']))->assertInertia(fn (Assert $page) => $page
+            ->where('departments.0.items.0', ['label' => 'Turnen', 'count' => 2]));
+
+        $this->get(route('statistics.members', [...$parameters, 'department' => 'custom_sport:gym']))->assertInertia(fn (Assert $page) => $page
+            ->where('filters.department', 'custom_sport:gym')
+            ->has('stockReport', 1)->where('stockReport.0.birth_year', 1990));
+        $content = $this->get(route('statistics.stock-csv', [...$parameters, 'department' => 'custom_sport:gym']))->assertOk()->streamedContent();
+        $this->assertStringContainsString('"Bestandsmeldung zum";23.09.2026;Abteilung;Turnen', $content);
+        $this->assertStringNotContainsString('1985', $content);
+        $this->get(route('statistics.members', [...$parameters, 'department' => 'custom_sport:unknown']))->assertSessionHasErrors('department');
     }
 
     public function test_finance_status_includes_every_kind_of_charge(): void

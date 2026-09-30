@@ -8,6 +8,7 @@ use App\Configuration\ClubSettings;
 use App\Models\Member;
 use App\Models\User;
 use App\Support\Clock;
+use App\Support\CsvUpload;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
@@ -81,46 +82,10 @@ final class MemberCsvImport
     /** @return array<string, mixed> */
     public function preview(UploadedFile $file, User $user): array
     {
-        $content = $this->utf8($file->getContent());
-        $delimiter = $this->delimiter($content);
-        $handle = fopen('php://temp', 'w+b');
-        if ($handle === false) {
-            throw ValidationException::withMessages(['csv' => 'Die CSV-Datei konnte nicht gelesen werden.']);
-        }
-        fwrite($handle, $content);
-        rewind($handle);
-
-        try {
-            $headers = fgetcsv($handle, separator: $delimiter, escape: '');
-            if (! is_array($headers)) {
-                throw ValidationException::withMessages(['csv' => 'Die CSV-Datei enthält keine Kopfzeile.']);
-            }
-            $headers = array_map(fn (mixed $header): string => trim(preg_replace('/^\xEF\xBB\xBF/', '', (string) $header) ?? ''), $headers);
-            $this->validateSourceHeaders($headers);
-            $rawRows = [];
-            $line = 1;
-            while (($cells = fgetcsv($handle, separator: $delimiter, escape: '')) !== false) {
-                $line++;
-                if (count($rawRows) >= self::MAX_ROWS) {
-                    throw ValidationException::withMessages(['csv' => 'Pro Import sind höchstens '.self::MAX_ROWS.' Datenzeilen erlaubt.']);
-                }
-                if (count($cells) === 1 && trim((string) $cells[0]) === '') {
-                    continue;
-                }
-                if (count($cells) !== count($headers)) {
-                    $rawRows[] = ['line' => $line, 'values' => [], 'structural_error' => 'Die Anzahl der Werte stimmt nicht mit der Kopfzeile überein.'];
-
-                    continue;
-                }
-                $rawRows[] = ['line' => $line, 'values' => array_combine($headers, array_map(fn (mixed $value): string => trim((string) $value), $cells))];
-            }
-        } finally {
-            fclose($handle);
-        }
-
-        if ($rawRows === []) {
-            throw ValidationException::withMessages(['csv' => 'Die CSV-Datei enthält keine Datenzeilen.']);
-        }
+        $csv = CsvUpload::read($file, self::MAX_ROWS, self::MAX_COLUMNS);
+        $headers = $csv['headers'];
+        $rawRows = $csv['rows'];
+        $delimiter = $csv['delimiter'];
 
         $token = Str::random(48);
         $payload = [
@@ -276,7 +241,7 @@ final class MemberCsvImport
         $lookup = [];
         foreach ($labels as $key => $label) {
             foreach ([$key, $label, ...(self::HEADER_ALIASES[$key] ?? [])] as $candidate) {
-                $normalized = $this->normalizeHeader($candidate);
+                $normalized = CsvUpload::normalizeHeader($candidate);
                 if ($normalized !== '' && ! isset($lookup[$normalized])) {
                     $lookup[$normalized] = $key;
                 }
@@ -285,7 +250,7 @@ final class MemberCsvImport
         $used = [];
 
         return array_map(function (string $header) use ($lookup, &$used): array {
-            $matched = $lookup[$this->normalizeHeader($header)] ?? null;
+            $matched = $lookup[CsvUpload::normalizeHeader($header)] ?? null;
             $target = is_string($matched) ? $matched : null;
             if ($target !== null && isset($used[$target])) {
                 $target = null;
@@ -296,68 +261,6 @@ final class MemberCsvImport
 
             return ['source' => $header, 'target' => $target];
         }, $headers);
-    }
-
-    private function normalizeHeader(string $header): string
-    {
-        $header = strtr(mb_strtolower(trim($header)), [
-            'ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss',
-        ]);
-
-        return preg_replace('/[^a-z0-9]+/', '', $header) ?? '';
-    }
-
-    private function utf8(string $content): string
-    {
-        if (str_starts_with($content, "\xFF\xFE")) {
-            $content = mb_convert_encoding(substr($content, 2), 'UTF-8', 'UTF-16LE');
-        } elseif (str_starts_with($content, "\xFE\xFF")) {
-            $content = mb_convert_encoding(substr($content, 2), 'UTF-8', 'UTF-16BE');
-        } elseif (! mb_check_encoding($content, 'UTF-8')) {
-            $content = mb_convert_encoding($content, 'UTF-8', 'Windows-1252');
-        }
-        if (! mb_check_encoding($content, 'UTF-8')) {
-            throw ValidationException::withMessages(['csv' => 'Die Zeichenkodierung der CSV-Datei konnte nicht gelesen werden.']);
-        }
-
-        return preg_replace('/^\xEF\xBB\xBF/', '', $content) ?? $content;
-    }
-
-    private function delimiter(string $content): string
-    {
-        $best = ';';
-        $bestCount = 0;
-        foreach ([';', ',', "\t"] as $candidate) {
-            $handle = fopen('php://temp', 'w+b');
-            if ($handle === false) {
-                continue;
-            }
-            fwrite($handle, $content);
-            rewind($handle);
-            $row = fgetcsv($handle, separator: $candidate, escape: '');
-            fclose($handle);
-            $count = is_array($row) ? count($row) : 0;
-            if ($count > $bestCount) {
-                $best = $candidate;
-                $bestCount = $count;
-            }
-        }
-        if ($bestCount < 2) {
-            throw ValidationException::withMessages(['csv' => 'Das Trennzeichen konnte nicht erkannt werden. Unterstützt werden Semikolon, Komma und Tabulator.']);
-        }
-
-        return $best;
-    }
-
-    /** @param list<string> $headers */
-    private function validateSourceHeaders(array $headers): void
-    {
-        if (in_array('', $headers, true) || count($headers) !== count(array_unique($headers))) {
-            throw ValidationException::withMessages(['csv' => 'Die Kopfzeile enthält leere oder doppelte Spaltennamen.']);
-        }
-        if (count($headers) > self::MAX_COLUMNS) {
-            throw ValidationException::withMessages(['csv' => 'Die CSV-Datei darf höchstens '.self::MAX_COLUMNS.' Spalten enthalten.']);
-        }
     }
 
     /** @param list<array<string, mixed>> $rawRows
