@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
-import { CalendarSearch, Crown, History } from '@lucide/vue';
+import { Head, Link, usePage } from '@inertiajs/vue3';
+import { CalendarSearch, ChartGantt, Crown, History, List } from '@lucide/vue';
 import { computed, reactive, watch } from 'vue';
 import AssignmentMember from '@/components/assignments/AssignmentMember.vue';
 import ExportLinks from '@/components/assignments/ExportLinks.vue';
+import OfficeTimeline from '@/components/assignments/OfficeTimeline.vue';
 import InputError from '@/components/InputError.vue';
 import SearchableDropdown from '@/components/SearchableDropdown.vue';
 import StatusAlert from '@/components/StatusAlert.vue';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -72,10 +74,27 @@ const query = computed(() => ({
     ...(props.tab === 'date' ? { date: form.date } : {}),
     ...(props.tab === 'history' ? { from: form.from, to: form.to } : {}),
 }));
+// The history can be shown as a list or a timeline; the choice stays in the URL.
+const page = usePage();
+const timeline = computed(
+    () =>
+        props.tab === 'history' &&
+        new URL(page.url, 'http://localhost').searchParams.get('view') ===
+            'timeline',
+);
+const showTimeline = (value: boolean) =>
+    applyOverviewFilters('/aemter/verlauf', {
+        ...query.value,
+        view: value ? 'timeline' : '',
+    });
 const activePath = computed(
     () => tabs.find((tab) => tab.key === props.tab)?.path ?? '/aemter',
 );
-const apply = () => applyOverviewFilters(activePath.value, query.value);
+const apply = () =>
+    applyOverviewFilters(activePath.value, {
+        ...query.value,
+        view: timeline.value ? 'timeline' : '',
+    });
 const fieldOptions = computed(() => [
     { value: '', label: 'Alle Ämterfelder' },
     ...props.fields.map((field) => ({
@@ -256,80 +275,119 @@ const description: Record<Tab, string> = {
                 Für diese Auswahl ist kein Amt besetzt.
             </StatusAlert>
 
-            <section
-                v-for="group in offices"
-                :key="group.key"
-                class="rounded-xl border bg-card"
-                :aria-labelledby="`office-${group.key}`"
+            <div
+                v-if="tab === 'history' && hasHolders"
+                class="flex flex-wrap gap-2"
+                role="group"
+                aria-label="Darstellung"
             >
-                <div
-                    class="flex flex-wrap items-center gap-2 border-b px-5 py-4"
+                <Button
+                    :variant="timeline ? 'outline' : 'secondary'"
+                    size="sm"
+                    :aria-pressed="!timeline"
+                    @click="showTimeline(false)"
+                    ><List class="size-4" aria-hidden="true" />Liste</Button
                 >
-                    <h2 :id="`office-${group.key}`" class="font-semibold">
-                        {{ group.label }}
-                    </h2>
-                    <Badge v-if="group.archived" variant="outline"
-                        >archiviert</Badge
-                    >
-                </div>
-                <p
-                    v-if="!group.options.length"
-                    class="p-5 text-sm text-muted-foreground"
+                <Button
+                    :variant="timeline ? 'secondary' : 'outline'"
+                    size="sm"
+                    :aria-pressed="timeline"
+                    @click="showTimeline(true)"
+                    ><ChartGantt
+                        class="size-4"
+                        aria-hidden="true"
+                    />Zeitstrahl</Button
                 >
-                    Keine Ämter für diese Auswahl.
-                </p>
-                <ul v-else class="divide-y">
-                    <li
-                        v-for="option in group.options"
-                        :key="option.value"
-                        class="flex flex-wrap items-start gap-x-6 gap-y-2 px-5 py-4"
+            </div>
+
+            <OfficeTimeline
+                v-if="timeline && hasHolders"
+                :groups="offices"
+                :from="filters.from"
+                :to="filters.to"
+            />
+            <template v-else>
+                <section
+                    v-for="group in offices"
+                    :key="group.key"
+                    class="rounded-xl border bg-card"
+                    :aria-labelledby="`office-${group.key}`"
+                >
+                    <div
+                        class="flex flex-wrap items-center gap-2 border-b px-5 py-4"
                     >
-                        <div class="min-w-0 flex-1 basis-48">
-                            <p class="font-medium break-words">
-                                {{ option.label }}
-                            </p>
-                            <div class="mt-1 flex flex-wrap gap-1">
-                                <Badge v-if="option.board" variant="secondary"
-                                    >Vorstand</Badge
-                                >
-                                <Badge v-if="option.mandatory" variant="outline"
-                                    >Pflichtamt</Badge
-                                >
-                                <Badge v-if="!option.active" variant="outline"
-                                    >deaktiviert</Badge
-                                >
+                        <h2 :id="`office-${group.key}`" class="font-semibold">
+                            {{ group.label }}
+                        </h2>
+                        <Badge v-if="group.archived" variant="outline"
+                            >archiviert</Badge
+                        >
+                    </div>
+                    <p
+                        v-if="!group.options.length"
+                        class="p-5 text-sm text-muted-foreground"
+                    >
+                        Keine Ämter für diese Auswahl.
+                    </p>
+                    <ul v-else class="divide-y">
+                        <li
+                            v-for="option in group.options"
+                            :key="option.value"
+                            class="flex flex-wrap items-start gap-x-6 gap-y-2 px-5 py-4"
+                        >
+                            <div class="min-w-0 flex-1 basis-48">
+                                <p class="font-medium break-words">
+                                    {{ option.label }}
+                                </p>
+                                <div class="mt-1 flex flex-wrap gap-1">
+                                    <Badge
+                                        v-if="option.board"
+                                        variant="secondary"
+                                        >Vorstand</Badge
+                                    >
+                                    <Badge
+                                        v-if="option.mandatory"
+                                        variant="outline"
+                                        >Pflichtamt</Badge
+                                    >
+                                    <Badge
+                                        v-if="!option.active"
+                                        variant="outline"
+                                        >deaktiviert</Badge
+                                    >
+                                </div>
                             </div>
-                        </div>
-                        <div class="min-w-0 flex-[2] basis-64 space-y-3">
-                            <p
-                                v-if="option.vacant"
-                                class="text-sm font-medium text-destructive"
-                            >
-                                Unbesetzt
-                            </p>
-                            <p
-                                v-else-if="!option.holders.length"
-                                class="text-sm text-muted-foreground"
-                            >
-                                Nicht besetzt
-                            </p>
-                            <AssignmentMember
-                                v-for="holder in option.holders"
-                                :key="holder.id"
-                                :row="holder"
-                                type="office"
-                            />
-                            <p
-                                v-if="option.exceeded"
-                                class="text-sm text-muted-foreground"
-                            >
-                                Mehr Inhaber als die vorgesehenen
-                                {{ option.maxHolders }}.
-                            </p>
-                        </div>
-                    </li>
-                </ul>
-            </section>
+                            <div class="min-w-0 flex-[2] basis-64 space-y-3">
+                                <p
+                                    v-if="option.vacant"
+                                    class="text-sm font-medium text-destructive"
+                                >
+                                    Unbesetzt
+                                </p>
+                                <p
+                                    v-else-if="!option.holders.length"
+                                    class="text-sm text-muted-foreground"
+                                >
+                                    Nicht besetzt
+                                </p>
+                                <AssignmentMember
+                                    v-for="holder in option.holders"
+                                    :key="holder.id"
+                                    :row="holder"
+                                    type="office"
+                                />
+                                <p
+                                    v-if="option.exceeded"
+                                    class="text-sm text-muted-foreground"
+                                >
+                                    Mehr Inhaber als die vorgesehenen
+                                    {{ option.maxHolders }}.
+                                </p>
+                            </div>
+                        </li>
+                    </ul>
+                </section>
+            </template>
         </template>
     </div>
 </template>

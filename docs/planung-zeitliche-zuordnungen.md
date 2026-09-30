@@ -1,6 +1,6 @@
 # Planung: Zeitliche Zuordnungen zu Abteilungen, Funktionen/Ämtern und Ereignissen/Ehrungen
 
-Stand: 30.09.2026 · Status: **Alle fachlichen Fragen F1–F17 am 30.09.2026 entschieden (siehe Abschnitt 6.2); Umsetzung am 30.09.2026 freigegeben; Phasen 1 bis 6 umgesetzt; offen ist nur die Entfernung der Altspalten im Folgerelease**
+Stand: 30.09.2026 · Status: **Alle fachlichen Fragen F1–F17 am 30.09.2026 entschieden (siehe Abschnitt 6.2); Umsetzung am 30.09.2026 freigegeben; Phasen 1 bis 6 einschließlich Abteilungsdiagramm und Ämter-Zeitstrahl umgesetzt; offen ist nur die Entfernung der Altspalten im Folgerelease**
 
 Kennzeichnung im Dokument:
 
@@ -326,7 +326,7 @@ Anmerkungen zur Umsetzung von Phase 4:
 - Die Seiten stehen unter `/aemter` (Tabs Aktuell, Verlauf, Stichtag), `/abteilungen` und `/ehrungen`, die Exporte unter `…/export?format=csv|pdf` mit denselben Filtern.
 - Abteilungen: Ein Zeitraum (Standard: Jahresbeginn bis heute) liefert Mitglieder am Ende des Zeitraums, Eintritte und Austritte. Für einen Stichtag werden Beginn und Ende gleich gewählt. Ein Klick auf eine Abteilung zeigt ihre Mitglieder im Zeitraum.
 - Gates `view-assignments` und `manage-assignments` delegieren an `MemberPolicy::viewAny` und `updateAny`; die Schreibrouten der Mitgliederakte prüfen zusätzlich `manage-assignments`.
-- `{{verein.vorstand}}` liefert „Name (Amt)“, mit „, “ getrennt, in der Reihenfolge der Felder und Optionen. Die Zeitstrahl-Darstellung im Verlauf und der Tab „Fällige Jubiläen“ (F13) folgen später.
+- `{{verein.vorstand}}` liefert „Name (Amt)“, mit „, “ getrennt, in der Reihenfolge der Felder und Optionen. Der Tab „Fällige Jubiläen“ (F13) und die Zeitstrahl-Darstellung im Verlauf kamen in Phase 6 hinzu.
 
 Anmerkungen zur Umsetzung von Phase 5:
 
@@ -348,7 +348,12 @@ Anmerkungen zur Umsetzung von Phase 6 (Teil 2: Zuordnungsimport und Abteilungsst
 - Unter Mitglieder → „Zuordnungen importieren“ (`/mitglieder/importieren/zuordnungen`, `manage-assignments`) werden Zuordnungen vorhandener Mitglieder aus einer CSV-Datei übernommen. Spalten: Mitgliedsnummer, Feld, Auswahl, Von, Bis, Notiz (mit gängigen Aliassen). Feld und Auswahl werden über Bezeichnung oder Wert erkannt, Datumsangaben als TT.MM.JJJJ oder JJJJ-MM-TT. Die Vorschau führt jede Zeile in einer zurückgerollten Transaktion über `MemberAssignments` aus und zeigt dadurch Dubletten und Überschneidungen – auch innerhalb der Datei – sowie Warnungen. Importiert wird nur fehlerfrei und vollständig (`source = import`, ein Historieneintrag je Zeile).
 - Das Lesen der CSV-Datei (Kodierung, Trennzeichen, Kopfzeile) teilen sich Mitglieder- und Zuordnungsimport in `App\Support\CsvUpload`.
 - Auswertungen → Mitglieder zeigt je aktivem Abteilungsfeld den aktiven Bestand je Abteilung zum Stichtag (Mehrfachzugehörigkeit möglich, dazu „Ohne Abteilung“). Die Bestandsstruktur nach Geburtsjahr lässt sich auf eine Abteilung einschränken, etwa für Meldungen an Fachverbände; CSV-Export und PDF-Bericht übernehmen die Auswahl.
-- Offen bzw. bewusst später: die Entfernung der Spalten `members.department_role` und `members.club_role` (ein Release nach Phase 5, eigene Migration), ein Diagramm der Abteilungsentwicklung und die Zeitstrahl-Darstellung im Ämterverlauf.
+
+Anmerkungen zur Umsetzung von Phase 6 (Teil 3: Abteilungsentwicklung und Zeitstrahl):
+
+- Auswertungen → Mitglieder zeigt je aktivem Abteilungsfeld die „Abteilungsentwicklung“: je Abteilung eine Linie mit den aktiven Mitgliedern am Monatsende im gewählten Zeitraum. Es zählen Mitglieder, die an dem Tag Mitglied des Vereins sind und der Abteilung angehören; Mehrfachzugehörigkeit zählt in jeder Abteilung. Abteilungen ohne Mitglieder im ganzen Zeitraum entfallen. Die Legende nennt den Endstand und die Veränderung seit Zeitraumbeginn, die Werte stehen zusätzlich als Tabelle bereit.
+- Der Tab „Verlauf“ unter `/aemter` lässt sich zwischen „Liste“ und „Zeitstrahl“ umschalten (`view=timeline` in der URL, Daten und Export unverändert). Der Zeitstrahl zeigt je Amt die Amtszeiten als Balken auf einer gemeinsamen Achse: der Filterzeitraum oder, ohne Filter, vom frühesten bekannten Beginn bis heute. Überschneidende Amtszeiten liegen in eigenen Zeilen, ein Klick öffnet die Mitgliederakte. Auf schmalen Bildschirmen scrollt die Achse innerhalb der Karte und beginnt am aktuellen Ende.
+- Offen: die Entfernung der Spalten `members.department_role` und `members.club_role` (ein Release nach Phase 5, eigene Migration).
 
 ---
 

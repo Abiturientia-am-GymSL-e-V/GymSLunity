@@ -211,6 +211,14 @@ Auswertende Übersichten wie `resources/js/pages/assignments/` folgen diesem Mus
 - Mitglieder in solchen Listen zeigt `AssignmentMember` mit Link zur Mitgliederakte, Mitgliedsnummer, Zeitraum und Notiz; ehemalige Mitglieder und Kontakte sind als „kein aktuelles Mitglied“ gekennzeichnet.
 - Zuordnungen für mehrere ausgewählte Mitglieder (hinzufügen oder beenden) laufen über `BulkAssignDialog` (`resources/js/components/assignments/BulkAssignDialog.vue`). Mit `preset` sind Feld und Auswahl fest vorgegeben, etwa „Ehrung vergeben“ bei fälligen Jubiläen. Die Aktion gilt für alle Ausgewählten oder bei einem Konflikt für niemanden; der Fehler nennt das betroffene Mitglied.
 
+## Diagramme und Zeitstrahlen
+
+- Diagramme sind schlanke Inline-SVGs nach dem Vorbild von `resources/js/components/statistics/MemberTrendChart.vue` und `DepartmentTrendChart.vue`; keine Diagrammbibliothek einbinden. Das SVG erhält `role="img"` und einen `aria-label`, Datenpunkte einen `<title>`.
+- Farben kommen aus den Tokens `var(--chart-1)` bis `var(--chart-5)`, Achsen aus `var(--border)`, Beschriftungen aus `fill-muted-foreground`. Ab der sechsten Reihe wiederholen sich die Farben mit einem Strichmuster, damit Linien nicht nur über die Farbe unterscheidbar sind.
+- Zu jedem Diagramm gehört eine Legende mit den Kernwerten; bei mehreren Reihen stehen die Werte zusätzlich in einem aufklappbaren „Werte als Tabelle anzeigen“.
+- Breite Diagramme und Zeitstrahlen haben eine Mindestbreite und scrollen innerhalb ihrer Karte horizontal. Beim Zeitstrahl (`resources/js/components/assignments/OfficeTimeline.vue`) bleibt die Beschriftungsspalte dabei stehen, und die Achse beginnt auf schmalen Bildschirmen am aktuellen Ende.
+- Alternative Darstellungen derselben Daten, etwa „Liste“ und „Zeitstrahl“, werden mit zwei kleinen `Button`s (`size="sm"`, aktiv `secondary`, sonst `outline`, `aria-pressed`) über dem Inhalt umgeschaltet; die Wahl steht in der URL.
+
 ## Responsive Verhalten
 
 - Standardmäßig eine Spalte; `sm`, `md`, `lg`, `xl` und `2xl` nur einsetzen, wenn der Inhalt am jeweiligen Punkt tatsächlich Platz hat.

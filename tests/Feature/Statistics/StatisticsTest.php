@@ -178,6 +178,29 @@ class StatisticsTest extends TestCase
         $this->get(route('statistics.members', [...$parameters, 'department' => 'custom_sport:unknown']))->assertSessionHasErrors('department');
     }
 
+    public function test_department_trend_counts_active_members_per_department_at_each_month_end(): void
+    {
+        MemberFieldDefinition::query()->create([
+            'key' => 'custom_sport', 'label' => 'Sparten', 'type' => 'department', 'section' => MemberFieldDefinition::ASSIGNMENT_SECTION,
+            'position' => 1000, 'is_active' => true, 'is_custom' => true, 'required' => false, 'filterable' => true, 'show_in_table' => false,
+            'selfservice_visible' => false, 'selfservice_editable' => false, 'allow_multiple' => false, 'max_length' => 255,
+            'options' => [['value' => 'gym', 'label' => 'Turnen', 'active' => true], ['value' => 'ball', 'label' => 'Fußball', 'active' => true], ['value' => 'chess', 'label' => 'Schach', 'active' => true]],
+        ]);
+        Member::factory()->withAssignment('custom_sport', 'gym', '2020-01-01')->withAssignment('custom_sport', 'ball', '2026-02-10')->create(['joined_at' => '2020-01-01']);
+        Member::factory()->withAssignment('custom_sport', 'gym', '2020-01-01', '2026-02-28')->create(['joined_at' => '2020-01-01']);
+        // Leaving the club ends the count even with an open department.
+        Member::factory()->withAssignment('custom_sport', 'ball', '2020-01-01')->create(['joined_at' => '2020-01-01', 'left_at' => '2026-03-15']);
+
+        $this->get(route('statistics.members', ['from' => '2026-01-01', 'to' => '2026-04-30', 'as_of' => '2026-04-30']))->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('departmentTrend.0.label', 'Sparten')
+                ->where('departmentTrend.0.months', ['Jan 26', 'Feb 26', 'Mär 26', 'Apr 26'])
+                ->where('departmentTrend.0.series', [
+                    ['value' => 'gym', 'label' => 'Turnen', 'counts' => [2, 2, 1, 1]],
+                    ['value' => 'ball', 'label' => 'Fußball', 'counts' => [1, 2, 1, 1]],
+                ]));
+    }
+
     public function test_finance_status_includes_every_kind_of_charge(): void
     {
         $member = Member::factory()->create(['joined_at' => '2020-01-01']);

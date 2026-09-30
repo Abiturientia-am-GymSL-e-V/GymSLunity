@@ -27,6 +27,9 @@ final class StatisticsReport
     /** @var EloquentCollection<int, Member> */
     private EloquentCollection $activeMembers;
 
+    /** @var EloquentCollection<int, MemberFieldDefinition>|null */
+    private ?EloquentCollection $departmentFields = null;
+
     public function __construct(
         private readonly CarbonImmutable $from,
         private readonly CarbonImmutable $to,
@@ -62,6 +65,7 @@ final class StatisticsReport
             'memberTrend' => $memberTrend,
             'memberBreakdowns' => $this->memberBreakdowns(),
             'departments' => $this->departments(),
+            'departmentTrend' => $this->departmentTrend(),
             'stockReport' => $this->stockReport(),
             'finances' => $this->finances($contributions, $donations, $memberTrend),
             'dataQuality' => $this->dataQuality(),
@@ -86,23 +90,36 @@ final class StatisticsReport
     /** @return list<array{key: string, label: string, active: int, joined: int, departed: int}> */
     private function memberTrend(): array
     {
-        $rows = [];
+        return array_map(fn (array $month): array => [
+            'key' => $month['key'],
+            'label' => $month['label'],
+            'active' => $this->members->filter(fn (Member $member): bool => $this->isActiveAt($member, $month['end']))->count(),
+            'joined' => $this->members->filter(fn (Member $member): bool => $this->dateBetween($member->joined_at, $month['start'], $month['end']))->count(),
+            'departed' => $this->members->filter(fn (Member $member): bool => $this->dateBetween($this->departureDate($member), $month['start'], $month['end']))->count(),
+        ], $this->months());
+    }
+
+    /**
+     * Months of the period, cut to its first and last day.
+     *
+     * @return list<array{key: string, label: string, start: CarbonImmutable, end: CarbonImmutable}>
+     */
+    private function months(): array
+    {
+        $months = [];
         $month = $this->from->startOfMonth();
         while ($month->lessThanOrEqualTo($this->to)) {
-            $periodStart = $month->lessThan($this->from) ? $this->from : $month;
             $monthEnd = $month->endOfMonth();
-            $periodEnd = $monthEnd->greaterThan($this->to) ? $this->to : $monthEnd;
-            $rows[] = [
+            $months[] = [
                 'key' => $month->format('Y-m'),
                 'label' => self::MONTH_LABELS[$month->month].' '.$month->format('y'),
-                'active' => $this->members->filter(fn (Member $member): bool => $this->isActiveAt($member, $periodEnd))->count(),
-                'joined' => $this->members->filter(fn (Member $member): bool => $this->dateBetween($member->joined_at, $periodStart, $periodEnd))->count(),
-                'departed' => $this->members->filter(fn (Member $member): bool => $this->dateBetween($this->departureDate($member), $periodStart, $periodEnd))->count(),
+                'start' => $month->lessThan($this->from) ? $this->from : $month,
+                'end' => $monthEnd->greaterThan($this->to) ? $this->to : $monthEnd,
             ];
             $month = $month->addMonth();
         }
 
-        return $rows;
+        return $months;
     }
 
     /** @return array<string, list<array{label: string, count: int}>> */
@@ -126,7 +143,7 @@ final class StatisticsReport
      */
     private function departments(): array
     {
-        $fields = MemberFieldDefinition::query()->where('type', 'department')->where('is_active', true)->orderBy('position')->orderBy('id')->get();
+        $fields = $this->departmentFields();
         if ($fields->isEmpty()) {
             return [];
         }
@@ -152,6 +169,48 @@ final class StatisticsReport
         }
 
         return $result;
+    }
+
+    /**
+     * Active members per department at the end of each month of the period,
+     * per active department field. Options without members in the whole
+     * period are left out; a member in several departments counts in each.
+     *
+     * @return list<array{key: string, label: string, months: list<string>, series: list<array{value: string, label: string, counts: list<int>}>}>
+     */
+    private function departmentTrend(): array
+    {
+        $fields = $this->departmentFields();
+        if ($fields->isEmpty()) {
+            return [];
+        }
+        $months = $this->months();
+        $members = $this->members->keyBy('id');
+        $assignments = MemberAssignment::query()->whereIn('field_key', $fields->pluck('key'))
+            ->overlapping($this->from, $this->to)->get(['member_id', 'field_key', 'option_value', 'starts_on', 'ends_on']);
+        $result = [];
+        foreach ($fields as $field) {
+            $series = [];
+            foreach ($field->options as $option) {
+                $matching = $assignments->where('field_key', $field->key)->where('option_value', $option['value']);
+                $counts = array_map(fn (array $month): int => $matching
+                    ->filter(fn (MemberAssignment $assignment): bool => $assignment->isActiveOn($month['end'])
+                        && $members->has($assignment->member_id) && $this->isActiveAt($members[$assignment->member_id], $month['end']))
+                    ->pluck('member_id')->unique()->count(), $months);
+                if (array_sum($counts) > 0) {
+                    $series[] = ['value' => $option['value'], 'label' => $option['label'], 'counts' => $counts];
+                }
+            }
+            $result[] = ['key' => $field->key, 'label' => $field->label, 'months' => array_column($months, 'label'), 'series' => $series];
+        }
+
+        return $result;
+    }
+
+    /** @return EloquentCollection<int, MemberFieldDefinition> */
+    private function departmentFields(): EloquentCollection
+    {
+        return $this->departmentFields ??= MemberFieldDefinition::query()->where('type', 'department')->where('is_active', true)->orderBy('position')->orderBy('id')->get();
     }
 
     /** @return list<array{birth_year: int|null, label: string, female: int, male: int, diverse: int, unspecified: int, total: int}> */
