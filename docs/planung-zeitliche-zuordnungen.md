@@ -1,6 +1,6 @@
 # Planung: Zeitliche Zuordnungen zu Abteilungen, Funktionen/Ämtern und Ereignissen/Ehrungen
 
-Stand: 30.09.2026 · Status: **Alle fachlichen Fragen F1–F17 am 30.09.2026 entschieden (siehe Abschnitt 6.2); Umsetzung am 30.09.2026 freigegeben; Phasen 1 bis 6 einschließlich Abteilungsdiagramm und Ämter-Zeitstrahl umgesetzt; offen ist nur die Entfernung der Altspalten im Folgerelease**
+Stand: 30.09.2026 · Status: **Alle fachlichen Fragen F1–F17 am 30.09.2026 entschieden (siehe Abschnitt 6.2); Umsetzung am 30.09.2026 freigegeben; Phasen 1 bis 6 vollständig umgesetzt, Altspalten mit v1.0.0-beta.7 entfernt**
 
 Kennzeichnung im Dokument:
 
@@ -353,7 +353,11 @@ Anmerkungen zur Umsetzung von Phase 6 (Teil 3: Abteilungsentwicklung und Zeitstr
 
 - Auswertungen → Mitglieder zeigt je aktivem Abteilungsfeld die „Abteilungsentwicklung“: je Abteilung eine Linie mit den aktiven Mitgliedern am Monatsende im gewählten Zeitraum. Es zählen Mitglieder, die an dem Tag Mitglied des Vereins sind und der Abteilung angehören; Mehrfachzugehörigkeit zählt in jeder Abteilung. Abteilungen ohne Mitglieder im ganzen Zeitraum entfallen. Die Legende nennt den Endstand und die Veränderung seit Zeitraumbeginn, die Werte stehen zusätzlich als Tabelle bereit.
 - Der Tab „Verlauf“ unter `/aemter` lässt sich zwischen „Liste“ und „Zeitstrahl“ umschalten (`view=timeline` in der URL, Daten und Export unverändert). Der Zeitstrahl zeigt je Amt die Amtszeiten als Balken auf einer gemeinsamen Achse: der Filterzeitraum oder, ohne Filter, vom frühesten bekannten Beginn bis heute. Überschneidende Amtszeiten liegen in eigenen Zeilen, ein Klick öffnet die Mitgliederakte. Auf schmalen Bildschirmen scrollt die Achse innerhalb der Karte und beginnt am aktuellen Ende.
-- Offen: die Entfernung der Spalten `members.department_role` und `members.club_role` (ein Release nach Phase 5, eigene Migration).
+
+Anmerkungen zur Umsetzung von Phase 6 (Teil 4: Entfernung der Altspalten):
+
+- Nach v1.0.0-beta.6, dem ersten Release mit der Umstellung, entfernt die Migration `2026_09_30_050000_drop_legacy_role_columns_from_members` die Spalten `members.department_role` und `members.club_role` samt Indizes (Release v1.0.0-beta.7).
+- Der Rückweg legt die Spalten wieder an und füllt sie aus den übernommenen Zuordnungen (`source = migration`), soweit diese noch existieren. Danach lässt sich auch die Umstellung aus Phase 5 unter ihren Bedingungen zurücknehmen.
 
 ---
 

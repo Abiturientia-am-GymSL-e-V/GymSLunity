@@ -79,7 +79,7 @@ class SelfServiceTest extends TestCase
     public function test_member_access_is_separate_from_administration_and_payload_is_minimal(): void
     {
         $this->enable();
-        $member = Member::factory()->create(['iban' => 'DE89370400440532013000', 'club_role' => 'Geheim']);
+        $member = Member::factory()->withAssignment('club_role', 'Kassierer', '2020-01-01')->create(['iban' => 'DE89370400440532013000']);
         $this->signIn($member)->get('/selfservice')->assertOk()->assertInertia(fn (Assert $page) => $page->where('member.member_number', $member->member_number)->missing('member.iban')->missing('member.club_role')->where('auth.user', null));
         $this->get('/mitglieder')->assertRedirect('/login');
         $this->get('/konfiguration/selfservice')->assertRedirect('/login');
