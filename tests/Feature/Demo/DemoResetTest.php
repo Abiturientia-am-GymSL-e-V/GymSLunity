@@ -17,6 +17,7 @@ use App\Models\Member;
 use App\Models\Receipt;
 use App\Models\ResourceBooking;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -24,10 +25,19 @@ use Tests\TestCase;
 
 /**
  * migrate:fresh cannot run inside the transaction of RefreshDatabase; the
- * in-memory test database is discarded with the application instead.
+ * in-memory test database is discarded with the application instead, a
+ * MariaDB/MySQL test database is migrated again by the next test.
  */
 class DemoResetTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        // MariaDB/MySQL keep the demo data; later tests start from a fresh schema.
+        RefreshDatabaseState::$migrated = false;
+
+        parent::tearDown();
+    }
+
     public function test_reset_replaces_all_data_with_the_demo_club(): void
     {
         config(['demo.enabled' => true, 'demo.password' => 'Geteiltes-Passwort']);

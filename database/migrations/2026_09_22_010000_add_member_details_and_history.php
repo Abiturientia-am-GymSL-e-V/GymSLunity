@@ -47,7 +47,7 @@ return new class extends Migration
             $table->timestamps();
             $table->unique(['member_id', 'kind']);
         });
-        if (DB::getDriverName() === 'mysql') {
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
             DB::statement('ALTER TABLE member_documents MODIFY contents LONGBLOB NOT NULL');
         }
     }

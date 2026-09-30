@@ -13,16 +13,16 @@ use App\Models\MemberChange;
 use App\Models\MemberFieldDefinition;
 use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
 use RuntimeException;
+use Tests\Concerns\ChangesDatabaseSchema;
 use Tests\TestCase;
 
 class LegacyRoleMigrationTest extends TestCase
 {
-    use RefreshDatabase;
+    use ChangesDatabaseSchema;
 
     private Migration $migration;
 
