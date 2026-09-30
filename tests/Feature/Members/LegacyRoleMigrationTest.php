@@ -15,6 +15,7 @@ use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
 use RuntimeException;
 use Tests\TestCase;
@@ -25,12 +26,16 @@ class LegacyRoleMigrationTest extends TestCase
 
     private Migration $migration;
 
+    private Migration $dropColumns;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->travelTo('2026-06-15 12:00:00');
         $this->migration = require database_path('migrations/2026_09_30_040000_migrate_legacy_roles_to_assignments.php');
+        $this->dropColumns = require database_path('migrations/2026_09_30_050000_drop_legacy_role_columns_from_members.php');
         // Back to the state before the update: select fields with values in members.
+        $this->dropColumns->down();
         $this->migration->down();
     }
 
@@ -122,6 +127,31 @@ class LegacyRoleMigrationTest extends TestCase
         MemberAssignment::query()->create(['member_id' => $member->id, 'field_key' => 'club_role', 'option_value' => 'Schriftführer', 'starts_on' => '2026-06-01']);
         $this->expectException(RuntimeException::class);
         $this->migration->down();
+    }
+
+    public function test_columns_are_dropped_and_restored_from_the_migrated_assignments(): void
+    {
+        $treasurer = Member::factory()->create(['club_role' => 'Kassierer', 'department_role' => 'Delegierte']);
+        $none = Member::factory()->create();
+        $this->migration->up();
+        $this->dropColumns->up();
+
+        $this->assertFalse(Schema::hasColumn('members', 'club_role'));
+        $this->assertFalse(Schema::hasColumn('members', 'department_role'));
+        // Placeholders keep working without the columns.
+        $this->assertSame('Kassierer / Delegierte', app(CommunicationTemplate::class)->render('{{mitglied.club_role}} / {{mitglied.department_role}}', $treasurer->fresh()));
+        // Running it again changes nothing.
+        $this->dropColumns->up();
+
+        $this->dropColumns->down();
+        $this->assertSame('Kassierer', DB::table('members')->where('id', $treasurer->id)->value('club_role'));
+        $this->assertSame('Delegierte', DB::table('members')->where('id', $treasurer->id)->value('department_role'));
+        $this->assertNull(DB::table('members')->where('id', $none->id)->value('club_role'));
+
+        // The office migration can be rolled back afterwards as well.
+        $this->migration->down();
+        $this->assertSame('select', $this->field('club_role')->type);
+        $this->assertSame('Kassierer', DB::table('members')->where('id', $treasurer->id)->value('club_role'));
     }
 
     private function field(string $key): MemberFieldDefinition

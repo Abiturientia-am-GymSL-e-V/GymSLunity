@@ -15,8 +15,8 @@ use Illuminate\Support\Facades\DB;
  *
  * Every stored value becomes an assignment with an unknown beginning. For
  * members who already left or died it ends on that day. Each migrated member
- * gets one history entry by "System (Migration)". The columns in members stay
- * untouched for one release as a fallback and are no longer written.
+ * gets one history entry by "System (Migration)". The columns in members stayed
+ * untouched for one release as a fallback; 2026_09_30_050000 removes them.
  *
  * Running it again changes nothing: fields that already are office fields
  * are skipped.
@@ -88,7 +88,8 @@ return new class extends Migration
 
     /**
      * Restores the select fields as long as nobody recorded further
-     * assignments for them. The members columns still hold the old values.
+     * assignments for them. The members columns hold the old values again
+     * once 2026_09_30_050000 is rolled back.
      * The history entries of the migration stay, the history is immutable.
      */
     public function down(): void
