@@ -363,7 +363,7 @@ on_exit() {
             "$c_red" "$status" "$c_off"
         undo_journal "core data pkg repo"
         printf '%sRollback abgeschlossen. Das System ist im Zustand vor der Installation.%s\n' "$c_yellow" "$c_off"
-        warn "Aktualisierte Paketlisten und als Abhängigkeit installierte Pakete bleiben; 'apt autoremove' räumt Letztere auf."
+        warn "Aktualisiert bleiben die Paketlisten und bereits vorhandene Pakete, die eine Abhängigkeit auf eine neuere Version gehoben hat (z. B. php-common)."
     fi
     exit "$status"
 }
@@ -397,6 +397,26 @@ run_tasks() {
 
 package_installed() {
     [[ "$(dpkg-query -W -f='${db:Status-Status}' "$1" 2> /dev/null)" == installed ]]
+}
+
+# installed_packages — names of all installed packages, sorted.
+installed_packages() {
+    dpkg-query -W -f='${db:Status-Status} ${binary:Package}\n' 2> /dev/null | awk '$1 == "installed" { print $2 }' | sort
+}
+
+# apt_install PACKAGE… — installs without recommendations and records the
+# removal of everything that came with it, dependencies included, so a
+# rollback leaves exactly the packages that were there before.
+apt_install() {
+    local before new
+    before="$(installed_packages)"
+    record pkg apt-get remove -y "$@"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends "$@"
+    new="$(comm -13 <(printf '%s\n' "$before") <(installed_packages))"
+    if [[ -n $new ]]; then
+        # shellcheck disable=SC2086 # one package name per word
+        record pkg apt-get remove -y $new
+    fi
 }
 
 package_available() {
@@ -639,8 +659,7 @@ install_packages() {
             [[ $pkg == php* ]] && php+=("$pkg") || base+=("$pkg")
         done
         if ((${#base[@]})); then
-            record pkg apt-get remove -y "${base[@]}"
-            DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends "${base[@]}"
+            apt_install "${base[@]}"
         fi
         if ((${#php[@]})); then
             package_available "php$php_version-fpm" || add_php_repository
@@ -650,8 +669,7 @@ install_packages() {
             for alternative in php phar phar.phar; do
                 previous+=("$(readlink "/etc/alternatives/$alternative" 2> /dev/null || true)")
             done
-            record pkg apt-get remove -y "${php[@]}"
-            DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends "${php[@]}"
+            apt_install "${php[@]}"
             local i=0
             for alternative in php phar phar.phar; do
                 if [[ -n ${previous[i]} && -e ${previous[i]} && "$(readlink "/etc/alternatives/$alternative")" != "${previous[i]}" ]]; then
