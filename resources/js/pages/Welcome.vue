@@ -1,13 +1,23 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { ArrowRight, UserPlus } from '@lucide/vue';
+import { computed } from 'vue';
 import PublicFooter from '@/components/public/PublicFooter.vue';
 import PublicHeader from '@/components/public/PublicHeader.vue';
 import { Button } from '@/components/ui/button';
 import { dashboard, login } from '@/routes';
 
-defineProps<{ selfserviceEnabled: boolean; publicJoinEnabled: boolean }>();
+const props = defineProps<{
+    selfserviceEnabled: boolean;
+    publicJoinEnabled: boolean;
+}>();
 const page = usePage();
+
+const accessTargets = computed(() =>
+    props.selfserviceEnabled
+        ? 'zur Verwaltung und zum Mitgliederbereich'
+        : 'zur Verwaltung',
+);
 </script>
 
 <template>
@@ -46,8 +56,8 @@ const page = usePage();
                     >
                         {{
                             $address(
-                                'Dein Verein, deine Daten. Hier findest du den Zugang zur Verwaltung und zum Mitgliederbereich.',
-                                'Ihr Verein, Ihre Daten. Hier finden Sie den Zugang zur Verwaltung und zum Mitgliederbereich.',
+                                `Dein Verein, deine Daten. Hier findest du den Zugang ${accessTargets}.`,
+                                `Ihr Verein, Ihre Daten. Hier finden Sie den Zugang ${accessTargets}.`,
                             )
                         }}
                     </p>
