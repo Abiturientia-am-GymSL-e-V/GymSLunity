@@ -42,7 +42,7 @@ Die gesperrten Versionen stehen in `composer.lock` und `package-lock.json`. Für
 
 ## Installation
 
-Die Schritt-für-Schritt-Anleitung mit allen Befehlen, einschließlich MariaDB, Redis, Queue-Worker, Dateirechten, Updates und Produktivbetrieb, steht in [docs/installation.md](docs/installation.md). Alle Einstellungen der `.env` beschreibt [docs/konfiguration.md](docs/konfiguration.md). Eine gehärtete Ausgangskonfiguration für Nginx liegt unter [docs/nginx.conf.example](docs/nginx.conf.example). Wie eine öffentliche Live-Demo mit täglicher Zurücksetzung betrieben wird, beschreibt [docs/demo.md](docs/demo.md).
+Auf einem frischen Debian- oder Ubuntu-Server richtet `scripts/install-server.sh` eine produktive Instanz mit einem Befehl ein (siehe [Automatische Installation](docs/installation.md#automatische-installation)). Die Schritt-für-Schritt-Anleitung mit allen Befehlen, einschließlich MariaDB, Redis, Queue-Worker, Dateirechten, Updates und Produktivbetrieb, steht in [docs/installation.md](docs/installation.md). Alle Einstellungen der `.env` beschreibt [docs/konfiguration.md](docs/konfiguration.md). Eine gehärtete Ausgangskonfiguration für Nginx liegt unter [docs/nginx.conf.example](docs/nginx.conf.example). Wie eine öffentliche Live-Demo mit täglicher Zurücksetzung betrieben wird, beschreibt [docs/demo.md](docs/demo.md).
 
 ### Fertiges Release-Archiv
 

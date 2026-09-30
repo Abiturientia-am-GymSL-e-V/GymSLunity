@@ -1,0 +1,339 @@
+name: Installer
+
+# Runs scripts/install-demo-server.sh and scripts/install-server.sh on real
+# Ubuntu servers: rollback after a late failure, a full install next to the
+# preinstalled PHP 8.3, the checks of the result and the uninstall. The
+# production installer gets an archive of this commit, so changes to the
+# application and the installer are tested together.
+on:
+  pull_request:
+    paths:
+      - scripts/install-common.sh
+      - scripts/install-demo-server.sh
+      - scripts/install-server.sh
+      - scripts/deploy-demo.sh
+      - scripts/build-release.sh
+      - app/Console/Commands/InstallApplication.php
+      - app/Console/Commands/CreateUser.php
+      - .github/workflows/installer.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  demo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        # Unlike the default, "bash" adds pipefail (install … | tee).
+        shell: bash
+    env:
+      DEMO_RELEASE_DOMAIN: demo.example.test
+      DEMO_TLS: proxy
+      DEMO_PROXIES: 127.0.0.1
+      DEMO_SSH_HOST: localhost
+      DEMO_SSH_PORT: '22'
+      DEMO_OPEN_FIREWALL: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Prepare server
+        run: |
+          # "! command" does not fail a step under bash -e, the checks use "fails command".
+          echo 'fails() { if "$@"; then echo "Unerwartet erfolgreich: $*" >&2; exit 1; fi; }' > "$RUNNER_TEMP/helpers.sh"
+          echo "BASH_ENV=$RUNNER_TEMP/helpers.sh" >> "$GITHUB_ENV"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openssh-server
+          # Like many servers: only the admin may log in over SSH.
+          echo 'AllowUsers runner' | sudo tee /etc/ssh/sshd_config.d/00-test.conf > /dev/null
+          sudo systemctl start ssh
+          sudo systemctl reload ssh
+          php -r 'echo PHP_VERSION, PHP_EOL;' | tee "$RUNNER_TEMP/php-default"
+          dpkg-query -W -f='${db:Status-Status}\n' php8.4-fpm 2> /dev/null | tee "$RUNNER_TEMP/php84-before" || true
+
+      - name: Rollback after a late failure
+        run: |
+          if sudo -E DEMO_TEST_FAIL_AFTER=setup_deploy_key bash scripts/install-demo-server.sh --yes; then
+            echo "Die Installation hätte abbrechen müssen." >&2
+            exit 1
+          fi
+          fails id gymslunity-demo
+          test ! -e /srv/gymslunity-demo
+          test ! -e /var/lib/gymslunity-demo-installer/gymslunity-demo
+          test ! -e /etc/nginx/sites-enabled/gymslunity-demo
+          test ! -e /etc/php/8.4/fpm/pool.d/gymslunity-demo.conf
+          test ! -e /etc/systemd/system/gymslunity-demo-queue@.service
+          test ! -e /etc/ssh/sshd_config.d/gymslunity-demo.conf
+          test ! -e /usr/local/bin/gymslunity-demo-deploy
+          # Packages installed by the failed run are removed again.
+          if [ "$(cat "$RUNNER_TEMP/php84-before")" != installed ]; then
+            test "$(dpkg-query -W -f='${db:Status-Status}' php8.4-fpm 2> /dev/null || true)" != installed
+          fi
+          sudo nginx -t
+
+      - name: Install
+        run: sudo -E bash scripts/install-demo-server.sh --yes | tee "$RUNNER_TEMP/install.log"
+
+      - name: Check the installation
+        run: |
+          set -x
+          # The default PHP is unchanged.
+          test "$(php -r 'echo PHP_VERSION, PHP_EOL;')" = "$(cat "$RUNNER_TEMP/php-default")"
+          for domain in demo.example.test next.demo.example.test; do
+            curl -fsS --resolve "$domain:80:127.0.0.1" "http://$domain/login" | grep -qi 'demo'
+          done
+          # Files outside public/ and dotfiles are not served.
+          for path in .env ../.env artisan composer.json; do
+            code="$(curl -s --resolve demo.example.test:80:127.0.0.1 -o /dev/null -w '%{http_code}' "http://demo.example.test/$path")"
+            [ "$code" = 403 ] || [ "$code" = 404 ]
+          done
+          systemctl is-active gymslunity-demo-queue@release gymslunity-demo-queue@next \
+            gymslunity-demo-schedule@release.timer gymslunity-demo-schedule@next.timer
+          sudo systemctl start gymslunity-demo-schedule@release.service
+          # Nginx must not be able to read secrets.
+          fails sudo -u www-data cat /srv/gymslunity-demo/release/shared/.env
+          fails sudo -u www-data cat /srv/gymslunity-demo/release/shared/database.sqlite
+          # The demo user cannot change its SSH restriction.
+          # The installer allowed the demo user in addition to the admin.
+          sudo sshd -T | grep -qx 'allowusers runner'
+          sudo sshd -T | grep -qx 'allowusers gymslunity-demo'
+          fails sudo -u gymslunity-demo sh -c 'echo x >> /srv/gymslunity-demo/.ssh/authorized_keys'
+          grep -q 'gh secret set DEMO_SSH_KEY' "$RUNNER_TEMP/install.log"
+
+      - name: Deploy over SSH with the restricted key
+        run: |
+          set -x
+          # sudo puts the private key into the home of the calling user.
+          key="$HOME/gymslunity-demo-deploy-key"
+          tag="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName')"
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "gymslunity-$tag.tar.gz" --dir "$RUNNER_TEMP"
+          ssh_opts=(-i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null)
+          before="$(sudo ls /srv/gymslunity-demo/next/releases | wc -l)"
+          ssh "${ssh_opts[@]}" gymslunity-demo@localhost next < "$RUNNER_TEMP/gymslunity-$tag.tar.gz"
+          test "$(sudo ls /srv/gymslunity-demo/next/releases | wc -l)" -gt "$before"
+          curl -fsS --resolve next.demo.example.test:80:127.0.0.1 http://next.demo.example.test/login | grep -qi 'demo'
+          # Only the deploy script may run, no shell.
+          fails ssh "${ssh_opts[@]}" gymslunity-demo@localhost 'id' < /dev/null
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Uninstall
+        run: |
+          set -x
+          sudo bash scripts/install-demo-server.sh --uninstall --yes
+          fails id gymslunity-demo
+          test ! -e /srv/gymslunity-demo
+          test ! -e "$HOME/gymslunity-demo-deploy-key"
+          test ! -e /etc/ssh/sshd_config.d/gymslunity-demo.conf
+          fails sh -c "sudo sshd -T | grep -qx 'allowusers gymslunity-demo'"
+          test ! -e /var/lib/gymslunity-demo-installer/gymslunity-demo
+          fails sh -c "systemctl list-unit-files 'gymslunity-demo*' | grep -q gymslunity-demo"
+          sudo nginx -t
+          # Packages stay unless the uninstall is confirmed interactively.
+          dpkg-query -W -f='${db:Status-Status}\n' php8.4-fpm | grep -qx installed
+
+      - name: Show logs
+        if: failure()
+        run: |
+          sudo journalctl -u 'gymslunity-demo*' -u nginx -u php8.4-fpm --no-pager -n 200 || true
+          sudo sh -c 'tail -n 50 /srv/gymslunity-demo/*/shared/storage/logs/*.log' || true
+          sudo tail -n 50 /var/log/nginx/error.log || true
+
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.4'
+          extensions: ctype, curl, dom, fileinfo, mbstring, openssl, pdo_sqlite, xml, zip
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Build archive of this commit
+        run: |
+          scripts/build-release.sh
+          mv dist/gymslunity-v*.tar.gz dist/gymslunity.tar.gz
+          mv dist/gymslunity-v*.tar.gz.sha256 dist/gymslunity.tar.gz.sha256
+          # The checksum file names the original archive.
+          sed -i 's/gymslunity-v[^ ]*\.tar\.gz$/gymslunity.tar.gz/' dist/gymslunity.tar.gz.sha256
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-archive
+          path: dist/
+          retention-days: 1
+
+  production:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [sqlite, mariadb]
+    defaults:
+      run:
+        shell: bash
+    env:
+      GYMSLUNITY_DOMAIN: verein.example.test
+      GYMSLUNITY_TLS: proxy
+      GYMSLUNITY_PROXIES: 127.0.0.1
+      GYMSLUNITY_DB: ${{ matrix.db }}
+      GYMSLUNITY_CLUB_NAME: Testverein e. V.
+      GYMSLUNITY_ADMIN_NAME: Test Admin
+      GYMSLUNITY_ADMIN_EMAIL: admin@example.test
+      GYMSLUNITY_ADMIN_PASSWORD: Test-Passwort-2026!
+      GYMSLUNITY_OPEN_FIREWALL: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-archive
+          path: ${{ runner.temp }}/release
+
+      - name: Prepare server
+        run: |
+          echo 'fails() { if "$@"; then echo "Unerwartet erfolgreich: $*" >&2; exit 1; fi; }' > "$RUNNER_TEMP/helpers.sh"
+          echo "BASH_ENV=$RUNNER_TEMP/helpers.sh" >> "$GITHUB_ENV"
+          echo "GYMSLUNITY_ARCHIVE=$RUNNER_TEMP/release/gymslunity.tar.gz" >> "$GITHUB_ENV"
+          # A fresh server without a database server; the runner comes with MySQL.
+          sudo systemctl stop mysql 2> /dev/null || true
+          sudo DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq 'mysql-server*' 'mysql-client*' 'mysql-common' > /dev/null
+          sudo rm -rf /var/lib/mysql /etc/mysql
+          php -r 'echo PHP_VERSION, PHP_EOL;' | tee "$RUNNER_TEMP/php-default"
+
+      - name: Rollback after a late failure
+        run: |
+          if sudo -E GYMSLUNITY_TEST_FAIL_AFTER=install_units bash scripts/install-server.sh --yes; then
+            echo "Die Installation hätte abbrechen müssen." >&2
+            exit 1
+          fi
+          fails id gymslunity
+          test ! -e /var/www/gymslunity
+          test ! -e /var/backups/gymslunity
+          test ! -e /var/lib/gymslunity-installer/gymslunity
+          test ! -e /etc/nginx/sites-enabled/gymslunity
+          test ! -e /etc/php/8.4/fpm/pool.d/gymslunity.conf
+          test ! -e /etc/systemd/system/gymslunity-queue.service
+          # Packages installed by the failed run are removed again, MariaDB included.
+          test "$(dpkg-query -W -f='${db:Status-Status}' php8.4-fpm 2> /dev/null || true)" != installed
+          test ! -x /usr/sbin/mariadbd
+          sudo nginx -t
+
+      - name: Install
+        run: sudo -E bash scripts/install-server.sh --yes | tee "$RUNNER_TEMP/install.log"
+
+      - name: Check the installation
+        run: |
+          set -x
+          dir=/var/www/gymslunity
+          site=(--resolve verein.example.test:80:127.0.0.1)
+          # The default PHP is unchanged.
+          test "$(php -r 'echo PHP_VERSION, PHP_EOL;')" = "$(cat "$RUNNER_TEMP/php-default")"
+          test "$(curl -s "${site[@]}" -o /dev/null -w '%{http_code}' http://verein.example.test/up)" = 200
+          # The browser installer is locked.
+          test "$(curl -s "${site[@]}" -o /dev/null -w '%{http_code}' http://verein.example.test/install)" = 302
+          test -f $dir/storage/app/installed
+          for path in .env ../.env artisan composer.json storage/logs/laravel.log; do
+            code="$(curl -s "${site[@]}" -o /dev/null -w '%{http_code}' "http://verein.example.test/$path")"
+            [ "$code" = 403 ] || [ "$code" = 404 ]
+          done
+
+          # The administrator can log in. The cookies are marked Secure (HTTPS at
+          # the proxy), so they are passed on by hand over plain HTTP.
+          headers="$(curl -s "${site[@]}" -D - -o /dev/null http://verein.example.test/login)"
+          cookies="$(grep -i '^set-cookie:' <<< "$headers" | sed -E 's/^[Ss]et-[Cc]ookie: ([^;]*);.*/\1/' | paste -sd';' -)"
+          xsrf="$(grep -io 'XSRF-TOKEN=[^;]*' <<< "$headers" | head -n1 | cut -d= -f2- | python3 -c 'import sys, urllib.parse; print(urllib.parse.unquote(sys.stdin.read().strip()))')"
+          login() {
+            curl -s "${site[@]}" -o /dev/null -w '%{http_code} %{redirect_url}' -H "Cookie: $cookies" -H "X-XSRF-TOKEN: $xsrf" \
+              --data-urlencode "email=$GYMSLUNITY_ADMIN_EMAIL" --data-urlencode "password=$1" http://verein.example.test/login
+          }
+          wrong="$(login 'Falsches-Passwort-1!')"
+          [[ $wrong == "302 "*/login ]]
+          right="$(login "$GYMSLUNITY_ADMIN_PASSWORD")"
+          [[ $right == "302 "* && $right != *"/login" ]]
+
+          systemctl is-active gymslunity-queue.service gymslunity-schedule.timer
+          sudo systemctl start gymslunity-schedule.service
+
+          # Nginx cannot read secrets, PHP cannot change the code or .env.
+          fails sudo -u www-data cat $dir/.env
+          fails sudo -u www-data ls $dir/storage/logs
+          fails sudo -u www-data ls /var/backups/gymslunity
+          sudo -u gymslunity cat $dir/.env > /dev/null
+          fails sudo -u gymslunity touch $dir/public/x.php
+          fails sudo -u gymslunity sh -c "echo X=1 >> $dir/.env"
+          sudo -u gymslunity touch $dir/storage/logs/write-test
+
+          # Backup into the backup directory.
+          (cd $dir && sudo -u gymslunity php8.4 artisan app:backup)
+          sudo ls /var/backups/gymslunity/ | grep -q '\.zip$'
+
+      - name: Update as described in the documentation
+        run: |
+          set -x
+          dir=/var/www/gymslunity
+          tmp="$(mktemp -d)"
+          tar -xzf "$GYMSLUNITY_ARCHIVE" -C "$tmp"
+          (cd $dir && sudo -u gymslunity php8.4 artisan down)
+          sudo rsync -a --delete --exclude=.env --exclude=storage/ --exclude=bootstrap/cache/ \
+            --exclude=database/database.sqlite --exclude=public/storage "$tmp"/gymslunity-v*/ $dir/
+          (cd $dir && sudo -u gymslunity php8.4 artisan optimize:clear)
+          (cd $dir && sudo -u gymslunity php8.4 artisan migrate --force)
+          (cd $dir && sudo -u gymslunity php8.4 artisan optimize)
+          (cd $dir && sudo -u gymslunity php8.4 artisan queue:restart)
+          (cd $dir && sudo -u gymslunity php8.4 artisan up)
+          test "$(curl -s --resolve verein.example.test:80:127.0.0.1 -o /dev/null -w '%{http_code}' http://verein.example.test/up)" = 200
+          test "$(curl -s --resolve verein.example.test:80:127.0.0.1 -o /dev/null -w '%{http_code}' http://verein.example.test/login)" = 200
+
+      - name: Uninstall and keep the data
+        if: matrix.db == 'sqlite'
+        run: |
+          set -x
+          sudo bash scripts/install-server.sh --uninstall --yes
+          test ! -e /etc/nginx/sites-enabled/gymslunity
+          test ! -e /etc/php/8.4/fpm/pool.d/gymslunity.conf
+          fails sh -c "systemctl list-unit-files 'gymslunity*' | grep -q gymslunity"
+          test ! -e /var/lib/gymslunity-installer/gymslunity
+          sudo nginx -t
+          # The data stays.
+          id gymslunity
+          sudo test -s /var/www/gymslunity/storage/database/database.sqlite
+          sudo test -f /var/www/gymslunity/.env
+          sudo ls /var/backups/gymslunity | grep -q '\.zip$'
+
+      - name: Uninstall and delete the data
+        if: matrix.db == 'mariadb'
+        run: |
+          set -x
+          sudo GYMSLUNITY_UNINSTALL_DATA=1 bash scripts/install-server.sh --uninstall --yes
+          fails id gymslunity
+          test ! -e /var/www/gymslunity
+          test ! -e /var/backups/gymslunity
+          test -z "$(sudo mariadb -N -e "SHOW DATABASES LIKE 'gymslunity'")"
+          test -z "$(sudo mariadb -N -e "SELECT User FROM mysql.user WHERE User = 'gymslunity'")"
+          # A last backup was kept for root.
+          sudo sh -c 'ls /root/gymslunity-letztes-backup-*.zip'
+          sudo nginx -t
+
+      - name: Show logs
+        if: failure()
+        run: |
+          sudo journalctl -u 'gymslunity*' -u nginx -u php8.4-fpm -u mariadb --no-pager -n 200 || true
+          sudo sh -c 'tail -n 80 /var/www/gymslunity/storage/logs/*.log' || true
+          sudo tail -n 50 /var/log/nginx/error.log || true

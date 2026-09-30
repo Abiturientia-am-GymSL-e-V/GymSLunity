@@ -35,7 +35,7 @@ Schlägt ein Schritt fehl oder wird das Skript mit Strg+C abgebrochen, macht es 
 sudo bash install-demo-server.sh --uninstall
 ```
 
-Sie entfernt die Demo mit allen Daten und fragt, ob auch die installierten Pakete entfernt werden sollen. `--help` listet die Umgebungsvariablen, mit denen sich alle Fragen vorab beantworten lassen (zusammen mit `--yes` für unbeaufsichtigte Installationen). Der Workflow `demo-installer.yml` testet Installation, Rollback, SSH-Deployment und Deinstallation bei jeder Änderung an den Skripten.
+Sie entfernt die Demo mit allen Daten und fragt, ob auch die installierten Pakete entfernt werden sollen. `--help` listet die Umgebungsvariablen, mit denen sich alle Fragen vorab beantworten lassen (zusammen mit `--yes` für unbeaufsichtigte Installationen). Der Workflow `installer.yml` testet Installation, Rollback, SSH-Deployment und Deinstallation bei jeder Änderung an den Skripten.
 
 Gegenüber der manuellen Einrichtung ist die Installation etwas strenger abgeschottet: Das Home-Verzeichnis und `.ssh/authorized_keys` gehören root, damit PHP die Beschränkung des Deploy-Schlüssels nicht aufheben kann. `.env`, Datenbank und Sitzungen sind für Nginx nicht lesbar. Die systemd-Dienste dürfen nur im Installationsverzeichnis schreiben.
 
