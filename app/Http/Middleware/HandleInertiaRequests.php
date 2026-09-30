@@ -8,6 +8,7 @@ use App\Configuration\ClubSettings;
 use App\Configuration\Countries;
 use App\Configuration\SoftwareModules;
 use App\Demo\DemoAccounts;
+use App\Members\AssignmentReports;
 use App\Models\Member;
 use App\Support\FormOfAddress;
 use Illuminate\Http\Request;
@@ -75,6 +76,8 @@ class HandleInertiaRequests extends Middleware
                 'viewBookings' => fn () => ($request->user()?->can('view-bookings') ?? false) && $moduleValues()['bookings'],
                 'viewCommunication' => fn () => ($request->user()?->can('view-communication') ?? false) && $moduleValues()['communication'],
                 'viewAudit' => fn () => $request->user()?->can('view-audit') ?? false,
+                // Overviews appear once an active field of the type exists.
+                'viewAssignments' => fn () => ($request->user()?->can('view-assignments') ?? false) ? AssignmentReports::activeTypes() : [],
             ],
             'demo' => fn () => DemoAccounts::publicInfo(),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',

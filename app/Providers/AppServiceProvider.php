@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Configuration\ClubSettings;
 use App\Configuration\MailConfigurator;
 use App\Demo\DemoMailTransport;
+use App\Models\Member;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
@@ -53,6 +54,9 @@ class AppServiceProvider extends ServiceProvider
             app(MailConfigurator::class)->applyStored();
         }
         Gate::define('manage-configuration', fn (User $user): bool => $user->isAdministrator());
+        // Assignments follow the member permissions for now; separate gates allow a restricted role later.
+        Gate::define('view-assignments', fn (User $user): bool => $user->can('viewAny', Member::class));
+        Gate::define('manage-assignments', fn (User $user): bool => $user->can('updateAny', Member::class));
         Gate::define('view-payments', fn (User $user): bool => $user->is_active && count(array_intersect($user->roles ?? [], ['admin', 'bv'])) > 0);
         Gate::define('view-statistics', fn (User $user): bool => $user->is_active && count(array_intersect($user->roles ?? [], ['admin', 'vereinsverwaltung', 'mv', 'auditor', 'bh', 'bv', 'kp'])) > 0);
         Gate::define('view-finance', fn (User $user): bool => $user->is_active && count(array_intersect($user->roles ?? [], ['admin', 'bh', 'kp'])) > 0);

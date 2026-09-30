@@ -1,6 +1,6 @@
 # Planung: Zeitliche Zuordnungen zu Abteilungen, Funktionen/Ämtern und Ereignissen/Ehrungen
 
-Stand: 30.09.2026 · Status: **Alle fachlichen Fragen F1–F17 am 30.09.2026 entschieden (siehe Abschnitt 6.2); Umsetzung am 30.09.2026 freigegeben; Phasen 1 bis 3 umgesetzt**
+Stand: 30.09.2026 · Status: **Alle fachlichen Fragen F1–F17 am 30.09.2026 entschieden (siehe Abschnitt 6.2); Umsetzung am 30.09.2026 freigegeben; Phasen 1 bis 4 umgesetzt**
 
 Kennzeichnung im Dokument:
 
@@ -320,6 +320,13 @@ Anmerkungen zur Umsetzung von Phase 3:
 - Die festen Filter „Funktion in der Abteilung“ und „Funktion im Hauptverein“ bleiben bis zur Migration in Phase 5 bestehen.
 - Die Massenbearbeitung bietet typisierte Felder nicht an; „Zuordnung hinzufügen oder beenden“ für mehrere Mitglieder folgt in Phase 6.
 - Die Karteikarte zeigt die Zuordnungen mit Zeiträumen und in der Änderungshistorie.
+
+Anmerkungen zur Umsetzung von Phase 4:
+
+- Die Seiten stehen unter `/aemter` (Tabs Aktuell, Verlauf, Stichtag), `/abteilungen` und `/ehrungen`, die Exporte unter `…/export?format=csv|pdf` mit denselben Filtern.
+- Abteilungen: Ein Zeitraum (Standard: Jahresbeginn bis heute) liefert Mitglieder am Ende des Zeitraums, Eintritte und Austritte. Für einen Stichtag werden Beginn und Ende gleich gewählt. Ein Klick auf eine Abteilung zeigt ihre Mitglieder im Zeitraum.
+- Gates `view-assignments` und `manage-assignments` delegieren an `MemberPolicy::viewAny` und `updateAny`; die Schreibrouten der Mitgliederakte prüfen zusätzlich `manage-assignments`.
+- `{{verein.vorstand}}` liefert „Name (Amt)“, mit „, “ getrennt, in der Reihenfolge der Felder und Optionen. Die Zeitstrahl-Darstellung im Verlauf und der Tab „Fällige Jubiläen“ (F13) folgen später.
 
 ---
 

@@ -6,6 +6,7 @@ namespace App\Communication;
 
 use App\Configuration\ClubData;
 use App\Configuration\ClubSettings;
+use App\Members\AssignmentReports;
 use App\Members\MemberFields;
 use App\Members\MemberReportValue;
 use App\Models\Member;
@@ -51,6 +52,7 @@ final class CommunicationTemplate
             }
             $this->clubReplacements['{{verein.'.$field['key'].'}}'] = (string) $value;
         }
+        $this->clubReplacements['{{verein.vorstand}}'] = AssignmentReports::boardText();
     }
 
     /** @return list<array{token: string, label: string, group: string}> */
@@ -70,6 +72,7 @@ final class CommunicationTemplate
         foreach (ClubData::fields() as $field) {
             $items[] = ['token' => '{{verein.'.$field['key'].'}}', 'label' => $field['label'], 'group' => 'Verein'];
         }
+        $items[] = ['token' => '{{verein.vorstand}}', 'label' => 'Vorstand (aktuelle Vorstandsämter)', 'group' => 'Verein'];
 
         return $items;
     }

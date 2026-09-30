@@ -202,6 +202,14 @@ Einträge mit mehreren Aktionen pro Zeile, etwa die Zuordnungen in der Mitgliede
 - Zeiträume werden einheitlich über `assignmentPeriod` aus `resources/js/lib/memberFormatting.ts` formuliert („seit …“, „… – …“, „Beginn unbekannt“, bei Ehrungen „am …“).
 - Beendete Einträge stehen gesammelt in einem `details`-Element „Frühere anzeigen (n)“ unter den aktuellen.
 
+## Übersichten mit Filtern und Export
+
+Auswertende Übersichten wie `resources/js/pages/assignments/` folgen diesem Muster:
+
+- Filter stehen in einer Werkzeugleiste `grid gap-4 rounded-xl border bg-card p-4 sm:grid-cols-2 xl:grid-cols-4 xl:items-end` und werden sofort angewendet. Der Filterzustand steht in der URL; `applyOverviewFilters` und `withQuery` aus `resources/js/lib/assignmentOverview.ts` lassen leere Werte weg.
+- CSV- und PDF-Export mit den aktuellen Filtern bietet `ExportLinks` (`resources/js/components/assignments/ExportLinks.vue`) an. Die Exportrouten sind wie alle Datenexporte mit `throttle:sensitive`, `reconfirm` und `audit:data_export` abgesichert.
+- Mitglieder in solchen Listen zeigt `AssignmentMember` mit Link zur Mitgliederakte, Mitgliedsnummer, Zeitraum und Notiz; ehemalige Mitglieder und Kontakte sind als „kein aktuelles Mitglied“ gekennzeichnet.
+
 ## Responsive Verhalten
 
 - Standardmäßig eine Spalte; `sm`, `md`, `lg`, `xl` und `2xl` nur einsetzen, wenn der Inhalt am jeweiligen Punkt tatsächlich Platz hat.

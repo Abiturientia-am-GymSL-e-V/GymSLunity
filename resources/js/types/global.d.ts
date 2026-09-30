@@ -34,6 +34,8 @@ declare module '@inertiajs/core' {
                 viewCalendar: boolean;
                 viewBookings: boolean;
                 viewCommunication: boolean;
+                /** Field types (department, office, honor) with an overview page. */
+                viewAssignments: string[];
             };
             defaultCountry: string;
             formOfAddress: 'du' | 'sie';

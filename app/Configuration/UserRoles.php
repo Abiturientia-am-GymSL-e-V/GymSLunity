@@ -21,10 +21,10 @@ final class UserRoles
     ];
 
     public const AREAS = [
-        'admin' => ['Mitglieder', 'Beiträge', 'Auswertungen', 'Buchhaltung', 'Formulare', 'Spenden', 'Inventar', 'Kalender', 'Buchungen', 'Kommunikation', 'Auditlog', 'Konfiguration'],
-        'vereinsverwaltung' => ['Mitglieder', 'Auswertungen', 'Formulare', 'Inventar', 'Kalender', 'Buchungen', 'Kommunikation'],
-        'mv' => ['Mitglieder', 'Auswertungen', 'Formulare', 'Kalender', 'Buchungen', 'Kommunikation'],
-        'auditor' => ['Mitglieder (Lesen)', 'Auswertungen', 'Auditlog'],
+        'admin' => ['Mitglieder', 'Ämter, Abteilungen & Ehrungen', 'Beiträge', 'Auswertungen', 'Buchhaltung', 'Formulare', 'Spenden', 'Inventar', 'Kalender', 'Buchungen', 'Kommunikation', 'Auditlog', 'Konfiguration'],
+        'vereinsverwaltung' => ['Mitglieder', 'Ämter, Abteilungen & Ehrungen', 'Auswertungen', 'Formulare', 'Inventar', 'Kalender', 'Buchungen', 'Kommunikation'],
+        'mv' => ['Mitglieder', 'Ämter, Abteilungen & Ehrungen', 'Auswertungen', 'Formulare', 'Kalender', 'Buchungen', 'Kommunikation'],
+        'auditor' => ['Mitglieder (Lesen)', 'Ämter, Abteilungen & Ehrungen (Lesen)', 'Auswertungen', 'Auditlog'],
         'bh' => ['Auswertungen', 'Buchhaltung', 'Spenden'],
         'bv' => ['Beiträge', 'Auswertungen'],
         'kp' => ['Auswertungen', 'Buchhaltung', 'Auditlog'],
