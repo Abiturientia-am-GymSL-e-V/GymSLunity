@@ -182,7 +182,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        db: [sqlite, mariadb]
+        db: [sqlite, mariadb, external]
     defaults:
       run:
         shell: bash
@@ -196,6 +196,13 @@ jobs:
       GYMSLUNITY_ADMIN_EMAIL: admin@example.test
       GYMSLUNITY_ADMIN_PASSWORD: Test-Passwort-2026!
       GYMSLUNITY_OPEN_FIREWALL: '0'
+      # Only for "external": a MariaDB container on another port stands in for
+      # a database server elsewhere. The password tests the quoting.
+      GYMSLUNITY_DB_HOST: 127.0.0.1
+      GYMSLUNITY_DB_PORT: '3307'
+      GYMSLUNITY_DB_DATABASE: vereinsdb
+      GYMSLUNITY_DB_USERNAME: verein
+      GYMSLUNITY_DB_PASSWORD: 'Ext$Pass #1 x'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -216,6 +223,34 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq 'mysql-server*' 'mysql-client*' 'mysql-common' > /dev/null
           sudo rm -rf /var/lib/mysql /etc/mysql
           php -r 'echo PHP_VERSION, PHP_EOL;' | tee "$RUNNER_TEMP/php-default"
+          if [ "$GYMSLUNITY_DB" = external ]; then
+            docker run -d --name extdb -p 127.0.0.1:3307:3306 \
+              -e MARIADB_ROOT_PASSWORD=root-pw -e MARIADB_DATABASE=vereinsdb \
+              -e MARIADB_USER=verein -e MARIADB_PASSWORD="$GYMSLUNITY_DB_PASSWORD" \
+              mariadb@sha256:70cc072b29b4a89ae07abb2d4da2c64678a7f2dfe092751bb51c87d67dc1338b # 11.4
+            until docker exec extdb healthcheck.sh --connect --innodb_initialized; do sleep 2; done
+          fi
+
+      - name: Refuse a wrong password and a database that is not empty
+        if: matrix.db == 'external'
+        run: |
+          set -x
+          extdb() { docker exec extdb mariadb -uroot -proot-pw -N -B vereinsdb -e "$1"; }
+          if sudo -E GYMSLUNITY_DB_PASSWORD=falsch bash scripts/install-server.sh --yes > "$RUNNER_TEMP/wrong.log" 2>&1; then
+            exit 1
+          fi
+          grep -q 'Anmeldung als verein an 127.0.0.1:3307' "$RUNNER_TEMP/wrong.log"
+          extdb 'CREATE TABLE fremde_daten (id INT); INSERT INTO fremde_daten VALUES (1);'
+          if sudo -E bash scripts/install-server.sh --yes > "$RUNNER_TEMP/nonempty.log" 2>&1; then
+            exit 1
+          fi
+          grep -q 'Die Datenbank vereinsdb ist nicht leer' "$RUNNER_TEMP/nonempty.log"
+          # Foreign data stays untouched, nothing of the installation remains.
+          test "$(extdb 'SELECT COUNT(*) FROM fremde_daten')" = 1
+          extdb 'DROP TABLE fremde_daten'
+          fails id gymslunity
+          test ! -e /var/www/gymslunity
+          test "$(dpkg-query -W -f='${db:Status-Status}' php8.4-fpm 2> /dev/null || true)" != installed
 
       - name: Rollback after a late failure
         run: |
@@ -233,6 +268,10 @@ jobs:
           # Packages installed by the failed run are removed again, MariaDB included.
           test "$(dpkg-query -W -f='${db:Status-Status}' php8.4-fpm 2> /dev/null || true)" != installed
           test ! -x /usr/sbin/mariadbd
+          if [ "$GYMSLUNITY_DB" = external ]; then
+            # The migrated tables are gone, the database itself stays.
+            test "$(docker exec extdb mariadb -uroot -proot-pw -N -B -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'vereinsdb'")" = 0
+          fi
           sudo nginx -t
 
       - name: Install
@@ -318,15 +357,21 @@ jobs:
           sudo ls /var/backups/gymslunity | grep -q '\.zip$'
 
       - name: Uninstall and delete the data
-        if: matrix.db == 'mariadb'
+        if: matrix.db != 'sqlite'
         run: |
           set -x
           sudo GYMSLUNITY_UNINSTALL_DATA=1 bash scripts/install-server.sh --uninstall --yes
           fails id gymslunity
           test ! -e /var/www/gymslunity
           test ! -e /var/backups/gymslunity
-          test -z "$(sudo mariadb -N -e "SHOW DATABASES LIKE 'gymslunity'")"
-          test -z "$(sudo mariadb -N -e "SELECT User FROM mysql.user WHERE User = 'gymslunity'")"
+          if [ "$GYMSLUNITY_DB" = mariadb ]; then
+            test -z "$(sudo mariadb -N -e "SHOW DATABASES LIKE 'gymslunity'")"
+            test -z "$(sudo mariadb -N -e "SELECT User FROM mysql.user WHERE User = 'gymslunity'")"
+          else
+            # Only the tables go, the external database and its user stay.
+            test "$(docker exec extdb mariadb -uroot -proot-pw -N -B -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'vereinsdb'")" = 0
+            test -n "$(docker exec extdb mariadb -uroot -proot-pw -N -B -e "SHOW DATABASES LIKE 'vereinsdb'")"
+          fi
           # A last backup was kept for root.
           sudo sh -c 'ls /root/gymslunity-letztes-backup-*.zip'
           sudo nginx -t

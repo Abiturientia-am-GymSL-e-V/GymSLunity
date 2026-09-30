@@ -65,16 +65,17 @@ Passkeys funktionieren außerhalb von localhost nur über HTTPS.
 
 ## Datenbank
 
-| Variable        | Vorlage                    | Bedeutung                                               |
-| --------------- | -------------------------- | ------------------------------------------------------- |
-| `DB_CONNECTION` | `sqlite`                   | `sqlite`, `mysql` oder `mariadb`.                       |
-| `DB_DATABASE`   | `database/database.sqlite` | Bei SQLite der Pfad zur Datei, sonst der Datenbankname. |
-| `DB_HOST`       | `127.0.0.1`                | Datenbankserver (nur MariaDB/MySQL).                    |
-| `DB_PORT`       | `3306`                     | Port (nur MariaDB/MySQL).                               |
-| `DB_USERNAME`   | –                          | Datenbankbenutzer (nur MariaDB/MySQL).                  |
-| `DB_PASSWORD`   | –                          | Passwort (nur MariaDB/MySQL).                           |
-| `DB_SOCKET`     | –                          | Unix-Socket statt Host und Port.                        |
-| `DB_URL`        | –                          | Alternativ die gesamte Verbindung als URL.              |
+| Variable            | Vorlage                    | Bedeutung                                                                                                |
+| ------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `DB_CONNECTION`     | `sqlite`                   | `sqlite`, `mysql` oder `mariadb`.                                                                        |
+| `DB_DATABASE`       | `database/database.sqlite` | Bei SQLite der Pfad zur Datei, sonst der Datenbankname.                                                  |
+| `DB_HOST`           | `127.0.0.1`                | Datenbankserver (nur MariaDB/MySQL).                                                                     |
+| `DB_PORT`           | `3306`                     | Port (nur MariaDB/MySQL).                                                                                |
+| `DB_USERNAME`       | –                          | Datenbankbenutzer (nur MariaDB/MySQL).                                                                   |
+| `DB_PASSWORD`       | –                          | Passwort (nur MariaDB/MySQL).                                                                            |
+| `DB_SOCKET`         | –                          | Unix-Socket statt Host und Port.                                                                         |
+| `MYSQL_ATTR_SSL_CA` | –                          | CA-Zertifikat (Pfad) für eine TLS-Verbindung zu MariaDB/MySQL. Gilt auch für Backups mit `mariadb-dump`. |
+| `DB_URL`            | –                          | Alternativ die gesamte Verbindung als URL.                                                               |
 
 ## Hintergrunddienste und Cache
 
