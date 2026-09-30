@@ -101,6 +101,8 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz" \
             "dist/gymslunity-${GITHUB_REF_NAME}.tar.gz.sha256" \
+            "dist/gymslunity-${GITHUB_REF_NAME}.zip" \
+            "dist/gymslunity-${GITHUB_REF_NAME}.zip.sha256" \
             --verify-tag \
             "${prerelease[@]}" \
             --title "GymSLunity ${GITHUB_REF_NAME}" \
