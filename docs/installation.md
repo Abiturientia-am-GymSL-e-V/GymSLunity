@@ -114,6 +114,8 @@ sudo chown -R deploy:www-data /var/www/gymslunity
 
 `sha256sum -c` muss `OK` melden. Andernfalls das Archiv nicht verwenden.
 
+Jedes Release enthält denselben Inhalt zusätzlich als `gymslunity-v$VERSION.zip` (mit `.zip.sha256`), etwa für Webhosting, dessen Dateimanager nur ZIP-Dateien entpacken kann.
+
 ### Variante B: Git
 
 ```bash

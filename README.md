@@ -62,7 +62,7 @@ Auf einem frischen Debian- oder Ubuntu-Server richtet `scripts/install-server.sh
 
 ### Fertiges Release-Archiv
 
-Das bei jedem Release angehängte Archiv gymslunity-v…tar.gz enthält bereits die PHP-Abhängigkeiten und das gebaute Frontend. Composer und Node.js werden auf dem Zielserver nicht benötigt.
+Das bei jedem Release angehängte Archiv gymslunity-v…tar.gz (inhaltsgleich auch als .zip) enthält bereits die PHP-Abhängigkeiten und das gebaute Frontend. Composer und Node.js werden auf dem Zielserver nicht benötigt.
 
 Nach Prüfung der SHA-256-Datei entpackst du das Archiv unter /var/www, benennst den enthaltenen Ordner in gymslunity um und setzt deploy:www-data als Eigentümer und Gruppe. storage/, bootstrap/cache/ und für SQLite database/ müssen für PHP beschreibbar sein. Das Projektverzeichnis selbst benötigt nur während des ersten Schritts Schreibrecht, damit .env erzeugt werden kann.
 
