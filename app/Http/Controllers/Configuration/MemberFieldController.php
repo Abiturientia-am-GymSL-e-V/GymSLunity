@@ -31,8 +31,12 @@ class MemberFieldController extends Controller
     {
         return Inertia::render('configuration/MemberFields', [
             'fields' => MemberFieldDefinition::query()->orderBy('position')->orderBy('id')->get(),
-            'sections' => MemberFields::SECTIONS, 'version' => $this->clubSettings->fieldsVersion(),
-            'types' => ['text' => 'Text', 'number' => 'Ganze Zahl', 'decimal' => 'Dezimalzahl', 'date' => 'Datum', 'boolean' => 'Ja / Nein', 'select' => 'Auswahl'],
+            'sections' => [...MemberFields::SECTIONS, MemberFieldDefinition::ASSIGNMENT_SECTION => 'Abteilungen, Ämter & Ehrungen'],
+            'version' => $this->clubSettings->fieldsVersion(),
+            'types' => [
+                'text' => 'Text', 'number' => 'Ganze Zahl', 'decimal' => 'Dezimalzahl', 'date' => 'Datum', 'boolean' => 'Ja / Nein', 'select' => 'Auswahl',
+                'department' => 'Abteilung (mit Zeitraum)', 'office' => 'Funktion / Amt (mit Zeitraum)', 'honor' => 'Ereignis / Ehrung (mit Datum)',
+            ],
         ]);
     }
 

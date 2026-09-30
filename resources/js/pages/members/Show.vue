@@ -1,8 +1,16 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { ArrowLeft, Check, Printer, Pencil, Save, X } from '@lucide/vue';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import {
+    computed,
+    nextTick,
+    onBeforeUnmount,
+    onMounted,
+    ref,
+    watch,
+} from 'vue';
 import InputError from '@/components/InputError.vue';
+import MemberAssignments from '@/components/members/MemberAssignments.vue';
 import MemberHistoryPanel from '@/components/members/MemberHistory.vue';
 import ContributionAccount from '@/components/members/ContributionAccount.vue';
 import MemberFieldControl from '@/components/members/MemberFieldControl.vue';
@@ -27,6 +35,8 @@ import { onBeforeHistoryNavigation } from '@/lib/navigationGuard';
 import { index, show, update } from '@/routes/members';
 import { store as storeDocument } from '@/routes/members/documents';
 import type {
+    AssignmentField,
+    MemberAssignment,
     MemberDetail,
     MemberDocument,
     MemberHistory,
@@ -41,6 +51,8 @@ import SendWelcomeMails from '@/components/members/SendWelcomeMails.vue';
 const props = defineProps<{
     member: MemberDetail;
     sections: MemberSection[];
+    assignmentFields: AssignmentField[];
+    assignments: Record<string, MemberAssignment[]>;
     documents: MemberDocument[];
     mandates: MemberMandate[];
     history: MemberHistory;
@@ -91,6 +103,16 @@ function values(): Record<string, MemberValue> {
     ]);
 }
 const form = useForm(values());
+// Assignment actions raise the member version; keep the idle form in step.
+watch(
+    () => props.member.lock_version,
+    () => {
+        if (!editing.value) {
+            form.defaults(values());
+            form.reset();
+        }
+    },
+);
 const discardOpen = ref(false);
 const transportError = ref('');
 let pendingLeave: (() => void) | undefined;
@@ -541,6 +563,15 @@ const adult = computed(() => {
                     </div>
                 </section>
 
+                <MemberAssignments
+                    :fields="assignmentFields"
+                    :assignments="assignments"
+                    :member-number="member.member_number"
+                    :lock-version="member.lock_version"
+                    :return-to="returnTo"
+                    :can-edit="canEdit"
+                    :disabled="editing || form.processing"
+                />
                 <MemberDocuments
                     :documents="documents"
                     :editing="editing"

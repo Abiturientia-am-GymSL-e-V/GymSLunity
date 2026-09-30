@@ -183,6 +183,25 @@ Semantische Rückmeldungen innerhalb einer Seite verwenden `StatusAlert`:
 - Zeilenaktionen bleiben auf Touchgeräten erreichbar und dürfen nicht ausschließlich beim Hover erscheinen.
 - Filter stehen oberhalb der Tabelle, brechen responsiv um und verwenden dieselben Feld- und Abstandsregeln wie Formulare.
 
+## Listen mit Zeilenaktionen
+
+Einträge mit mehreren Aktionen pro Zeile, etwa die Zuordnungen in der Mitgliederakte (`resources/js/components/members/MemberAssignments.vue`), folgen diesem Muster:
+
+```vue
+<li class="flex flex-wrap items-start gap-x-4 gap-y-2">
+    <div class="min-w-0 flex-1 basis-48">
+        <!-- Titel, Zeitraum, Notiz -->
+    </div>
+    <div class="flex flex-wrap gap-1">
+        <!-- ghost-Buttons mit Icon und Text, reine Icon-Buttons mit aria-label -->
+    </div>
+</li>
+```
+
+- `basis-48` gibt dem Text eine Mindestbreite. Reicht der Platz nicht, brechen die Aktionen in eine eigene Zeile um, statt den Text zu zerquetschen.
+- Zeiträume werden einheitlich über `assignmentPeriod` aus `resources/js/lib/memberFormatting.ts` formuliert („seit …“, „… – …“, „Beginn unbekannt“, bei Ehrungen „am …“).
+- Beendete Einträge stehen gesammelt in einem `details`-Element „Frühere anzeigen (n)“ unter den aktuellen.
+
 ## Responsive Verhalten
 
 - Standardmäßig eine Spalte; `sm`, `md`, `lg`, `xl` und `2xl` nur einsetzen, wenn der Inhalt am jeweiligen Punkt tatsächlich Platz hat.

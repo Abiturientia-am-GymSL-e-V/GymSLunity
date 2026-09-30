@@ -84,6 +84,41 @@ final class MemberFields
         return $result;
     }
 
+    /**
+     * Department, office and honor fields shown in the member record: all
+     * active ones plus inactive ones that still hold assignments of the member.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function assignmentFields(?Member $member = null): array
+    {
+        $used = $member ? $member->assignments()->distinct()->pluck('field_key')->all() : [];
+
+        return array_values(MemberFieldDefinition::query()->whereIn('type', MemberFieldDefinition::TEMPORAL_TYPES)
+            ->where(fn ($query) => $query->where('is_active', true)->orWhereIn('key', $used))
+            ->orderBy('position')->orderBy('id')->get()
+            ->map(fn (MemberFieldDefinition $definition): array => [...self::descriptor($definition), 'readOnly' => ! $definition->is_active])
+            ->all());
+    }
+
+    /**
+     * Assignments of the member per field key, oldest first.
+     *
+     * @return array<string, list<array{id: int, option: string, starts_on: string|null, ends_on: string|null, note: string|null, source: string}>>
+     */
+    public static function assignments(Member $member): array
+    {
+        $grouped = [];
+        foreach ($member->assignments()->orderByRaw('starts_on IS NULL DESC')->orderBy('starts_on')->orderBy('id')->get() as $assignment) {
+            $grouped[$assignment->field_key][] = [
+                'id' => $assignment->id, 'option' => $assignment->option_value, 'starts_on' => $assignment->startsOn(),
+                'ends_on' => $assignment->endsOn(), 'note' => $assignment->note, 'source' => $assignment->source,
+            ];
+        }
+
+        return $grouped;
+    }
+
     /** @return array<string, mixed> */
     public static function descriptor(MemberFieldDefinition $definition): array
     {
@@ -104,6 +139,14 @@ final class MemberFields
             'custom' => $definition->is_custom, 'filterable' => $definition->filterable, 'showInTable' => $definition->show_in_table,
             'selfserviceVisible' => $definition->selfservice_visible,
             'selfserviceEditable' => $definition->selfservice_editable,
+            ...($definition->isTemporal() ? [
+                'allowMultiple' => $definition->allow_multiple,
+                'optionDetails' => array_map(fn (array $option): array => [
+                    'value' => $option['value'], 'label' => $option['label'], 'active' => $option['active'],
+                    'board' => (bool) ($option['board'] ?? false), 'mandatory' => (bool) ($option['mandatory'] ?? false),
+                    'maxHolders' => $option['max_holders'] ?? null, 'repeatable' => (bool) ($option['repeatable'] ?? false),
+                ], $definition->options),
+            ] : []),
         ];
     }
 
