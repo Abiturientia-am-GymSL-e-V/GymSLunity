@@ -10,10 +10,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('member_field_definitions', function (Blueprint $table) {
-            // Only meaningful for office fields: several offices of the same field at once.
-            $table->boolean('allow_multiple')->default(false)->after('selfservice_editable');
-        });
+        // MariaDB/MySQL cannot roll back DDL: after a failed earlier run the
+        // column and table may already exist without the migration counting as done.
+        if (! Schema::hasColumn('member_field_definitions', 'allow_multiple')) {
+            Schema::table('member_field_definitions', function (Blueprint $table) {
+                // Only meaningful for office fields: several offices of the same field at once.
+                $table->boolean('allow_multiple')->default(false)->after('selfservice_editable');
+            });
+        }
+        Schema::dropIfExists('member_assignments');
 
         // Department, office and honor fields keep their values here instead of
         // in members. Field and option are referenced by key: the configuration
@@ -33,7 +38,8 @@ return new class extends Migration
             $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
             $table->index(['member_id', 'field_key']);
-            $table->index(['field_key', 'option_value', 'starts_on', 'ends_on']);
+            // Explicit name: the generated one exceeds the 64 characters MariaDB/MySQL allow.
+            $table->index(['field_key', 'option_value', 'starts_on', 'ends_on'], 'member_assignments_option_period_index');
         });
     }
 
