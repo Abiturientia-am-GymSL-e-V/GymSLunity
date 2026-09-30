@@ -334,7 +334,9 @@ undo_remove_unit_files() {
 }
 
 undo_remove_user() {
-    pkill -u "$1" 2> /dev/null || true
+    # Only processes of the host: a container process can run with the same
+    # numeric user ID and must not be hit.
+    pkill --ns $$ --nslist pid,mnt -u "$1" 2> /dev/null || true
     sleep 1
     userdel "$1" 2> /dev/null || true
     if getent group "$1" > /dev/null; then

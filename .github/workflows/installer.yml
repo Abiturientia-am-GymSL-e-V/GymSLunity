@@ -269,6 +269,8 @@ jobs:
           test "$(dpkg-query -W -f='${db:Status-Status}' php8.4-fpm 2> /dev/null || true)" != installed
           test ! -x /usr/sbin/mariadbd
           if [ "$GYMSLUNITY_DB" = external ]; then
+            # Removing the user must not hit container processes with the same user ID.
+            test "$(docker inspect -f '{{.State.Running}}' extdb)" = true
             # The migrated tables are gone, the database itself stays.
             test "$(docker exec extdb mariadb -uroot -proot-pw -N -B -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'vereinsdb'")" = 0
           fi
