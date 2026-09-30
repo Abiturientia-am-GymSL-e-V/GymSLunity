@@ -48,5 +48,7 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/demo-deploy.yml
+    # Without it the secrets of the "demo" environment arrive empty.
+    secrets: inherit
     with:
       target: next

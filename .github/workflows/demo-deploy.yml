@@ -3,7 +3,8 @@ name: Demo-Deployment
 # Called by tests.yml (next: current main) and release.yml (release: newest
 # release including pre-releases), or started by hand. Only runs when the
 # repository variable DEMO_DEPLOY is "true"; setup in docs/demo.md. The SSH
-# secrets are secrets of the "demo" environment, so callers pass none.
+# secrets belong to the "demo" environment. Callers still need
+# "secrets: inherit", otherwise they arrive empty in a called workflow.
 on:
   workflow_call:
     inputs:
