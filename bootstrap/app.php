@@ -9,6 +9,7 @@ use App\Http\Middleware\EnsureSoftwareModuleEnabled;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ProtectDemo;
+use App\Http\Middleware\RedirectToInstaller;
 use App\Http\Middleware\RequirePrivilegedTwoFactor;
 use App\Http\Middleware\RequireRecentPassword;
 use App\Http\Middleware\SecurityHeaders;
@@ -32,7 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
             return is_string($host) && $host !== '' ? ['^'.preg_quote($host, '/').'$'] : [];
         }, subdomains: false);
 
-        $middleware->web(append: [
+        $middleware->web(prepend: [RedirectToInstaller::class], append: [
             EnsureActiveUser::class,
             ProtectDemo::class,
             EnforceSessionInactivity::class,
