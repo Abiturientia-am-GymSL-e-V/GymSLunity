@@ -1214,7 +1214,8 @@ check_instances() {
 }
 
 print_result() {
-    local scheme=https
+    local scheme=https ssh_port=""
+    [[ ${DEMO_SSH_PORT:-22} == 22 ]] || ssh_port=" -p $DEMO_SSH_PORT"
     printf '\n%sDie Demo ist eingerichtet.%s\n\n' "$c_green" "$c_off"
     info "release:  $scheme://$DEMO_RELEASE_DOMAIN   ($release_tag)"
     info "next:     $scheme://$DEMO_NEXT_DOMAIN   (vorerst ebenfalls $release_tag)"
@@ -1233,11 +1234,11 @@ ${c_blue}==> GitHub Actions verbinden${c_off}
 
 REPO=$repo
 gh api -X PUT "repos/\$REPO/environments/demo" > /dev/null
-ssh $key_owner@$DEMO_SSH_HOST 'cat $deploy_key' | gh secret set DEMO_SSH_KEY --env demo -R "\$REPO"
+ssh$ssh_port $key_owner@$DEMO_SSH_HOST 'cat $deploy_key' | gh secret set DEMO_SSH_KEY --env demo -R "\$REPO"
 gh secret set DEMO_SSH_KNOWN_HOSTS --env demo -R "\$REPO" --body '$known_hosts'
 gh variable set DEMO_SSH_TARGET -R "\$REPO" --body '$ssh_target'
 gh variable set DEMO_DEPLOY -R "\$REPO" --body true
-ssh $key_owner@$DEMO_SSH_HOST 'shred -u $deploy_key $deploy_key.pub'
+ssh$ssh_port $key_owner@$DEMO_SSH_HOST 'shred -u $deploy_key $deploy_key.pub'
 gh workflow run demo-deploy.yml -R "\$REPO" -f target=next
 
     Die letzte Zeile bringt 'next' sofort auf den Stand von main; sonst geschieht
