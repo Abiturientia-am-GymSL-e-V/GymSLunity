@@ -9,6 +9,7 @@ use FilesystemIterator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Pdo\Mysql;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
@@ -243,6 +244,13 @@ class ApplicationBackup
             if ($value !== null && $value !== '') {
                 $options[] = $option.'='.$this->optionFileValue((string) $value);
             }
+        }
+        // Same TLS trust as the application connection (MYSQL_ATTR_SSL_CA).
+        $certificateAuthority = defined(Mysql::class.'::ATTR_SSL_CA')
+            ? ($connection['options'][Mysql::ATTR_SSL_CA] ?? null)
+            : null;
+        if (is_string($certificateAuthority) && $certificateAuthority !== '') {
+            $options[] = 'ssl-ca='.$this->optionFileValue($certificateAuthority);
         }
         File::put($credentials, implode(PHP_EOL, $options).PHP_EOL);
         @chmod($credentials, 0600);

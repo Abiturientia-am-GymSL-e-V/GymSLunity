@@ -107,10 +107,11 @@ ask() {
     done
 }
 
-# ask_secret VAR "Question" [validator] — hidden input with repetition; a
-# preset environment variable is taken as it is.
+# ask_secret VAR "Question" [validator] [once] — hidden input, repeated for
+# confirmation unless "once" is given; a preset environment variable is taken
+# as it is.
 ask_secret() {
-    local var=$1 question=$2 validator=${3-} answer repeated
+    local var=$1 question=$2 validator=${3-} once=${4-} answer repeated
     if [[ -n "${!var-}" ]] || $assume_yes; then
         answer=${!var-}
         [[ -z "$validator" ]] || "$validator" "$answer" || die "Ungültiger Wert für $var."
@@ -122,6 +123,10 @@ ask_secret() {
         printf '\n' > /dev/tty
         if [[ -n "$validator" ]] && ! "$validator" "$answer"; then
             continue
+        fi
+        if [[ $once == once ]]; then
+            printf -v "$var" '%s' "$answer"
+            return
         fi
         printf 'Wiederholen: ' > /dev/tty
         IFS= read -rs repeated <&3 || die "Eingabe abgebrochen."
@@ -223,6 +228,9 @@ valid_file() {
         warn "$1 ist nicht lesbar."
         return 1
     }
+}
+valid_optional_file() {
+    [[ -z $1 ]] || valid_file "$1"
 }
 valid_proxies() {
     [[ $1 =~ ^[0-9A-Fa-f.:/]+(,[0-9A-Fa-f.:/]+)*$ ]] || {
@@ -326,7 +334,9 @@ undo_remove_unit_files() {
 }
 
 undo_remove_user() {
-    pkill -u "$1" 2> /dev/null || true
+    # Only processes of the host: a container process can run with the same
+    # numeric user ID and must not be hit.
+    pkill --ns $$ --nslist pid,mnt -u "$1" 2> /dev/null || true
     sleep 1
     userdel "$1" 2> /dev/null || true
     if getent group "$1" > /dev/null; then
@@ -350,6 +360,28 @@ undo_remove_apt_source() {
 undo_drop_mariadb() {
     local name=$1
     "$(mariadb_client)" -e "DROP DATABASE IF EXISTS \`$name\`; DROP USER IF EXISTS '$name'@'localhost'; DROP USER IF EXISTS '$name'@'127.0.0.1';"
+}
+
+# undo_empty_database ENV_FILE — drops all tables of the MariaDB/MySQL
+# database configured in this .env. Only for databases that were empty when
+# the installation started; the database itself and its users stay.
+undo_empty_database() {
+    local env=$1 options tables client
+    [[ -f $env ]] || return 0
+    options="$(mktemp)"
+    db_option_file "$options" "$(env_value "$env" DB_HOST)" "$(env_value "$env" DB_PORT)" \
+        "$(env_value "$env" DB_USERNAME)" "$(env_value "$env" DB_PASSWORD)" "$(env_value "$env" MYSQL_ATTR_SSL_CA)"
+    client="$(mariadb_client)"
+    tables="$("$client" --defaults-extra-file="$options" -N -B -e \
+        "SELECT GROUP_CONCAT(CONCAT('\`', TABLE_NAME, '\`')) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()" \
+        "$(env_value "$env" DB_DATABASE)")" || {
+        rm -f -- "$options"
+        return 1
+    }
+    if [[ -n $tables && $tables != NULL ]]; then
+        "$client" --defaults-extra-file="$options" -e "SET FOREIGN_KEY_CHECKS = 0; DROP TABLE IF EXISTS $tables;" "$(env_value "$env" DB_DATABASE)"
+    fi
+    rm -f -- "$options"
 }
 
 on_exit() {
@@ -449,6 +481,43 @@ write_file() {
 
 random_base64() {
     openssl rand -base64 32
+}
+
+# env_value FILE KEY — the value of KEY in a .env file, without quotes.
+env_value() {
+    local line
+    line="$(grep -m1 "^$2=" "$1" 2> /dev/null)" || return 0
+    line=${line#*=}
+    if [[ $line == \'*\' || $line == \"*\" ]]; then
+        line=${line:1:${#line}-2}
+    fi
+    printf '%s' "$line"
+}
+
+# option_value VALUE — quoted for a MariaDB/MySQL option file.
+option_value() {
+    local value=${1//\\/\\\\}
+    value=${value//\"/\\\"}
+    printf '"%s"' "$value"
+}
+
+# db_option_file FILE HOST PORT USER PASSWORD [CA] — client options, so the
+# password never appears in the process list.
+db_option_file() {
+    local file=$1
+    install -m 0600 /dev/null "$file"
+    {
+        echo "[client]"
+        echo "host=$(option_value "$2")"
+        echo "port=$(option_value "$3")"
+        echo "user=$(option_value "$4")"
+        echo "password=$(option_value "$5")"
+        echo "protocol=TCP"
+        if [[ -n ${6-} ]]; then
+            echo "ssl-ca=$(option_value "$6")"
+            echo "ssl-verify-server-cert"
+        fi
+    } > "$file"
 }
 
 # mariadb_client — the MariaDB or MySQL command line client.

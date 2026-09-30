@@ -23,12 +23,22 @@ curl -fsSLO https://raw.githubusercontent.com/Abiturientia-am-GymSL-e-V/GymSLuni
 sudo bash install-server.sh
 ```
 
-Es fragt nach Domain, Installationsverzeichnis, HTTPS-Variante (Let's Encrypt, vorhandenes Zertifikat oder vorgeschalteter Reverse Proxy), Datenbank (MariaDB oder SQLite), Vereinsname und Absenderadresse, Backup-Verzeichnis und dem ersten Administratorkonto. Danach:
+Es fragt nach Domain, Installationsverzeichnis, HTTPS-Variante (Let's Encrypt, vorhandenes Zertifikat oder vorgeschalteter Reverse Proxy), Datenbank, Vereinsname und Absenderadresse, Backup-Verzeichnis und dem ersten Administratorkonto. Für die Datenbank gibt es drei Varianten:
+
+| Variante   | Bedeutung                                                                                                                                                                                                         |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mariadb`  | lokaler MariaDB-Server. Fehlt er, wird er installiert; ein vorhandener wird genutzt, wenn root per Socket Zugriff hat. Das Skript legt Datenbank und Benutzer mit zufälligem Passwort an                          |
+| `external` | vorhandene, leere Datenbank auf diesem oder einem anderen Server (MariaDB oder MySQL). Das Skript fragt Host, Port, Datenbank, Benutzer, Passwort und optional ein CA-Zertifikat für TLS ab und testet den Zugang |
+| `sqlite`   | eine Datei unter `storage/database/`, ohne Datenbankserver                                                                                                                                                        |
+
+Bei `external` prüft das Skript Anmeldung, Zugriff und das Recht, Tabellen anzulegen, und verlangt eine leere Datenbank, damit keine fremden Daten berührt werden. Schlägt der Test fehl, lassen sich die Zugangsdaten neu eingeben. Ohne CA-Zertifikat ist die Verbindung zu einem entfernten Server unverschlüsselt; mit Zertifikat nutzen Anwendung und Backups TLS (`MYSQL_ATTR_SSL_CA`). Bei einem Rollback oder einer Deinstallation mit Datenlöschung werden nur die Tabellen gelöscht, die Datenbank und ihr Benutzer bleiben.
+
+Danach:
 
 1. prüft es, dass nichts Bestehendes überschrieben würde: Benutzer, Verzeichnisse, Datenbank, Nginx-Sites mit derselben Domain, belegte Ports 80/443, eine fehlerhafte Nginx-Konfiguration,
 2. installiert es fehlende Pakete (Nginx, Certbot, PHP 8.4 mit Erweiterungen, bei Bedarf MariaDB). Ein vorhandenes anderes PHP bleibt Standard; fehlt PHP 8.4 in den Paketquellen, fragt es vor dem Hinzufügen von `ppa:ondrej/php` bzw. `packages.sury.org`. Vorhandene Pakete werden nicht aktualisiert,
 3. legt einen eigenen Systembenutzer mit eigenem PHP-FPM-Pool an. Der Code gehört root; PHP darf nur `storage/`, `bootstrap/cache/` und das Backup-Verzeichnis beschreiben, die `.env` nur lesen. Nginx sieht nur `public/`,
-4. legt Datenbank und Datenbankbenutzer mit zufälligem Passwort an (MariaDB) bzw. die Datenbankdatei unter `storage/database/` (SQLite), erzeugt die `.env` aus `.env.example` mit zufälligem `APP_KEY` und `PASSKEYS_USER_HANDLE_SECRET` und führt `app:install` mit dem Administratorkonto aus. Der Browser-Installer ist danach gesperrt,
+4. richtet die Datenbank ein (siehe oben), erzeugt die `.env` aus `.env.example` mit zufälligem `APP_KEY` und `PASSKEYS_USER_HANDLE_SECRET` und führt `app:install` mit dem Administratorkonto aus. Der Browser-Installer ist danach gesperrt,
 5. richtet Nginx mit HTTPS sowie Queue-Worker und Scheduler als systemd-Dienste (`<name>-queue`, `<name>-schedule.timer`) ein und prüft zum Schluss `/up`, die Anmeldeseite und `security:check`.
 
 Nach dem Skript fehlt nur noch der E-Mail-Versand (Schritt 10). Sichere außerdem die `.env` an einem zweiten Ort und kopiere die Backups regelmäßig auf ein anderes System (Schritt 12).

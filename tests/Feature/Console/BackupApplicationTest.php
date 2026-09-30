@@ -9,6 +9,8 @@ use App\Backup\BackupSignature;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use PDO;
+use Pdo\Mysql;
+use ReflectionMethod;
 use RuntimeException;
 use Tests\TestCase;
 use ZipArchive;
@@ -155,6 +157,50 @@ class BackupApplicationTest extends TestCase
             app(ApplicationBackup::class)->restoreDatabase($archive);
         } finally {
             $this->assertSame([], File::glob($directory.'/gymslunity-*.zip') ?: []);
+            File::deleteDirectory($directory);
+        }
+    }
+
+    public function test_mysql_client_options_use_the_certificate_authority_of_the_connection(): void
+    {
+        if (! defined(Mysql::class.'::ATTR_SSL_CA')) {
+            $this->markTestSkipped('pdo_mysql ist nicht geladen.');
+        }
+        $directory = storage_path('framework/testing/client-options-'.uniqid());
+        File::ensureDirectoryExists($directory);
+
+        try {
+            $method = new ReflectionMethod(ApplicationBackup::class, 'writeClientOptions');
+            $file = $method->invoke(new ApplicationBackup, $directory, [
+                'username' => 'verein',
+                'password' => 'geheim "mit" Zeichen',
+                'host' => 'db.example.test',
+                'port' => '3307',
+                'options' => [Mysql::ATTR_SSL_CA => '/etc/ssl/verein-db-ca.pem'],
+            ]);
+
+            $options = File::get($file);
+            $this->assertStringContainsString('host="db.example.test"', $options);
+            $this->assertStringContainsString('port="3307"', $options);
+            $this->assertStringContainsString('password="geheim \\"mit\\" Zeichen"', $options);
+            $this->assertStringContainsString('ssl-ca="/etc/ssl/verein-db-ca.pem"', $options);
+            $this->assertSame(0600, fileperms($file) & 0777);
+        } finally {
+            File::deleteDirectory($directory);
+        }
+    }
+
+    public function test_mysql_client_options_without_certificate_authority_do_not_enable_tls(): void
+    {
+        $directory = storage_path('framework/testing/client-options-'.uniqid());
+        File::ensureDirectoryExists($directory);
+
+        try {
+            $method = new ReflectionMethod(ApplicationBackup::class, 'writeClientOptions');
+            $file = $method->invoke(new ApplicationBackup, $directory, ['username' => 'verein', 'host' => '127.0.0.1', 'options' => []]);
+
+            $this->assertStringNotContainsString('ssl-ca', File::get($file));
+        } finally {
             File::deleteDirectory($directory);
         }
     }
