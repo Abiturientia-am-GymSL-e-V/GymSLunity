@@ -20,7 +20,7 @@ class IndexMembersRequest extends FormRequest
     /** @return array<string, mixed> */
     public function rules(): array
     {
-        $custom = MemberFieldDefinition::query()->where('is_active', true)->where('is_custom', true)->get();
+        $custom = MemberFieldDefinition::query()->where('is_active', true)->where('is_custom', true)->whereNotIn('type', MemberFieldDefinition::TEMPORAL_TYPES)->get();
         $filterKeys = $custom->where('filterable', true)->pluck('key')->all();
         $rules = [
             'q' => ['nullable', 'string', 'max:120'],

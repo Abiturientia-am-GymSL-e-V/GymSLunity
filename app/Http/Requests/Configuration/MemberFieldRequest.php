@@ -20,16 +20,20 @@ class MemberFieldRequest extends FormRequest
 
         return [
             'version' => ['required', 'integer', 'min:0'], 'label' => ['required', 'string', 'max:120'],
-            'type' => ['required', Rule::in($field && ! $field->is_custom ? [$field->type] : ['text', 'number', 'decimal', 'date', 'boolean', 'select'])],
-            'section' => ['required', Rule::in(array_keys(MemberFields::SECTIONS))],
+            'type' => ['required', Rule::in($field && ! $field->is_custom ? [$field->type] : ['text', 'number', 'decimal', 'date', 'boolean', 'select', ...MemberFieldDefinition::TEMPORAL_TYPES])],
+            // Temporal fields always land in the assignment section; the controller sets it.
+            'section' => ['required', Rule::in([...array_keys(MemberFields::SECTIONS), MemberFieldDefinition::ASSIGNMENT_SECTION])],
             'is_active' => ['required', 'boolean'], 'required' => ['required', 'boolean'],
             'filterable' => ['required', 'boolean'], 'show_in_table' => ['required', 'boolean'],
             'selfservice_visible' => ['sometimes', 'boolean'],
             'selfservice_editable' => ['sometimes', 'boolean'],
+            'allow_multiple' => ['sometimes', 'boolean'],
             'options' => ['present', 'array', 'max:100'],
-            'options.*' => ['array:value,label,active'],
+            'options.*' => ['array:value,label,active,board,mandatory,max_holders,repeatable'],
             'options.*.value' => ['required', 'string', 'max:'.($field->max_length ?? 255), 'distinct:strict', Rule::notIn(['__empty__', '__all__', '__any__', '__none__'])],
             'options.*.label' => ['required', 'string', 'max:120'], 'options.*.active' => ['required', 'boolean'],
+            'options.*.board' => ['sometimes', 'boolean'], 'options.*.mandatory' => ['sometimes', 'boolean'],
+            'options.*.max_holders' => ['sometimes', 'nullable', 'integer', 'between:1,999'], 'options.*.repeatable' => ['sometimes', 'boolean'],
             'remove_options' => ['sometimes', 'array', 'max:100'],
             'remove_options.*' => ['required', 'string', 'distinct'],
         ];
@@ -38,6 +42,6 @@ class MemberFieldRequest extends FormRequest
     /** @return array<string, string> */
     public function messages(): array
     {
-        return ['required' => 'Dieses Feld ist erforderlich.', 'in' => 'Diese Auswahl ist nicht zulässig.', 'distinct' => 'Auswahlwerte müssen eindeutig sein.', 'max' => 'Der Wert ist zu lang oder die Liste zu groß.'];
+        return ['required' => 'Dieses Feld ist erforderlich.', 'in' => 'Diese Auswahl ist nicht zulässig.', 'distinct' => 'Auswahlwerte müssen eindeutig sein.', 'max' => 'Der Wert ist zu lang oder die Liste zu groß.', 'between' => 'Bitte eine Zahl zwischen :min und :max angeben.'];
     }
 }

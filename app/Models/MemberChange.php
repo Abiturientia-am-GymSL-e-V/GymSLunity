@@ -9,8 +9,11 @@ use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
 /**
- * @property array<string, string|int|float|bool|null> $before
- * @property array<string, string|int|float|bool|null> $after
+ * Scalar values for member attributes; department, office and honor fields
+ * hold the complete assignment list of the field (see MemberAssignments).
+ *
+ * @property array<string, string|int|float|bool|list<array{option: string, starts_on: string|null, ends_on: string|null, note: string|null}>|null> $before
+ * @property array<string, string|int|float|bool|list<array{option: string, starts_on: string|null, ends_on: string|null, note: string|null}>|null> $after
  * @property list<string> $changed_fields
  * @property array<string, array<string, mixed>>|null $field_schema
  * @property CarbonImmutable $created_at

@@ -126,6 +126,12 @@ class Member extends Model
         return $this->hasOne(ContributionAccount::class);
     }
 
+    /** @return HasMany<MemberAssignment, $this> */
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(MemberAssignment::class);
+    }
+
     /** @return HasMany<MemberPasskey, $this> */
     public function passkeys(): HasMany
     {

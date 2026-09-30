@@ -7,7 +7,10 @@ namespace Tests\Feature\Configuration;
 use App\Backup\ApplicationBackup;
 use App\Backup\BackupSignature;
 use App\Backup\ConfigurationBackup;
+use App\Members\MemberAssignments;
 use App\Models\ClubSetting;
+use App\Models\Member;
+use App\Models\MemberFieldDefinition;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -33,7 +36,8 @@ class BackupConfigurationTest extends TestCase
         $response->assertOk()->assertDownload();
         $document = json_decode($response->streamedContent(), true, flags: JSON_THROW_ON_ERROR);
         $this->assertSame('gymslunity-configuration-backup', $document['format']);
-        $this->assertSame(2, $document['format_version']);
+        $this->assertSame(3, $document['format_version']);
+        $this->assertArrayHasKey('allow_multiple', $document['payload']['member_field_definitions'][0]);
         $this->assertSame(1, $document['payload']['club_settings']['id']);
         $this->assertNotEmpty($document['payload']['member_field_definitions']);
         $this->assertSame(1, $document['payload']['mail_settings']['id']);
@@ -98,6 +102,53 @@ class BackupConfigurationTest extends TestCase
         $response->assertRedirect(route('configuration.system'))->assertSessionHasNoErrors();
         $this->assertTrue((bool) DB::table('member_field_definitions')->where('key', 'gender')->value('selfservice_visible'));
         $this->assertFalse((bool) DB::table('member_field_definitions')->where('key', 'club_role')->value('selfservice_visible'));
+    }
+
+    public function test_version_two_configuration_backup_restores_without_office_settings(): void
+    {
+        $admin = User::factory()->create(['roles' => ['admin']]);
+        $document = json_decode(app(ConfigurationBackup::class)->export(), true, flags: JSON_THROW_ON_ERROR);
+        foreach ($document['payload']['member_field_definitions'] as &$field) {
+            unset($field['allow_multiple']);
+        }
+        unset($field);
+        $document['format_version'] = 2;
+        $document['checksum'] = hash('sha256', json_encode($document['payload'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        $document['signature'] = app(BackupSignature::class)->sign($document['checksum']);
+
+        $this->actingAs($admin)->post(route('configuration.backup.configuration.restore'), [
+            'configuration_backup' => UploadedFile::fake()->createWithContent('konfiguration-v2.json', json_encode($document, JSON_THROW_ON_ERROR)),
+            'confirmation' => 'WIEDERHERSTELLEN',
+        ])->assertRedirect(route('configuration.system'))->assertSessionHasNoErrors();
+
+        $this->assertSame(0, DB::table('member_field_definitions')->where('allow_multiple', true)->count());
+    }
+
+    public function test_configuration_restore_keeps_fields_that_hold_assignments(): void
+    {
+        $admin = User::factory()->create(['roles' => ['admin']]);
+        $field = MemberFieldDefinition::query()->create([
+            'key' => 'custom_board', 'label' => 'Vorstand', 'type' => 'office', 'section' => MemberFieldDefinition::ASSIGNMENT_SECTION,
+            'position' => 999, 'is_active' => true, 'is_custom' => true, 'required' => false, 'filterable' => false, 'show_in_table' => false,
+            'selfservice_visible' => false, 'selfservice_editable' => false, 'allow_multiple' => false, 'max_length' => 255,
+            'options' => [['value' => 'chair', 'label' => '1. Vorsitz', 'active' => true]],
+        ]);
+        $withField = app(ConfigurationBackup::class)->export();
+        $field->delete();
+        $withoutField = app(ConfigurationBackup::class)->export();
+        $field = $field->replicate();
+        $field->save();
+        app(MemberAssignments::class)->add(Member::factory()->create(), $admin, 0, 'custom_board', ['option' => 'chair', 'starts_on' => '2024-01-01']);
+        $restore = fn (string $backup) => $this->actingAs($admin)->post(route('configuration.backup.configuration.restore'), [
+            'configuration_backup' => UploadedFile::fake()->createWithContent('konfiguration.json', $backup),
+            'confirmation' => 'WIEDERHERSTELLEN',
+        ]);
+
+        $restore($withoutField)->assertSessionHasErrors('configuration_backup');
+        $this->assertDatabaseHas('member_field_definitions', ['key' => 'custom_board']);
+
+        $restore($withField)->assertSessionHasNoErrors();
+        $this->assertSame('office', MemberFieldDefinition::query()->where('key', 'custom_board')->value('type'));
     }
 
     public function test_configuration_restore_rejects_foreign_and_unsafe_backups(): void
