@@ -158,6 +158,7 @@ final class MemberFields
                     'value' => $option['value'], 'label' => $option['label'], 'active' => $option['active'],
                     'board' => (bool) ($option['board'] ?? false), 'mandatory' => (bool) ($option['mandatory'] ?? false),
                     'maxHolders' => $option['max_holders'] ?? null, 'repeatable' => (bool) ($option['repeatable'] ?? false),
+                    'jubileeYears' => $option['jubilee_years'] ?? null,
                 ], $definition->options),
             ] : []),
         ];

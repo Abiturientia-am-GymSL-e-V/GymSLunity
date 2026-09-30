@@ -63,6 +63,7 @@ class MemberIndexController extends Controller
             'fieldDefinitions' => fn () => MemberFields::directoryFields(),
             'configurationVersion' => fn () => $this->clubSettings->fieldsVersion(),
             'canBulkEdit' => $request->user()?->can('updateAny', Member::class) ?? false,
+            'canManageAssignments' => $request->user()?->can('manage-assignments') ?? false,
             'welcomeMailAvailable' => fn () => app(WelcomeMails::class)->available(),
         ]);
     }

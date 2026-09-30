@@ -1,24 +1,35 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ChevronLeft, ChevronRight } from '@lucide/vue';
+import { Award, CalendarClock, ChevronLeft, ChevronRight } from '@lucide/vue';
 import { computed, reactive, watch } from 'vue';
 import AssignmentMember from '@/components/assignments/AssignmentMember.vue';
 import ExportLinks from '@/components/assignments/ExportLinks.vue';
+import HonorJubilees from '@/components/assignments/HonorJubilees.vue';
 import SearchableDropdown from '@/components/SearchableDropdown.vue';
 import StatusAlert from '@/components/StatusAlert.vue';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { applyOverviewFilters } from '@/lib/assignmentOverview';
+import { applyOverviewFilters, withQuery } from '@/lib/assignmentOverview';
 import { assignmentPeriod } from '@/lib/memberFormatting';
 import { honors as honorsRoute } from '@/routes/assignments';
-import type { AssignmentFilters, HonorRow } from '@/types/assignments';
+import type {
+    AssignmentFilters,
+    HonorRow,
+    JubileeGroup,
+} from '@/types/assignments';
 import type { AssignmentField } from '@/types/members';
 
+type Tab = 'list' | 'jubilees';
 const props = defineProps<{
+    tab: Tab;
     filters: AssignmentFilters;
     fields: AssignmentField[];
     years: number[];
-    honors: {
+    jubilees: JubileeGroup[];
+    canAssign: boolean;
+    configurationVersion: number;
+    honors: null | {
         data: HonorRow[];
         total: number;
         current_page: number;
@@ -33,11 +44,24 @@ defineOptions({
     },
 });
 
+const tabs = [
+    { key: 'list', label: 'Chronik', icon: Award, path: '/ehrungen' },
+    {
+        key: 'jubilees',
+        label: 'Fällige Jubiläen',
+        icon: CalendarClock,
+        path: '/ehrungen/jubilaeen',
+    },
+] as const;
+const activePath = computed(
+    () => tabs.find((item) => item.key === props.tab)?.path ?? '/ehrungen',
+);
 const form = reactive({
     field: props.filters.field,
     option: props.filters.option,
     year: props.filters.year ? String(props.filters.year) : '',
     members: props.filters.members,
+    date: props.filters.date,
 });
 watch(
     () => props.filters,
@@ -47,13 +71,17 @@ watch(
             year: filters.year ? String(filters.year) : '',
         }),
 );
-const query = computed(() => ({
-    field: form.field,
-    option: form.option,
-    year: form.year,
-    members: form.members === 'current' ? 'current' : '',
-}));
-const apply = () => applyOverviewFilters('/ehrungen', query.value);
+const query = computed(() =>
+    props.tab === 'jubilees'
+        ? { field: form.field, option: form.option, date: form.date }
+        : {
+              field: form.field,
+              option: form.option,
+              year: form.year,
+              members: form.members === 'current' ? 'current' : '',
+          },
+);
+const apply = () => applyOverviewFilters(activePath.value, query.value);
 // Options only make sense within one field.
 const selectedField = computed(() =>
     props.fields.length === 1
@@ -69,10 +97,17 @@ const fieldOptions = computed(() => [
 ]);
 const optionOptions = computed(() => [
     { value: '', label: 'Alle Ehrungen' },
-    ...Object.entries(selectedField.value?.options ?? {}).map(
-        ([value, label]) => ({ value, label }),
-    ),
+    ...(props.tab === 'jubilees'
+        ? (selectedField.value?.optionDetails ?? [])
+              .filter((option) => option.active && option.jubileeYears)
+              .map(({ value, label }) => ({ value, label }))
+        : Object.entries(selectedField.value?.options ?? {}).map(
+              ([value, label]) => ({ value, label }),
+          )),
 ]);
+const jubileeCount = computed(() =>
+    props.jubilees.reduce((sum, group) => sum + group.members.length, 0),
+);
 const yearOptions = computed(() => [
     { value: '', label: 'Alle Jahre' },
     ...props.years.map((year) => ({
@@ -90,9 +125,31 @@ const yearOptions = computed(() => [
                 Ereignisse / Ehrungen
             </h1>
             <p class="mt-1 text-sm text-muted-foreground">
-                Alle Ehrungen und Ereignisse, die neuesten zuerst.
+                {{
+                    tab === 'jubilees'
+                        ? 'Aktuelle Mitglieder, die eine Ehrung mit Jubiläumsregel noch nicht erhalten haben.'
+                        : 'Alle Ehrungen und Ereignisse, die neuesten zuerst.'
+                }}
             </p>
         </header>
+
+        <nav aria-label="Ansichten" class="flex flex-wrap gap-2 border-b pb-4">
+            <Link
+                v-for="item in tabs"
+                :key="item.key"
+                :href="withQuery(item.path, { field: form.field })"
+                :aria-current="tab === item.key ? 'page' : undefined"
+                class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted"
+                :class="
+                    tab === item.key
+                        ? 'bg-muted text-foreground'
+                        : 'text-muted-foreground'
+                "
+                ><component :is="item.icon" class="size-4" />{{
+                    item.label
+                }}</Link
+            >
+        </nav>
 
         <StatusAlert
             v-if="!fields.length"
@@ -144,7 +201,16 @@ const yearOptions = computed(() => [
                         "
                     />
                 </div>
-                <div class="min-w-0 space-y-2">
+                <div v-if="tab === 'jubilees'" class="min-w-0 space-y-2">
+                    <Label for="honor-until">Fällig bis</Label>
+                    <Input
+                        id="honor-until"
+                        v-model="form.date"
+                        type="date"
+                        @change="apply"
+                    />
+                </div>
+                <div v-if="tab === 'list'" class="min-w-0 space-y-2">
                     <Label for="honor-year">Jahr</Label>
                     <SearchableDropdown
                         id="honor-year"
@@ -161,7 +227,7 @@ const yearOptions = computed(() => [
                         "
                     />
                 </div>
-                <div class="min-w-0 space-y-2">
+                <div v-if="tab === 'list'" class="min-w-0 space-y-2">
                     <Label for="honor-members">Mitglieder</Label>
                     <select
                         id="honor-members"
@@ -177,14 +243,52 @@ const yearOptions = computed(() => [
                     class="flex flex-wrap items-center justify-between gap-2 sm:col-span-2 xl:col-span-4"
                 >
                     <p class="text-sm text-muted-foreground">
-                        {{ honors.total.toLocaleString('de-DE') }}
-                        {{ honors.total === 1 ? 'Eintrag' : 'Einträge' }}
+                        <template v-if="honors"
+                            >{{ honors.total.toLocaleString('de-DE') }}
+                            {{
+                                honors.total === 1 ? 'Eintrag' : 'Einträge'
+                            }}</template
+                        ><template v-else
+                            >{{ jubileeCount.toLocaleString('de-DE') }}
+                            {{
+                                jubileeCount === 1 ? 'Jubiläum' : 'Jubiläen'
+                            }}</template
+                        >
                     </p>
-                    <ExportLinks path="/ehrungen/export" :query="query" />
+                    <ExportLinks
+                        path="/ehrungen/export"
+                        :query="
+                            tab === 'jubilees'
+                                ? { ...query, tab: 'jubilees' }
+                                : query
+                        "
+                    />
                 </div>
             </form>
 
-            <section class="overflow-hidden rounded-xl border bg-card">
+            <template v-if="tab === 'jubilees'">
+                <StatusAlert
+                    v-if="!jubilees.length"
+                    type="info"
+                    title="Keine Jubiläumsregel eingerichtet"
+                >
+                    Trage unter Konfiguration → Mitgliedsfelder bei einer Ehrung
+                    „Fällig nach … Mitgliedsjahren“ ein, zum Beispiel 25 für
+                    eine Ehrennadel in Silber.
+                </StatusAlert>
+                <HonorJubilees
+                    v-else
+                    :groups="jubilees"
+                    :fields="fields"
+                    :can-assign="canAssign"
+                    :configuration-version="configurationVersion"
+                />
+            </template>
+
+            <section
+                v-else-if="honors"
+                class="overflow-hidden rounded-xl border bg-card"
+            >
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="bg-muted/50 text-left">

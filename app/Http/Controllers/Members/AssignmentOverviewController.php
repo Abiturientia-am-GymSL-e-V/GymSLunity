@@ -49,13 +49,19 @@ class AssignmentOverviewController extends Controller
 
     public function honors(AssignmentOverviewRequest $request): Response
     {
+        $tab = (string) $request->route('tab', 'list');
         $filters = $request->filters();
+        $jubilees = $tab === 'jubilees';
 
         return Inertia::render('assignments/Honors', [
-            'filters' => $filters,
+            'tab' => $tab,
+            'filters' => $jubilees ? [...$filters, 'date' => $this->jubileeUntil($request)] : $filters,
             'fields' => AssignmentReports::fields('honor'),
             'years' => $this->reports->honorYears(),
-            'honors' => $this->reports->honors($filters),
+            'honors' => $jubilees ? null : $this->reports->honors($filters),
+            'jubilees' => $jubilees ? $this->reports->jubilees($filters, $this->jubileeUntil($request)) : [],
+            'canAssign' => $request->user()?->can('manage-assignments') ?? false,
+            'configurationVersion' => $this->clubSettings->fieldsVersion(),
         ]);
     }
 
@@ -106,11 +112,33 @@ class AssignmentOverviewController extends Controller
 
     public function exportHonors(AssignmentOverviewRequest $request): StreamedResponse|HttpResponse
     {
+        if ($request->query('tab') === 'jubilees') {
+            $until = $this->jubileeUntil($request);
+            $rows = [];
+            foreach ($this->reports->jubilees($request->filters(), $until) as $group) {
+                foreach ($group['members'] as $member) {
+                    $rows[] = [
+                        $group['label'], $group['field_label'], ...$this->memberCells($member), MemberReportValue::format($member['joined_at'], ['type' => 'date']),
+                        MemberReportValue::format($member['jubilee_on'], ['type' => 'date']), $member['due'] ? 'Fällig' : 'Bevorstehend',
+                    ];
+                }
+            }
+
+            return $this->export($request, 'Fällige Jubiläen bis '.MemberReportValue::format($until, ['type' => 'date']), 'jubilaeen', ['Ehrung', 'Feld', 'Mitgliedsnummer', 'Name', 'Eintritt', 'Jubiläum am', 'Status'], $rows);
+        }
         $rows = array_map(fn (array $row): array => [
             MemberReportValue::period($row['starts_on'], null, true), $row['label'], $row['field'], ...$this->memberCells($row), (string) $row['note'],
         ], $this->reports->allHonors($request->filters()));
 
         return $this->export($request, 'Ereignisse und Ehrungen', 'ehrungen', ['Datum', 'Ehrung', 'Feld', 'Mitgliedsnummer', 'Name', 'Notiz'], $rows);
+    }
+
+    /** Jubilees are listed up to the given day, by default the end of the current year. */
+    private function jubileeUntil(AssignmentOverviewRequest $request): string
+    {
+        $date = $request->validated('date');
+
+        return is_string($date) ? $date : Clock::today()->endOfYear()->toDateString();
     }
 
     /** @return array{field: string, option: string, date: string, from: string|null, to: string|null, year: int|null, board: bool, members: string} */

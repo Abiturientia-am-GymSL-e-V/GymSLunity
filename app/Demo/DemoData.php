@@ -148,10 +148,10 @@ final class DemoData
             $office('Jugendwart', 'Jugendwart', false),
         ]]);
         $position = (int) MemberFieldDefinition::query()->max('position');
-        $option = fn (string $label, bool $repeatable = false): array => ['value' => $label, 'label' => $label, 'active' => true, ...($repeatable ? ['repeatable' => true] : [])];
+        $option = fn (string $label, bool $repeatable = false, ?int $jubilee = null): array => ['value' => $label, 'label' => $label, 'active' => true, ...($repeatable ? ['repeatable' => true] : []), ...($jubilee ? ['jubilee_years' => $jubilee] : [])];
         foreach ([
             ['custom_demo_abteilung', 'Abteilungen', 'department', [$option('Turnen'), $option('Fußball'), $option('Leichtathletik'), $option('Tischtennis')]],
-            ['custom_demo_ehrung', 'Vereinsehrungen', 'honor', [$option('Ehrennadel Silber'), $option('Ehrennadel Gold'), $option('Ehrenurkunde', true)]],
+            ['custom_demo_ehrung', 'Vereinsehrungen', 'honor', [$option('Ehrennadel Silber', jubilee: 10), $option('Ehrennadel Gold', jubilee: 25), $option('Ehrenurkunde', true)]],
         ] as [$key, $label, $type, $options]) {
             MemberFieldDefinition::query()->create([
                 'key' => $key, 'label' => $label, 'type' => $type, 'section' => MemberFieldDefinition::ASSIGNMENT_SECTION,

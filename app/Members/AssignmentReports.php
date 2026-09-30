@@ -8,6 +8,7 @@ use App\Models\Member;
 use App\Models\MemberAssignment;
 use App\Models\MemberFieldDefinition;
 use App\Support\Clock;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -157,6 +158,54 @@ final class AssignmentReports
     {
         return array_values(MemberAssignment::query()->whereIn('field_key', array_column(self::fields('honor'), 'key'))->whereNotNull('starts_on')
             ->get(['starts_on'])->map(fn (MemberAssignment $assignment): int => (int) $assignment->starts_on?->format('Y'))->unique()->sortDesc()->all());
+    }
+
+    /**
+     * Members due for an honor with a jubilee rule, per field and option in
+     * rank order: current members whose membership, counted from joined_at,
+     * reaches the configured number of years by $until and who do not hold
+     * that honor yet. Rows with a jubilee after today are upcoming.
+     *
+     * @param  array{field: string, option: string}  $filters
+     * @return list<array{field: string, field_label: string, option: string, label: string, years: int, members: list<array<string, mixed>>}>
+     */
+    public function jubilees(array $filters, string $until): array
+    {
+        $today = Clock::todayString();
+        $groups = [];
+        foreach ($this->selected('honor', $filters['field']) as $field) {
+            if ($field['readOnly']) {
+                continue;
+            }
+            foreach ($field['optionDetails'] as $option) {
+                $years = $option['jubileeYears'];
+                if (! $option['active'] || ! is_int($years) || ($filters['option'] !== '' && $filters['option'] !== $option['value'])) {
+                    continue;
+                }
+                // One day of slack for members who joined on 29 February; the exact check follows below.
+                $latestJoin = CarbonImmutable::parse($until)->subYearsNoOverflow($years)->addDay()->toDateString();
+                $members = Member::query()
+                    ->select(['id', 'member_number', 'first_name', 'middle_name', 'last_name', 'joined_at', 'left_at', 'deceased_at'])
+                    ->whereNotNull('joined_at')->whereDate('joined_at', '<=', min($latestJoin, $today))
+                    ->where(fn (Builder $left) => $left->whereNull('left_at')->orWhereDate('left_at', '>', $today))
+                    ->where(fn (Builder $deceased) => $deceased->whereNull('deceased_at')->orWhereDate('deceased_at', '>', $today))
+                    ->whereDoesntHave('assignments', fn (Builder $honor) => $honor->where('field_key', $field['key'])->where('option_value', $option['value']))
+                    ->orderBy('joined_at')->orderBy('last_name')->orderBy('first_name')->orderBy('id')->get();
+                $rows = [];
+                foreach ($members as $member) {
+                    $jubilee = CarbonImmutable::parse($member->joined_at)->addYearsNoOverflow($years)->toDateString();
+                    if ($jubilee <= $until) {
+                        $rows[] = [
+                            'member_number' => $member->member_number, 'name' => self::name($member), 'current_member' => true,
+                            'joined_at' => $member->joined_at?->toDateString(), 'jubilee_on' => $jubilee, 'due' => $jubilee <= $today,
+                        ];
+                    }
+                }
+                $groups[] = ['field' => $field['key'], 'field_label' => $field['label'], 'option' => $option['value'], 'label' => $option['label'], 'years' => $years, 'members' => $rows];
+            }
+        }
+
+        return $groups;
     }
 
     /**
