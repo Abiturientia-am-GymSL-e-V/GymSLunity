@@ -9,3 +9,7 @@
 CHANGELOG.md export-ignore
 README.md export-ignore
 .github/workflows/browser-tests.yml export-ignore
+# Produktwebsite (gymslunity.de) gehört nicht ins Release-Archiv.
+/website export-ignore
+/website/** export-ignore
+.github/workflows/website.yml export-ignore

@@ -90,6 +90,15 @@ Das Handbuch für Vorstand und Mitglieder liegt in [docs/handbuch/](handbuch/) u
 - **Neue Aufnahmen** trägst du in die Liste `shots` in `scripts/handbuch-screenshots.mjs` ein. Hinweise, die es nur in der Demo gibt, markiert das Attribut `data-demo-hint`; das Skript blendet sie aus.
 - Ändert sich eine Oberfläche sichtbar, erneuere die betroffenen Bilder und Texte im selben Pull Request.
 
+## Produktwebsite
+
+Die Website [gymslunity.de](https://gymslunity.de) liegt als statisches HTML ohne Build-Schritt in `website/` und wird nach jedem Merge auf `main` vom Workflow `website.yml` über GitHub Pages veröffentlicht. Über `.gitattributes` ist sie vom Release-Archiv ausgeschlossen.
+
+- **Vorschau:** `python3 -m http.server -d website 8130` und <http://127.0.0.1:8130> öffnen.
+- **Bildschirmfotos** erzeugt `scripts/handbuch-screenshots.sh --website` in doppelter Pixeldichte, jeweils hell und dunkel, als WebP in voller und halber Breite (benötigt `cwebp`). Die Liste steht in `websiteShots` in `scripts/handbuch-screenshots.mjs`.
+- **Version:** Der Workflow setzt den Inhalt von `VERSION` in alle `<span data-version>` ein.
+- Schriften und Bilder werden selbst ausgeliefert, damit die Seite ohne Drittanbieter und Cookies auskommt. Das soll so bleiben.
+
 ## Zusammenarbeit
 
 - Vor jedem Push muss `composer ci:check` grün sein.

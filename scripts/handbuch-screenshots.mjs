@@ -1,13 +1,16 @@
 #!/usr/bin/env node
-// Erzeugt die Screenshots des Anwenderhandbuchs (docs/handbuch/bilder/).
+// Erzeugt die Screenshots des Anwenderhandbuchs (docs/handbuch/bilder/) oder
+// mit --website die hochauflösenden Bilder der Produktwebsite (website/).
 //
 // Erwartet eine laufende Demo-Instanz (DEMO_MODE=true, frisch mit
 // `php artisan demo:reset` befüllt). Am einfachsten über
 // scripts/handbuch-screenshots.sh, das eine Wegwerf-Instanz startet.
 //
-//   node scripts/handbuch-screenshots.mjs [--base URL] [--out DIR] [--only TEIL]
+//   node scripts/handbuch-screenshots.mjs [--base URL] [--out DIR] [--only TEIL] [--website]
 //
 // --only beschränkt den Lauf auf Bilder, deren Dateiname TEIL enthält.
+// --website nimmt die Bilder der Produktwebsite mit doppelter Pixeldichte auf,
+// jeweils hell und dunkel.
 // Playwright wird aus dem Projekt oder der globalen npm-Installation geladen.
 import { execSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
@@ -31,7 +34,12 @@ const option = (name, fallback) => {
     return index === -1 ? fallback : args[index + 1];
 };
 const base = option('--base', 'http://127.0.0.1:8123').replace(/\/$/, '');
-const out = option('--out', 'docs/handbuch/bilder');
+const website = args.includes('--website');
+const out = option(
+    '--out',
+    website ? 'website/assets/bilder' : 'docs/handbuch/bilder',
+);
+const defaultWidth = website ? 1440 : 1280;
 const only = option('--only', '');
 // Aufnahmen mit afterSetup brauchen Daten, die andere Bilder verändern würden,
 // etwa ein zusätzliches Benutzerkonto. Sie laufen in einem zweiten Durchgang.
@@ -420,6 +428,51 @@ const shots = [
     },
 ];
 
+// Bilder der Produktwebsite: wenige, aussagekräftige Ansichten in 2x.
+// Jede Aufnahme entsteht zusätzlich als dunkle Variante (Suffix -dunkel).
+const websiteShots = [
+    { file: 'uebersicht.png', as: 'admin', url: '/dashboard' },
+    { file: 'mitglieder.png', as: 'admin', url: '/mitglieder' },
+    { file: 'mitglied-akte.png', as: 'admin', url: '/mitglieder/1002' },
+    { file: 'beitraege.png', as: 'admin', url: '/beitraege' },
+    {
+        file: 'buchhaltung.png',
+        as: 'admin',
+        url: '/buchhaltung/rechnungen',
+    },
+    { file: 'spenden.png', as: 'admin', url: '/spenden' },
+    {
+        file: 'kommunikation.png',
+        as: 'admin',
+        url: '/kommunikation/serienmails',
+    },
+    { file: 'kalender.png', as: 'admin', url: '/kalender' },
+    {
+        file: 'auswertungen.png',
+        as: 'admin',
+        url: '/auswertungen/mitglieder',
+    },
+    { file: 'formulare.png', as: 'admin', url: '/formulare/quittungen' },
+    { file: 'inventar.png', as: 'admin', url: '/inventar' },
+    { file: 'auditlog.png', as: 'admin', url: '/auditlog' },
+    {
+        file: 'module.png',
+        as: 'admin',
+        url: '/konfiguration/softwaremodule',
+    },
+    {
+        file: 'portal-mobil.png',
+        as: 'member',
+        url: '/selfservice',
+        width: 390,
+        height: 844,
+        scale: 3,
+    },
+].flatMap((shot) => [
+    shot,
+    { ...shot, file: shot.file.replace('.png', '-dunkel.png'), dark: true },
+]);
+
 async function settle(page) {
     await page.waitForLoadState('networkidle');
     await page.evaluate(() => document.fonts.ready);
@@ -497,11 +550,12 @@ async function loginMember(page) {
     let failures = 0;
 
     async function pageFor(shot) {
-        const key = `${shot.as ?? 'gast'}|${shot.width ?? 1280}|${shot.dark ? 'dunkel' : 'hell'}`;
+        const scale = shot.scale ?? (website ? 2 : 1);
+        const key = `${shot.as ?? 'gast'}|${shot.width ?? defaultWidth}|${scale}|${shot.dark ? 'dunkel' : 'hell'}`;
         if (contexts.has(key)) return contexts.get(key);
         const context = await browser.newContext({
-            viewport: { width: shot.width ?? 1280, height: 900 },
-            deviceScaleFactor: 1,
+            viewport: { width: shot.width ?? defaultWidth, height: 900 },
+            deviceScaleFactor: scale,
             colorScheme: shot.dark ? 'dark' : 'light',
             locale: 'de-DE',
             timezoneId: 'Europe/Berlin',
@@ -523,13 +577,13 @@ async function loginMember(page) {
         return page;
     }
 
-    for (const shot of shots) {
+    for (const shot of website ? websiteShots : shots) {
         if (only && !shot.file.includes(only)) continue;
         if (Boolean(shot.afterSetup) !== afterSetup) continue;
         try {
             const page = await pageFor(shot);
             await page.setViewportSize({
-                width: shot.width ?? 1280,
+                width: shot.width ?? defaultWidth,
                 height: shot.height ?? 900,
             });
             await page.goto(`${base}${shot.url}`, { waitUntil: 'networkidle' });
