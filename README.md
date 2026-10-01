@@ -1,7 +1,9 @@
 # GymSLunity - Vereinsverwaltung
 
 <div align="center">
-<img src="public/images/gymslunity-logo.png" alt="Logo" width="400">
+    <a href="https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity">
+        <img src="public/images/gymslunity-logo.png" alt="Logo" width="400">
+    </a>
 
 [![Current Release](https://img.shields.io/github/v/release/Abiturientia-am-GymSL-e-V/GymSLunity?include_prereleases)](https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases)
 [![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL--1.2-yellow.svg)](LICENSE)
