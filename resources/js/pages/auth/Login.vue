@@ -52,6 +52,7 @@ const {
         type="info"
         title="Zugangsdaten der Demo"
         class="mb-6"
+        data-demo-hint
     >
         <p>
             Alle Konten verwenden das Passwort

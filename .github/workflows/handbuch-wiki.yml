@@ -1,0 +1,67 @@
+name: handbuch-wiki
+
+# Spiegelt das Anwenderhandbuch aus docs/handbuch/ in das GitHub-Wiki.
+# Das Wiki muss einmalig über die Weboberfläche mit einer ersten Seite
+# angelegt worden sein, sonst existiert sein Repository noch nicht.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - docs/handbuch/**
+      - scripts/handbuch-wiki.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: handbuch-wiki
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Checkout wiki
+        id: wiki
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git"
+          if ! git ls-remote "$url" > /dev/null 2>&1; then
+            echo "::warning::Das Wiki existiert noch nicht. Bitte einmal unter ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/wiki eine erste Seite anlegen und den Workflow erneut starten."
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git clone --quiet --depth 1 "$url" .wiki
+          echo 'exists=true' >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        if: steps.wiki.outputs.exists == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Convert handbook
+        if: steps.wiki.outputs.exists == 'true'
+        run: node scripts/handbuch-wiki.mjs .wiki "$GITHUB_REPOSITORY"
+
+      - name: Publish wiki
+        if: steps.wiki.outputs.exists == 'true'
+        working-directory: .wiki
+        run: |
+          git add --all
+          if git diff --cached --quiet; then
+            echo 'Wiki ist bereits aktuell.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit --quiet -m "Handbuch aus ${GITHUB_SHA::7} übernehmen"
+          git push

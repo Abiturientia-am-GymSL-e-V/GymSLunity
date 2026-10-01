@@ -34,6 +34,8 @@ Das Projekt ist aus den praktischen Anforderungen eines Schulvereins entstanden 
 
 GymSLunity befindet sich in der **Beta-Phase**. Die Funktionen sind vollständig nutzbar, sollten vor dem produktiven Einsatz aber mit eigenen Testdaten geprüft werden. Änderungen je Version stehen in [docs/releases/](docs/releases/).
 
+Wie die Anwendung im Vereinsalltag bedient wird, erklärt das [Anwenderhandbuch](https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/wiki) mit Screenshots. Seine Quelle liegt in [docs/handbuch/](docs/handbuch/).
+
 ## Funktionsbereiche
 
 - **Mitgliederverwaltung:** Mitglieds- und Kontaktdaten, konfigurierbare Zusatzfelder, Suche, Filter, Massenbearbeitung, CSV-Import, Export, Dokumente und Änderungshistorie.

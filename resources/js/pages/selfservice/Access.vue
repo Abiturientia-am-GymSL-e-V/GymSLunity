@@ -52,6 +52,7 @@ onMounted(() => {
                 v-if="$page.props.demo"
                 type="info"
                 title="Mitgliederbereich der Demo"
+                data-demo-hint
             >
                 Melde dich mit
                 <code class="font-mono font-medium break-all select-all">{{
