@@ -127,7 +127,7 @@ const featureAreas = [
                 >
                     <img
                         alt="Aktuelle GymSLunity-Version"
-                        src="https://img.shields.io/github/v/release/Abiturientia-am-GymSL-e-V/GymSLunity?include_prereleases"
+                        src="https://img.shields.io/github/v/release/Abiturientia-am-GymSL-e-V/GymSLunity"
                         class="max-w-full"
                     />
                 </a>

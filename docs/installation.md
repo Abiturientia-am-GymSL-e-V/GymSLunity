@@ -10,7 +10,7 @@ In den Beispielen werden folgende Werte verwendet. Ersetze sie überall durch de
 | `/var/www/gymslunity` | Installationsverzeichnis                                                                                       |
 | `deploy`              | dein SSH-Benutzer, dem die Dateien gehören                                                                     |
 | `www-data`            | Benutzer, unter dem PHP-FPM und Nginx laufen                                                                   |
-| `1.0.0-beta.1`        | zu installierende Version (siehe [Releases](https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases)) |
+| `1.0.0`               | zu installierende Version (siehe [Releases](https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases)) |
 
 Alle Einstellungen in der `.env` sind in [konfiguration.md](konfiguration.md) beschrieben.
 
@@ -100,7 +100,7 @@ Wähle **eine** der beiden Varianten.
 Das Archiv enthält bereits `vendor/` und das gebaute Frontend (`public/build/`). Composer und Node.js werden auf dem Server nicht benötigt.
 
 ```bash
-VERSION=1.0.0-beta.1
+VERSION=1.0.0
 cd /tmp
 curl -fLO https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases/download/v$VERSION/gymslunity-v$VERSION.tar.gz
 curl -fLO https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases/download/v$VERSION/gymslunity-v$VERSION.tar.gz.sha256
@@ -123,7 +123,7 @@ sudo mkdir -p /var/www/gymslunity
 sudo chown deploy:www-data /var/www/gymslunity
 git clone https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity.git /var/www/gymslunity
 cd /var/www/gymslunity
-git checkout v1.0.0-beta.1
+git checkout v1.0.0
 composer install --no-dev --optimize-autoloader
 npm ci
 npm run build
