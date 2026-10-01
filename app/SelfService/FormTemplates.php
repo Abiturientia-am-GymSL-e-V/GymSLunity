@@ -20,7 +20,7 @@ final class FormTemplates
         return [
             'application_text' => 'Hiermit beantrage ich die Mitgliedschaft bei {{verein.name}}. Ich erkenne die Satzung und die geltende Beitragsordnung des Vereins an.',
             'guardian_text' => 'Als sorgeberechtigte Person stimme ich der Mitgliedschaft meines Kindes im Verein {{verein.name}} und der Wahrnehmung der damit verbundenen Rechte und Pflichten zu.',
-            'sepa_text' => 'Ich ermächtige {{verein.name}}, Zahlungen von meinem Konto mittels Lastschrift einzuziehen. Zugleich weise ich mein Kreditinstitut an, die von {{verein.name}} auf mein Konto gezogenen Lastschriften einzulösen. Dieses Mandat gilt für wiederkehrende Zahlungen. Gläubiger-Identifikationsnummer: {{verein.creditor_id}}. Hinweis: Ich kann innerhalb von acht Wochen, beginnend mit dem Belastungsdatum, die Erstattung des belasteten Betrages verlangen. Es gelten dabei die mit meinem Kreditinstitut vereinbarten Bedingungen.',
+            'sepa_text' => 'Ich ermächtige {{verein.name}}, Zahlungen von meinem Konto mittels Lastschrift einzuziehen. Zugleich weise ich mein Kreditinstitut an, die von {{verein.name}} auf mein Konto gezogenen Lastschriften einzulösen. Dieses Mandat gilt für wiederkehrende Zahlungen. Gläubiger-Identifikationsnummer: {{verein.glaeubiger_id}}. Hinweis: Ich kann innerhalb von acht Wochen, beginnend mit dem Belastungsdatum, die Erstattung des belasteten Betrages verlangen. Es gelten dabei die mit meinem Kreditinstitut vereinbarten Bedingungen.',
             'receipt_notes' => <<<'TEXT'
 Diese Quittung stellt keine Rechnung und keine Zuwendungsbestätigung (gemäß AO) dar!
 Sie dient der Bestätigung erhaltener und geleisteter barer oder unbarer Zahlungen und ist gleichzeitig Ein- und Auszahlungsbeleg.
@@ -46,7 +46,7 @@ TEXT,
     public static function placeholders(): array
     {
         return array_values(array_unique([
-            ...array_map(fn (array $field): string => '{{verein.'.$field['key'].'}}', ClubData::fields()),
+            ...array_map(fn (array $field): string => ClubData::placeholder($field['key']), ClubData::fields()),
             '{{verein.tax_privilege_notice}}',
             '{{verein.tax_privilege_notice_date}}',
             '{{verein.donation_purposes}}',
@@ -57,7 +57,7 @@ TEXT,
 
     public static function validate(string $text): void
     {
-        preg_match_all('/\{\{.*?\}\}/s', $text, $matches);
+        preg_match_all('/\{\{.*?\}\}/s', ClubData::upgradePlaceholders($text), $matches);
         if (array_diff($matches[0], self::placeholders()) !== []) {
             throw ValidationException::withMessages(['templates' => 'Unbekannter Platzhalter. Bitte verwende die angegebenen Vereinsstammdaten.']);
         }
@@ -82,7 +82,7 @@ TEXT,
         $replacements = [];
         foreach (ClubData::fields() as $field) {
             $value = (string) ($data[$field['key']] ?? '');
-            $replacements['{{verein.'.$field['key'].'}}'] = $field['key'] === 'iban'
+            $replacements[ClubData::placeholder($field['key'])] = $field['key'] === 'iban'
                 ? Iban::format($value)
                 : $value;
         }
@@ -108,6 +108,7 @@ TEXT,
             ? 'Spenden und Mitgliedsbeiträge'
             : 'Spenden';
 
+        $text = ClubData::upgradePlaceholders($text);
         // Current board members from the office assignments, only computed when used.
         if (str_contains($text, '{{verein.vorstand}}')) {
             $replacements['{{verein.vorstand}}'] = AssignmentReports::boardText();

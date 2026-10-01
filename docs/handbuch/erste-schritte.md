@@ -29,7 +29,11 @@ Alle Verwaltungskonten haben Zugriff auf personenbezogene Daten. Deshalb verlang
 - **Passkey** (empfohlen): Touch ID, Face ID, Windows Hello oder ein Sicherheitsschlüssel.
 - **Authenticator-App (TOTP)**: eine App, die alle 30 Sekunden einen neuen Code erzeugt.
 
-Bis eine der beiden Methoden eingerichtet ist, öffnet sich nach jeder Anmeldung nur die Einrichtungsseite. Danach bestätigst du jede Anmeldung mit dem Passkey oder dem Code aus der App. Bewahre die Wiederherstellungscodes der Authenticator-App sicher auf. Mit ihnen kommst du auch ohne Smartphone wieder in dein Konto.
+Bis eine der beiden Methoden eingerichtet ist, öffnet sich nach jeder Anmeldung nur die Einrichtungsseite. Danach bestätigst du jede Anmeldung mit dem Passkey oder dem sechsstelligen Code aus der App.
+
+![Abfrage des Codes aus der Authenticator-App](bilder/zwei-faktor-code.png)
+
+Bewahre die Wiederherstellungscodes der Authenticator-App sicher auf. Ist das Smartphone nicht zur Hand, wählst du auf dieser Seite **Stattdessen einen Wiederherstellungscode verwenden**. Jeder Wiederherstellungscode gilt nur einmal.
 
 > [!NOTE]
 > Verwaltungssitzungen enden nach 30 Minuten ohne Aktivität. Eine dauerhafte Anmeldung („angemeldet bleiben“) gibt es für Verwaltungskonten bewusst nicht. Läuft die Sitzung während einer Bearbeitung ab, weist GymSLunity beim Speichern darauf hin. Sichere dann längere Eingaben, bevor du dich neu anmeldest.

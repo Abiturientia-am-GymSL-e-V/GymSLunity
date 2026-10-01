@@ -54,6 +54,12 @@ done
 
 node scripts/handbuch-screenshots.mjs --base "http://127.0.0.1:$port" --password "$DEMO_PASSWORD" "$@"
 
+# Zweiter Durchgang mit einem Konto mit Authenticator-App für die Abfrage des
+# zweiten Faktors. Es entsteht erst jetzt, damit es in Benutzerliste und
+# Auditlog der übrigen Bilder nicht auftaucht.
+php artisan tinker --execute "App\Models\User::factory()->withTwoFactor()->create(['name' => 'Zwei-Faktor-Beispiel', 'email' => 'zweifaktor@example.org', 'password' => Illuminate\Support\Facades\Hash::make(getenv('DEMO_PASSWORD')), 'roles' => ['bh']]);" > /dev/null
+node scripts/handbuch-screenshots.mjs --base "http://127.0.0.1:$port" --password "$DEMO_PASSWORD" --after-setup "$@"
+
 # Bildschirmfotos kommen mit 256 Farben ohne sichtbaren Verlust aus und
 # werden dadurch etwa dreimal kleiner. Optional, falls Pillow installiert ist.
 if python3 -c 'import PIL' 2>/dev/null; then

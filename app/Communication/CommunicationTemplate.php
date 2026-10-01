@@ -50,7 +50,7 @@ final class CommunicationTemplate
             } elseif ($field['key'] === 'iban') {
                 $value = Iban::format(is_string($value) ? $value : null);
             }
-            $this->clubReplacements['{{verein.'.$field['key'].'}}'] = (string) $value;
+            $this->clubReplacements[ClubData::placeholder($field['key'])] = (string) $value;
         }
         $this->clubReplacements['{{verein.vorstand}}'] = AssignmentReports::boardText();
     }
@@ -70,7 +70,7 @@ final class CommunicationTemplate
             $items[] = ['token' => '{{mitglied.'.$field->key.'}}', 'label' => $field->label, 'group' => 'Mitglied'];
         }
         foreach (ClubData::fields() as $field) {
-            $items[] = ['token' => '{{verein.'.$field['key'].'}}', 'label' => $field['label'], 'group' => 'Verein'];
+            $items[] = ['token' => ClubData::placeholder($field['key']), 'label' => $field['label'], 'group' => 'Verein'];
         }
         $items[] = ['token' => '{{verein.vorstand}}', 'label' => 'Vorstand (aktuelle Vorstandsämter)', 'group' => 'Verein'];
 
@@ -79,6 +79,7 @@ final class CommunicationTemplate
 
     public function validate(string $template, string $field): void
     {
+        $template = ClubData::upgradePlaceholders($template);
         preg_match_all('/\{\{.*?\}\}/s', $template, $matches);
         $allowed = array_column($this->placeholders(), 'token');
         $unknown = array_values(array_unique(array_diff($matches[0], $allowed)));
@@ -92,12 +93,12 @@ final class CommunicationTemplate
 
     public function render(string $template, Member $member): string
     {
-        return strtr($template, $this->replacements($member));
+        return strtr(ClubData::upgradePlaceholders($template), $this->replacements($member));
     }
 
     public function renderHtml(string $template, Member $member): string
     {
-        return strtr($template, array_map(
+        return strtr(ClubData::upgradePlaceholders($template), array_map(
             fn (string $value): string => nl2br(htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8')),
             $this->replacements($member),
         ));

@@ -45,7 +45,7 @@ Die Werte stammen aus [Konfiguration → Vereinsdaten](konfiguration.md#vereinsd
 | `{{verein.iban}}`                    | IBAN                                                                                        |
 | `{{verein.bic}}`                     | BIC                                                                                         |
 | `{{verein.bank_name}}`               | Kreditinstitut                                                                              |
-| `{{verein.creditor_id}}`             | SEPA-Gläubiger-ID                                                                           |
+| `{{verein.glaeubiger_id}}`           | SEPA-Gläubiger-ID                                                                           |
 | `{{verein.vorstand}}`                | aktuelle Inhaber der Vorstandsämter, aus [Vorstand / Ämter](aemter-abteilungen-ehrungen.md) |
 
 In Formulartexten, rechtlichen Seiten und E-Mail-Texten der Konfiguration stehen zusätzlich die steuerlichen Angaben aus [Konfiguration → Spenden](konfiguration.md#spenden) zur Verfügung:
@@ -57,7 +57,9 @@ In Formulartexten, rechtlichen Seiten und E-Mail-Texten der Konfiguration stehen
 | `{{verein.donation_purposes}}`         | die steuerbegünstigten Zwecke                                                    |
 | `{{verein.deductible_scope}}`          | „Spenden“ oder „Spenden und Mitgliedsbeiträge“                                   |
 
-Im **SEPA-Mandatstext** stehen derzeit nur `{{verein.name}}` und `{{verein.glaeubiger_id}}` (Gläubiger-ID) zur Verfügung.
+Im **SEPA-Mandatstext** stehen nur `{{verein.name}}` und `{{verein.glaeubiger_id}}` zur Verfügung.
+
+Die Gläubiger-ID hieß früher `{{verein.creditor_id}}`. Gespeicherte Texte mit dem alten Namen funktionieren weiter. Verwende für neue Texte `{{verein.glaeubiger_id}}`.
 
 ## Mitgliedsdaten
 

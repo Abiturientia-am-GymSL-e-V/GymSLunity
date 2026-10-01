@@ -6,6 +6,24 @@ namespace App\Configuration;
 
 final class ClubData
 {
+    /** Placeholder names that differ from the storage key, so every text uses the German name. */
+    private const PLACEHOLDER_NAMES = ['creditor_id' => 'glaeubiger_id'];
+
+    /** Former placeholder names that saved texts may still contain. */
+    private const LEGACY_PLACEHOLDERS = ['{{verein.creditor_id}}' => '{{verein.glaeubiger_id}}'];
+
+    /** The one placeholder that stands for a club data field everywhere. */
+    public static function placeholder(string $key): string
+    {
+        return '{{verein.'.(self::PLACEHOLDER_NAMES[$key] ?? $key).'}}';
+    }
+
+    /** Rewrites former placeholder names to the current ones. */
+    public static function upgradePlaceholders(string $text): string
+    {
+        return strtr($text, self::LEGACY_PLACEHOLDERS);
+    }
+
     /** @return list<array{key: string, label: string, type: string, section: string, required: bool, options: array<string, string>, default: string|int|bool|null}> */
     public static function fields(): array
     {
