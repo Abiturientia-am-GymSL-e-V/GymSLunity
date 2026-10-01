@@ -28,6 +28,7 @@ class FinanceSettingsController extends Controller
             'version' => $settings->version(),
             'smallBusinessRegulationEnabled' => (bool) ($settings->data()['small_business_regulation_enabled'] ?? false),
             'financeMandateText' => (string) ($settings->data()['finance_mandate_text'] ?? FinanceMandateText::DEFAULT),
+            'mandatePlaceholders' => FinanceMandateText::placeholders(),
         ]);
     }
 
@@ -41,7 +42,7 @@ class FinanceSettingsController extends Controller
             'small_business_regulation_enabled' => ['required', 'boolean'],
             'finance_mandate_text' => ['required', 'string', 'max:5000', function (string $attribute, mixed $value, \Closure $fail): void {
                 preg_match_all('/\{\{[^}]+\}\}/', (string) $value, $matches);
-                $unknown = array_diff(array_unique($matches[0]), ['{{verein.name}}', '{{verein.glaeubiger_id}}']);
+                $unknown = array_diff(array_unique($matches[0]), FinanceMandateText::placeholders());
                 if ($unknown !== []) {
                     $fail('Unbekannte Platzhalter: '.implode(', ', $unknown));
                 }

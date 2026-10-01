@@ -13,6 +13,7 @@ const props = defineProps<{
     version: number;
     smallBusinessRegulationEnabled: boolean;
     financeMandateText: string;
+    mandatePlaceholders: string[];
 }>();
 defineOptions({
     layout: {
@@ -119,8 +120,11 @@ function save() {
                     </label>
                     <p class="text-xs text-muted-foreground">
                         Verfügbare Platzhalter:
-                        <code v-pre>{{ verein.name }}</code> und
-                        <code v-pre>{{ verein.glaeubiger_id }}</code
+                        <template
+                            v-for="(placeholder, index) in mandatePlaceholders"
+                            :key="placeholder"
+                            ><template v-if="index > 0">, </template
+                            ><code>{{ placeholder }}</code></template
                         >. Änderungen gelten nur für neue Mandate.
                     </p>
                     <StatusAlert type="warning" title="Rechtliche Prüfung">

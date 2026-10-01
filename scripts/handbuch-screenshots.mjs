@@ -33,11 +33,15 @@ const option = (name, fallback) => {
 const base = option('--base', 'http://127.0.0.1:8123').replace(/\/$/, '');
 const out = option('--out', 'docs/handbuch/bilder');
 const only = option('--only', '');
+// Aufnahmen mit afterSetup brauchen Daten, die andere Bilder verändern würden,
+// etwa ein zusätzliches Benutzerkonto. Sie laufen in einem zweiten Durchgang.
+const afterSetup = args.includes('--after-setup');
 const password = option('--password', 'Demo-Passwort-2026');
 
 const ACCOUNTS = {
     admin: 'admin@example.org',
     vorstand: 'vorstand@example.org',
+    zweifaktor: 'zweifaktor@example.org',
 };
 const MEMBER_EMAIL = 'mitglied@example.org';
 
@@ -56,6 +60,13 @@ const shots = [
     // Erste Schritte
     { file: 'anmeldung.png', as: null, url: '/login', height: 760 },
     { file: 'startseite-oeffentlich.png', as: null, url: '/', height: 760 },
+    {
+        file: 'zwei-faktor-code.png',
+        as: 'zweifaktor',
+        url: '/two-factor-challenge',
+        height: 760,
+        afterSetup: true,
+    },
     { file: 'uebersicht.png', as: 'admin', url: '/dashboard' },
     {
         file: 'benutzermenue.png',
@@ -364,6 +375,7 @@ const shots = [
         file: 'konfiguration-buchhaltung.png',
         as: 'admin',
         url: '/konfiguration/buchhaltung',
+        full: true,
     },
     {
         file: 'konfiguration-system.png',
@@ -513,6 +525,7 @@ async function loginMember(page) {
 
     for (const shot of shots) {
         if (only && !shot.file.includes(only)) continue;
+        if (Boolean(shot.afterSetup) !== afterSetup) continue;
         try {
             const page = await pageFor(shot);
             await page.setViewportSize({

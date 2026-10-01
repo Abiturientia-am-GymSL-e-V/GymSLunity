@@ -18,18 +18,19 @@ const code = ref<string>('');
 const authConfigContent = computed<TwoFactorConfigContent>(() => {
     if (showRecoveryInput.value) {
         return {
-            title: 'Recovery code',
+            title: 'Wiederherstellungscode',
             description:
-                'Please confirm access to your account by entering one of your emergency recovery codes.',
-            buttonText: 'login using an authentication code',
+                'Die Anmeldung mit einem der Wiederherstellungscodes bestätigen, die beim Einrichten der Zwei-Faktor-Authentifizierung angezeigt wurden.',
+            buttonText:
+                'Stattdessen den Code aus der Authenticator-App verwenden',
         };
     }
 
     return {
-        title: 'Authentication code',
+        title: 'Authentifizierungscode',
         description:
-            'Enter the authentication code provided by your authenticator application.',
-        buttonText: 'login using a recovery code',
+            'Den sechsstelligen Code aus der Authenticator-App eingeben.',
+        buttonText: 'Stattdessen einen Wiederherstellungscode verwenden',
     };
 });
 
@@ -48,7 +49,7 @@ const toggleRecoveryMode = (clearErrors: () => void): void => {
 </script>
 
 <template>
-    <Head title="Two-factor authentication" />
+    <Head title="Zwei-Faktor-Authentifizierung" />
 
     <div class="space-y-6">
         <template v-if="!showRecoveryInput">
@@ -69,6 +70,7 @@ const toggleRecoveryMode = (clearErrors: () => void): void => {
                             v-model="code"
                             :maxlength="6"
                             :disabled="processing"
+                            aria-label="Authentifizierungscode"
                             autofocus
                         >
                             <InputOTPGroup>
@@ -83,10 +85,9 @@ const toggleRecoveryMode = (clearErrors: () => void): void => {
                     <InputError :message="errors.code" />
                 </div>
                 <Button type="submit" class="w-full" :disabled="processing"
-                    >Continue</Button
+                    >Weiter</Button
                 >
                 <div class="text-center text-sm text-muted-foreground">
-                    <span>or you can </span>
                     <button
                         type="button"
                         class="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
@@ -108,17 +109,16 @@ const toggleRecoveryMode = (clearErrors: () => void): void => {
                 <Input
                     name="recovery_code"
                     type="text"
-                    placeholder="Enter recovery code"
+                    placeholder="Wiederherstellungscode eingeben"
                     v-focus
                     required
                 />
                 <InputError :message="errors.recovery_code" />
                 <Button type="submit" class="w-full" :disabled="processing"
-                    >Continue</Button
+                    >Weiter</Button
                 >
 
                 <div class="text-center text-sm text-muted-foreground">
-                    <span>or you can </span>
                     <button
                         type="button"
                         class="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
