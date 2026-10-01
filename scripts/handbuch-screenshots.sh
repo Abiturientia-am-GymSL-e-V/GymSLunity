@@ -6,7 +6,10 @@
 # fotografiert sie mit scripts/handbuch-screenshots.mjs. Datenbank und
 # Dateien der Entwicklungsumgebung bleiben unberührt.
 #
-#   scripts/handbuch-screenshots.sh [--only TEIL]
+#   scripts/handbuch-screenshots.sh [--only TEIL] [--website]
+#
+# Mit --website entstehen stattdessen die hochauflösenden Bilder der
+# Produktwebsite als WebP in website/assets/bilder/ (benötigt cwebp).
 #
 # Voraussetzungen: Entwicklungsumgebung nach docs/entwicklung.md (PHP, .env
 # mit APP_KEY, vendor/), ein aktueller Frontend-Build (npm run build) und
@@ -51,6 +54,21 @@ for _ in $(seq 1 50); do
     curl -fs -o /dev/null "http://127.0.0.1:$port/login" && break
     sleep 0.2
 done
+
+if [[ " $* " == *' --website '* ]]; then
+    command -v cwebp > /dev/null || { echo 'cwebp fehlt (brew install webp).' >&2; exit 1; }
+    node scripts/handbuch-screenshots.mjs --base "http://127.0.0.1:$port" --password "$DEMO_PASSWORD" --out "$tmp/website" "$@"
+    mkdir -p website/assets/bilder
+    # Je Bild die volle Auflösung (2x bzw. 3x) und eine halb so breite Fassung
+    # für kleine Bildschirme; die Website wählt per srcset.
+    for png in "$tmp"/website/*.png; do
+        name=$(basename "$png" .png)
+        width=$(python3 -c 'import struct,sys; f=open(sys.argv[1],"rb"); f.seek(16); print(struct.unpack(">I", f.read(4))[0])' "$png")
+        cwebp -quiet -q 82 -m 6 -sharp_yuv "$png" -o "website/assets/bilder/$name.webp"
+        cwebp -quiet -q 82 -m 6 -sharp_yuv -resize $((width / 2)) 0 "$png" -o "website/assets/bilder/$name-klein.webp"
+    done
+    exit 0
+fi
 
 node scripts/handbuch-screenshots.mjs --base "http://127.0.0.1:$port" --password "$DEMO_PASSWORD" "$@"
 
