@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\RequirePrivilegedTwoFactor;
 use App\Models\Member;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
+use Inertia\Testing\AssertableInertia as Assert;
+use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
+use Laravel\Passkeys\Events\PasskeyVerified;
+use Laravel\Passkeys\Passkey;
+use PragmaRX\Google2FA\Google2FA;
 use Tests\TestCase;
 
 class SecurityHardeningTest extends TestCase
@@ -111,28 +117,72 @@ class SecurityHardeningTest extends TestCase
             ->assertRedirect(route('security.setup'));
     }
 
-    public function test_passkey_satisfies_privileged_second_factor_policy(): void
+    public function test_passkey_satisfies_privileged_second_factor_policy_once_used(): void
     {
         $user = User::factory()->create(['roles' => ['admin']]);
-        $user->passkeys()->create([
-            'name' => 'Testgerät',
-            'credential_id' => 'test-credential',
-            'credential' => ['id' => 'test-credential'],
-        ]);
+        $this->createPasskey($user);
 
         $this->actingAs($user)
-            ->withSession(['security.authenticated_at' => now()->getTimestamp()])
+            ->withSession(['security.authenticated_at' => now()->getTimestamp(), RequirePrivilegedTwoFactor::VERIFIED => true])
             ->get(route('dashboard'))
             ->assertOk();
     }
 
-    public function test_confirmed_two_factor_allows_privileged_access(): void
+    public function test_password_login_of_passkey_user_requires_passkey_confirmation(): void
+    {
+        $user = User::factory()->create(['roles' => ['admin']]);
+        $passkey = $this->createPasskey($user);
+
+        $this->post(route('login.store'), ['email' => $user->email, 'password' => 'password'])
+            ->assertRedirect(route('dashboard', absolute: false));
+        // Enrolling another factor must not bypass the challenge.
+        $this->get(route('security.setup'))->assertRedirect(route('passkey.challenge'));
+        $this->getJson(route('passkey.registration-options'))->assertRedirect(route('passkey.challenge'));
+        $this->get(route('members.index'))->assertRedirect(route('passkey.challenge'));
+        $this->get(route('passkey.challenge'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('auth/PasskeyChallenge'));
+
+        $this->get(route('passkey.confirm-options'))->assertOk();
+
+        $this->app['request']->setLaravelSession($this->app['session.store']);
+        PasskeyVerified::dispatch($user, $passkey);
+
+        $this->get(route('passkey.challenge'))->assertRedirect(route('members.index'));
+        $this->get(route('dashboard'))->assertOk();
+    }
+
+    public function test_password_and_totp_login_satisfies_privileged_second_factor_policy(): void
+    {
+        $provider = app(TwoFactorAuthenticationProvider::class);
+        $secret = $provider->generateSecretKey();
+        $user = User::factory()->withTwoFactor()->create(['roles' => ['admin'], 'two_factor_secret' => encrypt($secret)]);
+
+        $this->post(route('login.store'), ['email' => $user->email, 'password' => 'password'])
+            ->assertRedirect(route('two-factor.login'));
+        $this->assertGuest();
+        $this->post(route('two-factor.login.store'), ['code' => app(Google2FA::class)->getCurrentOtp($secret)])
+            ->assertRedirect(route('dashboard', absolute: false));
+        $this->get(route('dashboard'))->assertOk();
+    }
+
+    public function test_totp_session_without_second_factor_marker_is_logged_out(): void
     {
         $user = User::factory()->withTwoFactor()->create(['roles' => ['admin']]);
 
         $this->actingAs($user)
             ->withSession(['security.authenticated_at' => now()->getTimestamp()])
-            ->get(route('dashboard'))->assertOk();
+            ->get(route('dashboard'))->assertRedirect(route('login'));
+        $this->assertGuest();
+    }
+
+    private function createPasskey(User $user): Passkey
+    {
+        return $user->passkeys()->create([
+            'name' => 'Testgerät',
+            'credential_id' => 'dGVzdC1jcmVkZW50aWFs',
+            'credential' => ['id' => 'test-credential'],
+        ]);
     }
 
     public function test_inactive_session_is_terminated(): void
