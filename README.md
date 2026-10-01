@@ -5,7 +5,7 @@
         <img src="public/images/gymslunity-logo.png" alt="Logo" width="400">
     </a>
 
-[![Current Release](https://img.shields.io/github/v/release/Abiturientia-am-GymSL-e-V/GymSLunity?include_prereleases)](https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases)
+[![Current Release](https://img.shields.io/github/v/release/Abiturientia-am-GymSL-e-V/GymSLunity)](https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases)
 [![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL--1.2-yellow.svg)](LICENSE)
 
 </div>
@@ -32,7 +32,7 @@ GymSLunity ist eine webbasierte Komplettlösung für die tägliche Vereinsverwal
 
 Das Projekt ist aus den praktischen Anforderungen eines Schulvereins entstanden und wird von Schülerinnen und Schülern getragen. Ziel ist eine offene, selbst betreibbare Alternative zu kostenpflichtigen SaaS-Angeboten, die Vereine verstehen, anpassen und gemeinsam weiterentwickeln können.
 
-GymSLunity befindet sich in der **Beta-Phase**. Die Funktionen sind vollständig nutzbar, sollten vor dem produktiven Einsatz aber mit eigenen Testdaten geprüft werden. Änderungen je Version stehen in [docs/releases/](docs/releases/).
+Seit Version 1.0.0 ist GymSLunity stabil. Die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/): Neue Funktionen erscheinen in Minor-Versionen (1.1, 1.2, …), Fehlerbehebungen in Patch-Versionen (1.0.1, …). Änderungen je Version stehen in [docs/releases/](docs/releases/).
 
 Wie die Anwendung im Vereinsalltag bedient wird, erklärt das [Anwenderhandbuch](https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/wiki) mit Screenshots. Seine Quelle liegt in [docs/handbuch/](docs/handbuch/).
 

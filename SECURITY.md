@@ -2,9 +2,16 @@
 
 ## Unterstützte Versionen
 
-GymSLunity befindet sich derzeit in einer Alpha-Phase. Sicherheitskorrekturen
-werden für die jeweils aktuelle veröffentlichte Version bereitgestellt. Ältere
-Versionen erhalten grundsätzlich keine separaten Sicherheitsupdates.
+Sicherheitskorrekturen werden für die jeweils neueste veröffentlichte Version
+der Reihe 1.x bereitgestellt. Da Minor- und Patch-Versionen innerhalb von 1.x
+abwärtskompatibel sind, erhalten ältere Versionen keine separaten
+Sicherheitsupdates; bitte stattdessen auf die neueste Version aktualisieren.
+
+| Version              | Unterstützt |
+| -------------------- | ----------- |
+| neueste 1.x          | ja          |
+| ältere 1.x           | nein        |
+| 1.0.0-beta.x, Alphas | nein        |
 
 ## Sicherheitslücken melden
 
