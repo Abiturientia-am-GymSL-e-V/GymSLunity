@@ -89,10 +89,13 @@ class DonationManagementTest extends TestCase
             ->where('summary.open_count', 1)
             ->where('donations.0.donor_email', 'erika@example.invalid')
             ->where('donations.0.certificate', null));
+        // A second open donation makes lazy loading of the certificate relation detectable.
+        $this->post(route('donations.store'), $this->donationData(['donated_at' => '2026-08-01']))->assertSessionHasNoErrors();
         $this->get(route('donations.open'))->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->where('summary.open_count', 1)
-            ->has('openDonations', 1)
+            ->where('summary.open_count', 2)
+            ->has('openDonations', 2)
             ->where('openDonations.0.receipt_number', $receiptNumber)
+            ->where('openDonations.1.certificate', null)
             ->has('donations', 0));
     }
 
