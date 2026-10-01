@@ -13,6 +13,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 class RequirePrivilegedTwoFactor
 {
+    /** Set when the current login has actually used a second factor, not merely configured one. */
+    public const VERIFIED = 'security.second_factor_verified';
+
     /** @param Closure(Request): Response $next */
     public function handle(Request $request, Closure $next): Response
     {
@@ -28,22 +31,48 @@ class RequirePrivilegedTwoFactor
         }
 
         if (Auth::viaRemember()) {
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-
-            return to_route('login')->withErrors(['email' => 'Privilegierte Konten müssen sich vollständig neu anmelden.']);
+            return $this->logout($request, 'Privilegierte Konten müssen sich vollständig neu anmelden.');
         }
 
         // Visitors of the public demo share these accounts and cannot share a second factor.
-        if ($user->hasRequiredSecondFactor() || $this->isSetupRoute($request) || DemoAccounts::isDemoUser($user)) {
+        if ($request->session()->get(self::VERIFIED) === true || DemoAccounts::isDemoUser($user)) {
             return $next($request);
         }
 
-        return to_route('security.setup')->with('status', FormOfAddress::choose(
-            'Für privilegierte Konten ist eine zusätzliche Anmeldemethode verpflichtend. Bitte richte jetzt TOTP oder einen Passkey ein.',
-            'Für privilegierte Konten ist eine zusätzliche Anmeldemethode verpflichtend. Bitte richten Sie jetzt TOTP oder einen Passkey ein.',
-        ));
+        if (! $user->hasRequiredSecondFactor()) {
+            return $this->isSetupRoute($request) ? $next($request) : to_route('security.setup')->with('status', FormOfAddress::choose(
+                'Für privilegierte Konten ist eine zusätzliche Anmeldemethode verpflichtend. Bitte richte jetzt TOTP oder einen Passkey ein.',
+                'Für privilegierte Konten ist eine zusätzliche Anmeldemethode verpflichtend. Bitte richten Sie jetzt TOTP oder einen Passkey ein.',
+            ));
+        }
+
+        // TOTP is already demanded by Fortify during login. Sessions without the
+        // marker started before this check existed or before the role was granted.
+        if (! $user->hasPasskeysEnabled()) {
+            return $this->logout($request, FormOfAddress::choose(
+                'Bitte melde dich erneut an und bestätige die Anmeldung mit deinem Authentifizierungscode.',
+                'Bitte melden Sie sich erneut an und bestätigen Sie die Anmeldung mit Ihrem Authentifizierungscode.',
+            ));
+        }
+
+        if ($request->routeIs('passkey.challenge', 'passkey.confirm-options', 'passkey.confirm', 'logout')) {
+            return $next($request);
+        }
+
+        if ($request->isMethod('GET') && ! $request->expectsJson()) {
+            redirect()->setIntendedUrl($request->fullUrl());
+        }
+
+        return to_route('passkey.challenge');
+    }
+
+    private function logout(Request $request, string $message): Response
+    {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return to_route('login')->withErrors(['email' => $message]);
     }
 
     private function isSetupRoute(Request $request): bool
