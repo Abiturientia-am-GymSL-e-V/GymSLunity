@@ -56,7 +56,7 @@ class DonationController extends Controller
                 ->map(fn (Donation $donation): array => $this->row($donation))
             : collect();
         $openDonations = $tab === 'open'
-            ? Donation::query()->whereDoesntHave('certificate')->latest('donated_at')->latest('id')->limit(500)->get()
+            ? Donation::query()->whereDoesntHave('certificate')->with($withCertificate)->latest('donated_at')->latest('id')->limit(500)->get()
                 ->map(fn (Donation $donation): array => $this->row($donation))
             : collect();
         $count = Donation::query()->count();
