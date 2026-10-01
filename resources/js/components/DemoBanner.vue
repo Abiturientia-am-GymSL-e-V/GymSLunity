@@ -10,6 +10,7 @@ const page = usePage();
     <div
         v-if="page.props.demo"
         role="note"
+        data-demo-hint
         class="flex w-full items-start justify-center gap-2 border-b bg-primary px-4 py-2 text-sm text-primary-foreground sm:items-center"
     >
         <FlaskConical

@@ -146,7 +146,7 @@ const footerNavItems: NavItem[] = [
     },
     {
         title: 'Dokumentation',
-        href: 'https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity',
+        href: 'https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/wiki',
         icon: BookOpen,
     },
 ];

@@ -40,7 +40,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Formulare', href: '/formulare' },
-            { title: 'SEPA-FinanceMandate' },
+            { title: 'SEPA-Mandate' },
         ],
     },
 });

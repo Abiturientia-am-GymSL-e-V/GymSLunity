@@ -81,6 +81,15 @@ Bereiche sind unter anderem `Members`, `Payments` (Mitgliedsbeiträge), `Finance
 - **Imports** stehen in dieser Reihenfolge: erst externe Pakete, dann `@/…`, jeweils alphabetisch. Der Linter meldet unbenutzte Imports in Vue-Dateien nicht zuverlässig, prüfe das selbst.
 - Für Layout, Formulare, Datumsfelder, Dropdowns und E-Mails gilt die [STYLE.md](../STYLE.md).
 
+## Anwenderhandbuch
+
+Das Handbuch für Vorstand und Mitglieder liegt in [docs/handbuch/](handbuch/) und wird nach jedem Merge auf `main` vom Workflow `handbuch-wiki.yml` ins [GitHub-Wiki](https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/wiki) übertragen. Bearbeitet wird es nur im Repository; Änderungen direkt im Wiki überschreibt der nächste Lauf.
+
+- **Seiten** sind Markdown-Dateien mit genau einer Überschrift erster Ebene. Sie wird zum Seitennamen im Wiki. Neue Seiten gehören zusätzlich in `README.md` und `_Sidebar.md`. Verlinke andere Seiten relativ (`[Beiträge](beitraege.md#sepa-export)`), das Skript `scripts/handbuch-wiki.mjs` schreibt die Links für das Wiki um.
+- **Screenshots** in `docs/handbuch/bilder/` erzeugt `scripts/handbuch-screenshots.sh`. Es startet eine Wegwerf-Instanz mit eigener SQLite-Datenbank im Demo-Modus, befüllt sie mit `demo:reset` und fotografiert sie mit Playwright. Entwicklungsdatenbank und `storage/` bleiben unberührt. Voraussetzungen sind ein aktueller `npm run build`, Playwright mit Chromium (`npm i -g playwright && npx playwright install chromium`) und für die Komprimierung Python mit Pillow. Mit `--only <teil>` werden nur Bilder neu erzeugt, deren Dateiname den Teil enthält.
+- **Neue Aufnahmen** trägst du in die Liste `shots` in `scripts/handbuch-screenshots.mjs` ein. Hinweise, die es nur in der Demo gibt, markiert das Attribut `data-demo-hint`; das Skript blendet sie aus.
+- Ändert sich eine Oberfläche sichtbar, erneuere die betroffenen Bilder und Texte im selben Pull Request.
+
 ## Zusammenarbeit
 
 - Vor jedem Push muss `composer ci:check` grün sein.
