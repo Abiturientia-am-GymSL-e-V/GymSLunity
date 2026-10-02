@@ -9,7 +9,7 @@ Welche Felder es gibt, legt die Administration unter [Konfiguration → Mitglied
 ![Mitgliederverzeichnis](bilder/mitglieder-verzeichnis.png)
 
 - **Suche:** findet Mitglieder nach Name, Mitgliedsnummer, E-Mail-Adresse oder Ort.
-- **Filter:** Unter dem Suchfeld stehen die als Filter freigegebenen Felder, zum Beispiel Mitgliedschaft, Abteilung oder Amt. Mit **Willkommensmail: Noch nicht erhalten** findest du alle, die noch keine Zugangsinfo zum Mitgliederbereich bekommen haben.
+- **Filter:** Unter dem Suchfeld stehen die als Filter freigegebenen Felder, zum Beispiel Mitgliedschaft, Geschlecht, Abteilung oder Amt. Mit **Willkommensmail: Noch nicht erhalten** findest du alle, die noch keine Zugangsinfo zum Mitgliederbereich bekommen haben.
 - **Sortieren:** Ein Klick auf eine Spaltenüberschrift mit Pfeilen sortiert die Liste.
 - **Spalten:** Über **Spalten** blendest du Felder ein und aus. Die Auswahl gilt auch für Export und Druck.
 

@@ -59,6 +59,8 @@ class MemberIndexController extends Controller
             'totalMembers' => fn () => Member::query()->count(),
             'filterOptions' => fn () => [
                 'memberships' => $this->options('membership_type'),
+                'genders' => MemberFieldDefinition::query()->where('key', 'gender')->where('is_active', true)->exists()
+                    ? $this->options('gender') : [],
             ],
             'fieldDefinitions' => fn () => MemberFields::directoryFields(),
             'configurationVersion' => fn () => $this->clubSettings->fieldsVersion(),
