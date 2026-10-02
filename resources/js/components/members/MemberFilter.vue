@@ -38,13 +38,13 @@ const emit = defineEmits<{ change: [value: string] }>();
                 <SelectItem
                     v-if="value && !options.includes(value)"
                     :value="value"
-                    >{{ value }}</SelectItem
+                    >{{ labels?.[value] || value }}</SelectItem
                 >
                 <SelectItem
                     v-for="option in options"
                     :key="option"
                     :value="option"
-                    >{{ option }}</SelectItem
+                    >{{ labels?.[option] || option }}</SelectItem
                 >
             </SelectContent>
         </Select>
