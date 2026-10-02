@@ -1023,14 +1023,22 @@ configure_nginx() {
 
 request_certificate() {
     step "Zertifikat von Let's Encrypt"
-    local domain token challenge="/var/www/$inst_name-acme/.well-known/acme-challenge" unreachable=()
+    local domain token attempt reached challenge="/var/www/$inst_name-acme/.well-known/acme-challenge" unreachable=()
     # Let's Encrypt only answers if every domain reaches this server on port 80.
     token="gymslunity-check-$(openssl rand -hex 8)"
     echo "$token" > "$challenge/$token"
     for domain in "${domains[@]}"; do
-        if [[ "$(curl -fsS --max-time 10 "http://$domain/.well-known/acme-challenge/$token" 2> /dev/null)" != "$token" ]]; then
-            unreachable+=("$domain")
-        fi
+        # "systemctl reload" returns before the new workers take over; until
+        # then the old ones answer without the new site, so retry briefly.
+        reached=0
+        for attempt in {1..10}; do
+            if [[ "$(curl -fsS --max-time 10 "http://$domain/.well-known/acme-challenge/$token" 2> /dev/null)" == "$token" ]]; then
+                reached=1
+                break
+            fi
+            sleep 1
+        done
+        ((reached)) || unreachable+=("$domain")
     done
     rm -f -- "$challenge/$token"
     if ((${#unreachable[@]})); then
