@@ -15,6 +15,7 @@ type Settings = {
     tax_privilege_notice_type?: string;
     tax_privilege_notice_date?: string;
     tax_privilege_assessment_period?: string;
+    tax_privilege_notice_location?: string;
     certificate_machine_generated_notified?: boolean;
 };
 const props = defineProps<{
@@ -42,6 +43,8 @@ const form = useForm({
     tax_privilege_notice_date: props.settings.tax_privilege_notice_date ?? '',
     tax_privilege_assessment_period:
         props.settings.tax_privilege_assessment_period ?? '',
+    tax_privilege_notice_location:
+        props.settings.tax_privilege_notice_location ?? '',
     certificate_machine_generated_notified:
         props.settings.certificate_machine_generated_notified ?? false,
 });
@@ -205,19 +208,25 @@ const identityRows = [
                         />
                     </div>
                     <div class="space-y-2">
-                        <Label>Ausstellungsort</Label>
-                        <p
-                            class="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm"
+                        <Label for="notice-location"
+                            >Ausstellungsort des Bescheids</Label
                         >
-                            {{
-                                props.club.city ||
-                                'Vereinssitz noch nicht hinterlegt'
-                            }}
+                        <Input
+                            id="notice-location"
+                            v-model="form.tax_privilege_notice_location"
+                            placeholder="z. B. Sitz des Finanzamtes"
+                            maxlength="255"
+                        />
+                        <p class="text-sm text-muted-foreground">
+                            I. d. R. der Sitz des Finanzamtes.
+                            Zuwendungsbestätigungen und Quittungen werden am
+                            Vereinssitz ({{
+                                props.club.city || 'noch nicht hinterlegt'
+                            }}) ausgestellt.
                         </p>
-                        <p class="text-xs text-muted-foreground">
-                            Der Vereinssitz wird automatisch aus den
-                            Vereinsdaten übernommen.
-                        </p>
+                        <InputError
+                            :message="form.errors.tax_privilege_notice_location"
+                        />
                     </div>
                     <div class="space-y-2">
                         <Label for="membership-fees"
