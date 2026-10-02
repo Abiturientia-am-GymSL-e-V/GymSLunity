@@ -115,7 +115,8 @@ Die steuerlichen Grundlagen für [Zuwendungsbestätigungen](spenden.md).
 ![Spendenkonfiguration](bilder/konfiguration-spenden.png)
 
 - **Übernommene Vereinsdaten:** Name, Anschrift, Register und Steuernummer kommen aus den Vereinsdaten.
-- **Steuerlicher Bescheid:** Art (Freistellungsbescheid, Anlage zum Körperschaftsteuerbescheid oder Feststellungsbescheid nach § 60a AO), Datum und letzter Veranlagungszeitraum, exakt wie im aktuellen Bescheid.
+- **Steuerlicher Bescheid:** Art (Freistellungsbescheid, Anlage zum Körperschaftsteuerbescheid oder Feststellungsbescheid nach § 60a AO), Datum, letzter Veranlagungszeitraum und Ausstellungsort, exakt wie im aktuellen Bescheid. Der Ausstellungsort des Bescheids ist frei eingebbar, in der Regel der Sitz des Finanzamtes.
+- **Ausstellungsort eigener Belege:** Zuwendungsbestätigungen und Quittungen stellt der Verein immer an seinem Sitz aus; der Ort kommt aus den Vereinsdaten.
 - **Mitgliedsbeiträge abzugsfähig:** Bei Sport, freizeitnaher Kultur, Heimatpflege und Zwecken nach § 52 Abs. 2 Satz 1 Nr. 23 AO sind Mitgliedsbeiträge regelmäßig nicht abziehbar.
 - **Verfahren für maschinell erstellte Bestätigungen wurde dem Finanzamt angezeigt:** Erst dann sind Bestätigungen ohne eigenhändige Unterschrift und ihr Versand per E-Mail möglich.
 - **Steuerbegünstigte Zwecke:** nur die im Bescheid bzw. in der Satzung bestätigten.

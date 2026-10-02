@@ -50,12 +50,13 @@ Die Werte stammen aus [Konfiguration → Vereinsdaten](konfiguration.md#vereinsd
 
 In Formulartexten, rechtlichen Seiten und E-Mail-Texten der Konfiguration stehen zusätzlich die steuerlichen Angaben aus [Konfiguration → Spenden](konfiguration.md#spenden) zur Verfügung:
 
-| Platzhalter                            | Inhalt                                                                           |
-| -------------------------------------- | -------------------------------------------------------------------------------- |
-| `{{verein.tax_privilege_notice}}`      | Art des Bescheids, etwa „Freistellungsbescheid (Veranlagungszeitraum 2023–2025)“ |
-| `{{verein.tax_privilege_notice_date}}` | Datum des Bescheids                                                              |
-| `{{verein.donation_purposes}}`         | die steuerbegünstigten Zwecke                                                    |
-| `{{verein.deductible_scope}}`          | „Spenden“ oder „Spenden und Mitgliedsbeiträge“                                   |
+| Platzhalter                                | Inhalt                                                                           |
+| ------------------------------------------ | -------------------------------------------------------------------------------- |
+| `{{verein.tax_privilege_notice}}`          | Art des Bescheids, etwa „Freistellungsbescheid (Veranlagungszeitraum 2023–2025)“ |
+| `{{verein.tax_privilege_notice_date}}`     | Datum des Bescheids                                                              |
+| `{{verein.tax_privilege_notice_location}}` | Ausstellungsort des Bescheids, i. d. R. Sitz des Finanzamtes                     |
+| `{{verein.donation_purposes}}`             | die steuerbegünstigten Zwecke                                                    |
+| `{{verein.deductible_scope}}`              | „Spenden“ oder „Spenden und Mitgliedsbeiträge“                                   |
 
 Im **SEPA-Mandatstext** stehen nur `{{verein.name}}` und `{{verein.glaeubiger_id}}` zur Verfügung.
 

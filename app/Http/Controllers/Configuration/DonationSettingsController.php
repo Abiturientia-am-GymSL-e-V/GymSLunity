@@ -22,7 +22,7 @@ class DonationSettingsController extends Controller
 {
     private const KEYS = [
         'donation_purpose_codes', 'contributions_tax_deductible', 'tax_privilege_notice_type',
-        'tax_privilege_notice_date', 'tax_privilege_assessment_period',
+        'tax_privilege_notice_date', 'tax_privilege_assessment_period', 'tax_privilege_notice_location',
         'certificate_machine_generated_notified',
     ];
 
