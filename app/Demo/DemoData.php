@@ -82,6 +82,7 @@ final class DemoData
             'tax_privilege_notice_type' => 'exemption_notice',
             'tax_privilege_notice_date' => Clock::today()->subMonths(10)->toDateString(),
             'tax_privilege_assessment_period' => (Clock::today()->year - 3).'–'.(Clock::today()->year - 1),
+            'tax_privilege_notice_location' => 'Musterstadt',
             'certificate_machine_generated_notified' => true,
             'selfservice_enabled' => true,
             'public_join_enabled' => true,

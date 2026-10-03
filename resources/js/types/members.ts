@@ -35,16 +35,18 @@ export type MemberFilters = {
     q: string;
     custom: Record<string, string>;
     membership: string;
+    gender: string;
     welcome: '' | 'received' | 'missing';
     sort: MemberSort;
     direction: 'asc' | 'desc';
     per_page: number;
 };
 
-export type MemberFilterKey = 'q' | 'membership' | 'welcome';
+export type MemberFilterKey = 'q' | 'membership' | 'gender' | 'welcome';
 
 export type MemberFilterOptions = {
     memberships: string[];
+    genders: string[];
 };
 
 export type MemberPage = {

@@ -43,6 +43,9 @@ final class MemberDirectory
         if ($filters['membership'] !== '') {
             $query->where('membership_type', $filters['membership']);
         }
+        if (($filters['gender'] ?? '') !== '') {
+            $query->where('gender', $filters['gender']);
+        }
 
         if (($filters['welcome'] ?? '') !== '') {
             WelcomeMails::whereReceived($query, $filters['welcome'] === 'received');

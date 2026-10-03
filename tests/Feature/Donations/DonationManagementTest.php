@@ -10,6 +10,7 @@ use App\Models\Donation;
 use App\Models\DonationCertificate;
 use App\Models\DonationCertificateRevocation;
 use App\Models\User;
+use App\SelfService\FormTemplates;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -68,7 +69,7 @@ class DonationManagementTest extends TestCase
             'tax_privilege_notice_type' => 'exemption_notice',
             'tax_privilege_notice_date' => '2025-05-20',
             'tax_privilege_assessment_period' => '2024',
-            'certificate_location' => 'Berlin',
+            'tax_privilege_notice_location' => 'Berlin',
             'certificate_machine_generated_notified' => true,
         ];
     }
@@ -197,7 +198,7 @@ class DonationManagementTest extends TestCase
         $club = $this->readyClubData();
         $club['city'] = 'Vereinssitz';
         $club['tax_office'] = 'Finanzamtsort';
-        $club['certificate_location'] = 'Veralteter Ausstellungsort';
+        $club['tax_privilege_notice_location'] = 'Finanzamtsort';
         $club['certificate_machine_generated_notified'] = false;
         ClubSetting::current()->update(['data' => $club]);
         $this->post(route('donations.store'), $this->donationData())->assertSessionHasNoErrors();
@@ -341,10 +342,12 @@ class DonationManagementTest extends TestCase
             'tax_privilege_notice_type' => 'section_60a_notice',
             'tax_privilege_notice_date' => '2025-05-20',
             'tax_privilege_assessment_period' => null,
-            'certificate_location' => 'Berlin',
+            'tax_privilege_notice_location' => 'Finanzamtsort',
             'certificate_machine_generated_notified' => true,
         ])->assertSessionHasNoErrors();
         $this->assertSame(['52-21', '52-4'], ClubSetting::current()->data['donation_purpose_codes']);
+        $this->assertSame('Finanzamtsort', ClubSetting::current()->data['tax_privilege_notice_location']);
+        $this->assertSame('Bescheid aus Finanzamtsort', FormTemplates::renderText('Bescheid aus {{verein.tax_privilege_notice_location}}'));
         $this->assertDatabaseHas('configuration_changes', ['subject' => 'Spenden & Zuwendungsbestätigungen']);
 
         $version = ClubSetting::current()->version;

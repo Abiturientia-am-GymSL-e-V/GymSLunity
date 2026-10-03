@@ -100,6 +100,7 @@ const selectionFilterKey = computed(() =>
     JSON.stringify([
         props.filters.q,
         props.filters.membership,
+        props.filters.gender,
         props.filters.welcome,
         props.filters.custom,
     ]),
@@ -142,6 +143,7 @@ const number = new Intl.NumberFormat('de-DE');
 const filterLabels: Record<MemberFilterKey, string> = {
     q: 'Suche',
     membership: 'Mitgliedschaft',
+    gender: 'Geschlecht',
     welcome: 'Willkommensmail',
 };
 const welcomeLabels: Record<string, string> = {
@@ -428,6 +430,15 @@ const pages = computed(() => {
                     :options="filterOptions.memberships"
                     :labels="fieldOptions('membership_type')"
                     @change="filter('membership', $event)"
+                />
+                <MemberFilter
+                    v-if="filterOptions.genders.length || draft.gender"
+                    id="filter-gender"
+                    label="Geschlecht"
+                    :value="draft.gender"
+                    :options="filterOptions.genders"
+                    :labels="fieldOptions('gender')"
+                    @change="filter('gender', $event)"
                 />
                 <div v-if="canBulkEdit" class="grid min-w-0 gap-2">
                     <Label

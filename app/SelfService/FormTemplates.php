@@ -49,6 +49,7 @@ TEXT,
             ...array_map(fn (array $field): string => ClubData::placeholder($field['key']), ClubData::fields()),
             '{{verein.tax_privilege_notice}}',
             '{{verein.tax_privilege_notice_date}}',
+            '{{verein.tax_privilege_notice_location}}',
             '{{verein.donation_purposes}}',
             '{{verein.deductible_scope}}',
             '{{verein.vorstand}}',
@@ -102,6 +103,7 @@ TEXT,
         $replacements['{{verein.tax_privilege_notice_date}}'] = ! empty($data['tax_privilege_notice_date'])
             ? CarbonImmutable::parse($data['tax_privilege_notice_date'])->format('d.m.Y')
             : '[Datum des Bescheids]';
+        $replacements['{{verein.tax_privilege_notice_location}}'] = trim((string) ($data['tax_privilege_notice_location'] ?? '')) ?: '[Ausstellungsort des Bescheids]';
         $replacements['{{verein.donation_purposes}}'] = collect(DonationPurposes::options())
             ->only($purposeCodes)->values()->implode(', ') ?: '[steuerbegünstigte Zwecke laut Bescheid]';
         $replacements['{{verein.deductible_scope}}'] = ($data['contributions_tax_deductible'] ?? false)

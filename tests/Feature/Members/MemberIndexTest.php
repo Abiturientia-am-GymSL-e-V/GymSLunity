@@ -95,6 +95,24 @@ class MemberIndexTest extends TestCase
             ->where('filterOptions.memberships', ['Ehemalige', 'Fördermitglieder']));
     }
 
+    public function test_members_can_be_filtered_by_gender(): void
+    {
+        $this->signIn();
+        Member::factory()->create(['first_name' => 'Anna', 'gender' => 'w']);
+        Member::factory()->create(['first_name' => 'Ben', 'gender' => 'm']);
+        Member::factory()->create(['first_name' => 'Chris', 'gender' => null]);
+
+        $this->get(route('members.index', ['gender' => 'w']))->assertInertia(fn (Assert $page) => $page
+            ->where('members.total', 1)
+            ->where('members.data.0.first_name', 'Anna')
+            ->where('filters.gender', 'w')
+            ->where('filterOptions.genders', ['m', 'w']));
+
+        MemberFieldDefinition::query()->where('key', 'gender')->update(['is_active' => false]);
+        $this->get(route('members.index'))->assertInertia(fn (Assert $page) => $page
+            ->where('filterOptions.genders', []));
+    }
+
     public function test_search_finds_contact_details_and_member_numbers(): void
     {
         $this->signIn();
