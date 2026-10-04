@@ -1,7 +1,7 @@
 name: Demo-Deployment
 
 # Started by tests.yml (next: current main) and release.yml (release: newest
-# release including pre-releases) with "gh workflow run", or by hand. Only
+# stable release) with "gh workflow run", or by hand. Only
 # when the repository variable DEMO_DEPLOY is "true"; setup in docs/demo.md.
 # The SSH secrets belong to the "demo" environment. A dispatched run gets
 # them; as a called workflow (workflow_call) they arrived empty.
@@ -66,8 +66,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # gh release list also contains pre-releases, unlike /releases/latest.
-          tag="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName')"
+          tag="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases --limit 1 --json tagName --jq '.[0].tagName')"
           gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "gymslunity-$tag.tar.gz*"
           sha256sum -c "gymslunity-$tag.tar.gz.sha256"
           echo "ARCHIVE=gymslunity-$tag.tar.gz" >> "$GITHUB_ENV"

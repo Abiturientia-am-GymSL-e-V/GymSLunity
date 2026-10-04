@@ -117,10 +117,11 @@ jobs:
             --title "GymSLunity ${GITHUB_REF_NAME}" \
             --notes-file "docs/releases/${GITHUB_REF_NAME}.md"
 
-  # Public demo of the newest release, including pre-releases.
+  # Public demo of the newest stable release; pre-releases (tags with a
+  # suffix such as -beta.1) can be seen on "next" anyway.
   demo:
     needs: release
-    if: vars.DEMO_DEPLOY == 'true'
+    if: vars.DEMO_DEPLOY == 'true' && !contains(github.ref_name, '-')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
