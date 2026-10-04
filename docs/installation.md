@@ -16,12 +16,15 @@ Alle Einstellungen in der `.env` sind in [konfiguration.md](konfiguration.md) be
 
 ## Automatische Installation
 
-Das Skript [`scripts/install-server.sh`](../scripts/install-server.sh) erledigt die Schritte 1 bis 11 auf einem Server mit **Debian 12/13 oder Ubuntu 22.04/24.04** und installiert das neueste Release:
+Das Skript [`scripts/install-server.sh`](../scripts/install-server.sh) erledigt die Schritte 1 bis 11 auf einem Server mit **Debian 12/13 oder Ubuntu 22.04/24.04** und installiert das neueste stabile Release (keine Vorabversionen):
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/Abiturientia-am-GymSL-e-V/GymSLunity/main/scripts/install-server.sh
-sudo bash install-server.sh
+cd "$(mktemp -d)"
+curl -fsSLO https://raw.githubusercontent.com/Abiturientia-am-GymSL-e-V/GymSLunity/main/scripts/install-server.sh &&
+    sudo bash install-server.sh
 ```
+
+Das leere Verzeichnis ist wichtig, weil das Skript eine `install-common.sh` neben sich bevorzugt; eine alte Kopie von früher würde sonst mitbenutzt.
 
 Es fragt nach Domain, Installationsverzeichnis, HTTPS-Variante (Let's Encrypt, vorhandenes Zertifikat oder vorgeschalteter Reverse Proxy), Datenbank, Vereinsname und Absenderadresse, Backup-Verzeichnis und dem ersten Administratorkonto. Für die Datenbank gibt es drei Varianten:
 
@@ -43,7 +46,9 @@ Danach:
 
 Nach dem Skript fehlt nur noch der E-Mail-Versand (Schritt 10). Sichere außerdem die `.env` an einem zweiten Ort und kopiere die Backups regelmäßig auf ein anderes System (Schritt 12).
 
-Schlägt ein Schritt fehl oder wird das Skript mit Strg+C abgebrochen, macht es alle bisherigen Änderungen rückgängig, einschließlich der dabei installierten Pakete. `sudo bash install-server.sh --uninstall` entfernt die Instanz später wieder. Datenbank, Dateien, `.env` und Backups bleiben dabei erhalten, außer ihre Löschung wird ausdrücklich bestätigt; dann legt das Skript vorher ein letztes Backup unter `/root/` ab. `--help` listet die Umgebungsvariablen für unbeaufsichtigte Installationen (`--yes`).
+Bei der Variante `proxy` nimmt Nginx auf Port 80 nur Verbindungen vom Reverse Proxy (und vom Server selbst) an und antwortet allen anderen mit 403, damit niemand den Proxy und damit HTTPS umgehen kann. Ist ufw aktiv, gibt das Skript Port 80 auch dort nur für die Proxy-Adressen frei. Eine andere Firewall muss entsprechend eingestellt werden.
+
+Schlägt ein Schritt fehl oder wird das Skript mit Strg+C abgebrochen, macht es alle bisherigen Änderungen dieses Laufs rückgängig, einschließlich der dabei installierten Pakete. Bestehen bleiben aktualisierte Paketlisten und vorhandene Pakete, die als Abhängigkeit auf eine neuere Version gehoben wurden. Scheitert ein einzelner Rückgängig-Schritt, nennt das Skript ihn und meldet den Rollback als unvollständig. `sudo bash install-server.sh --uninstall` entfernt die Instanz später wieder. Datenbank, Dateien, `.env` und Backups bleiben dabei erhalten, außer ihre Löschung wird ausdrücklich bestätigt; dann legt das Skript vorher ein letztes Backup unter `/root/` ab. `--help` listet die Umgebungsvariablen für unbeaufsichtigte Installationen (`--yes`).
 
 Updates bleiben Handarbeit, siehe [Abschnitt 13](#13-updates). Die übrigen Abschnitte beschreiben die Installation von Hand.
 
