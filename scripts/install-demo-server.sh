@@ -220,6 +220,7 @@ summary() {
 # --- Installation steps ------------------------------------------------------
 
 fetch_demo_release() {
+    include_prereleases=true
     download_release "${DEMO_RELEASE_TAG:-}"
     grep -q '/app/Console/Commands/ResetDemo.php$' <<< "$release_listing" ||
         die "$release_tag enthält den Demo-Modus noch nicht (ab v1.0.0-beta.4). Mit DEMO_RELEASE_TAG ein neueres Release wählen."
@@ -554,7 +555,12 @@ uninstall_demo() {
         kinds+=" pkg repo"
     fi
     undo_journal "$kinds"
-    printf '\n%sDemo %s entfernt.%s\n' "$c_green" "$inst_name" "$c_off"
+    if ((undo_failures == 0)); then
+        printf '\n%sDemo %s entfernt.%s\n' "$c_green" "$inst_name" "$c_off"
+    else
+        printf '\n%sDemo %s nur teilweise entfernt: %s Schritte sind fehlgeschlagen (siehe oben).%s\n' \
+            "$c_red" "$inst_name" "$undo_failures" "$c_off"
+    fi
     info "GitHub: Variable DEMO_DEPLOY löschen oder auf false setzen, sonst schlagen die Deployments fehl."
 }
 
