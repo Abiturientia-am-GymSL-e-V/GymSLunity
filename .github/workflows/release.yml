@@ -73,6 +73,11 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
+      # Signed build provenance (Sigstore) for the release files.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -99,6 +104,24 @@ jobs:
             scripts/install-server.sh > dist/install-server.sh
           grep -qx "readonly installer_ref=$GITHUB_REF_NAME" dist/install-server.sh
 
+      # Proves that the files were built by this workflow from this tag, see
+      # "Herkunft prüfen" in docs/installation.md.
+      - name: Attest build provenance
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/gymslunity-${{ github.ref_name }}.tar.gz
+            dist/gymslunity-${{ github.ref_name }}.zip
+            dist/install-server.sh
+
+      # The same attestation as a file, so it can be checked without a
+      # GitHub login (gh attestation verify --bundle).
+      - name: Attach the attestation bundle
+        env:
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: cp "$BUNDLE" "dist/gymslunity-${GITHUB_REF_NAME}.sigstore.json"
+
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -112,10 +135,32 @@ jobs:
             "dist/gymslunity-${GITHUB_REF_NAME}.zip" \
             "dist/gymslunity-${GITHUB_REF_NAME}.zip.sha256" \
             dist/install-server.sh \
+            "dist/gymslunity-${GITHUB_REF_NAME}.sigstore.json" \
             --verify-tag \
             "${prerelease[@]}" \
             --title "GymSLunity ${GITHUB_REF_NAME}" \
             --notes-file "docs/releases/${GITHUB_REF_NAME}.md"
+
+      - name: Verify the published files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # As documented: download from the release and check the provenance,
+          # online and with the attached bundle without a login.
+          dir="$(mktemp -d)"
+          bundle="gymslunity-${GITHUB_REF_NAME}.sigstore.json"
+          gh release download "$GITHUB_REF_NAME" --dir "$dir" \
+            --pattern "gymslunity-${GITHUB_REF_NAME}.tar.gz" \
+            --pattern "gymslunity-${GITHUB_REF_NAME}.zip" \
+            --pattern install-server.sh \
+            --pattern "$bundle"
+          for file in "gymslunity-${GITHUB_REF_NAME}.tar.gz" "gymslunity-${GITHUB_REF_NAME}.zip" install-server.sh; do
+            verify=(gh attestation verify "$dir/$file" --repo "$GITHUB_REPOSITORY"
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"
+              --source-ref "refs/tags/$GITHUB_REF_NAME")
+            "${verify[@]}"
+            GH_TOKEN="" GH_CONFIG_DIR="$(mktemp -d)" "${verify[@]}" --bundle "$dir/$bundle"
+          done
 
   # Public demo of the newest stable release; pre-releases (tags with a
   # suffix such as -beta.1) can be seen on "next" anyway.
