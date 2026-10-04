@@ -307,6 +307,13 @@ jobs:
             code="$(curl -s "${site[@]}" -o /dev/null -w '%{http_code}' "http://verein.example.test/$path")"
             [ "$code" = 403 ] || [ "$code" = 404 ]
           done
+          # Only the proxy (127.0.0.1) may connect, a forged header does not help.
+          ip="$(hostname -I | awk '{print $1}')"
+          test "$(curl -s --resolve "verein.example.test:80:$ip" -o /dev/null -w '%{http_code}' http://verein.example.test/up)" = 403
+          test "$(curl -s --resolve "verein.example.test:80:$ip" -H 'X-Forwarded-For: 127.0.0.1' -o /dev/null -w '%{http_code}' http://verein.example.test/up)" = 403
+          # No file is writable for others, no copy of the .env is left.
+          test -z "$(sudo find $dir -path $dir/storage -prune -o -perm -o+w ! -type l -print)"
+          test ! -e $dir/.env.new
 
           # The administrator can log in. The cookies are marked Secure (HTTPS at
           # the proxy), so they are passed on by hand over plain HTTP.

@@ -405,6 +405,9 @@ create_user_and_directories() {
     record data undo_remove_tree "$app_dir"
     install -d -o root -g root -m 0755 "$app_dir"
     tar -xzf "$archive" -C "$app_dir" --strip-components=1 --no-same-owner
+    # As root, tar keeps the modes from the archive: nothing may be writable
+    # for others.
+    chmod -R u=rwX,go=rX "$app_dir"
     local dir
     for dir in app/private app/public framework/cache/data framework/sessions framework/views logs; do
         install -d "$app_dir/storage/$dir"
@@ -457,11 +460,15 @@ EOF
 env_set() {
     local file=$1 key=$2 value=$3
     # ENVIRON instead of -v, which would interpret backslashes in the value.
-    KEY=$key VALUE=$value awk '
-        !done && ($0 ~ "^" ENVIRON["KEY"] "=" || $0 ~ "^# *" ENVIRON["KEY"] "=") { print ENVIRON["KEY"] "=" ENVIRON["VALUE"]; done = 1; next }
-        { print }
-        END { if (!done) print ENVIRON["KEY"] "=" ENVIRON["VALUE"] }
-    ' "$file" > "$file.new"
+    # The copy holds secrets as well: only root may read it (umask 077).
+    (
+        umask 077
+        KEY=$key VALUE=$value awk '
+            !done && ($0 ~ "^" ENVIRON["KEY"] "=" || $0 ~ "^# *" ENVIRON["KEY"] "=") { print ENVIRON["KEY"] "=" ENVIRON["VALUE"]; done = 1; next }
+            { print }
+            END { if (!done) print ENVIRON["KEY"] "=" ENVIRON["VALUE"] }
+        ' "$file" > "$file.new"
+    )
     cat "$file.new" > "$file"
     rm -f -- "$file.new"
 }
@@ -693,7 +700,12 @@ uninstall_server() {
 
     step "Entfernen"
     undo_journal "$kinds"
-    printf '\n%sGymSLunity %s entfernt.%s\n' "$c_green" "$inst_name" "$c_off"
+    if ((undo_failures == 0)); then
+        printf '\n%sGymSLunity %s entfernt.%s\n' "$c_green" "$inst_name" "$c_off"
+    else
+        printf '\n%sGymSLunity %s nur teilweise entfernt: %s Schritte sind fehlgeschlagen (siehe oben).%s\n' \
+            "$c_red" "$inst_name" "$undo_failures" "$c_off"
+    fi
     if ! $delete_data; then
         info "Erhalten geblieben sind:"
         info "  ${GYMSLUNITY_DIR:-Installationsverzeichnis} (Code, .env, storage/)"

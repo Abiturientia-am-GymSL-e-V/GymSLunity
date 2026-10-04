@@ -44,6 +44,8 @@ fail_after_variable=INSTALLER_TEST_FAIL_AFTER
 assume_yes=false
 journal=()
 journal_file=""
+undo_failures=0
+include_prereleases=false # the demo shows pre-releases, production does not
 state_dir=""
 installing=false
 completed=false
@@ -206,8 +208,8 @@ valid_root() {
     valid_new_dir "$@"
 }
 valid_env_text() {
-    [[ -n $1 && $1 != *[\"\\\$\`]* ]] || {
-        warn "Bitte ohne Anführungszeichen, Backslash, \$ und Backtick."
+    [[ -n $1 && $1 != *[\"\\\$\`$'\n'$'\r']* ]] || {
+        warn "Bitte einzeilig und ohne Anführungszeichen, Backslash, \$ und Backtick."
         return 1
     }
 }
@@ -268,10 +270,12 @@ record() {
     fi
 }
 
-# undo_journal "KIND …" — undoes the entries of these kinds in reverse order.
+# undo_journal "KIND …" — undoes the entries of these kinds in reverse order
+# and counts the failed ones in undo_failures.
 # (Older demo installs called it with true/false for "with packages".)
 undo_journal() {
     local kinds=$1 i entry kind cmd
+    undo_failures=0
     case "$kinds" in
         true) kinds="core pkg repo" ;;
         false) kinds="core" ;;
@@ -286,7 +290,10 @@ undo_journal() {
             continue
         fi
         info "$cmd"
-        eval "$cmd" > /dev/null 2>&1 || warn "Rückgängigmachen fehlgeschlagen: $cmd"
+        if ! eval "$cmd" > /dev/null 2>&1; then
+            warn "Rückgängigmachen fehlgeschlagen: $cmd"
+            undo_failures=$((undo_failures + 1))
+        fi
     done
     set -e
 }
@@ -394,7 +401,12 @@ on_exit() {
         printf '\n%sDie Installation ist fehlgeschlagen (Status %s). Änderungen werden rückgängig gemacht:%s\n' \
             "$c_red" "$status" "$c_off"
         undo_journal "core data pkg repo"
-        printf '%sRollback abgeschlossen. Das System ist im Zustand vor der Installation.%s\n' "$c_yellow" "$c_off"
+        if ((undo_failures == 0)); then
+            printf '%sRollback abgeschlossen. Alle Änderungen dieses Laufs wurden rückgängig gemacht.%s\n' "$c_yellow" "$c_off"
+        else
+            printf '%sRollback unvollständig: %s Schritte sind fehlgeschlagen (siehe oben) und müssen von Hand rückgängig gemacht werden.%s\n' \
+                "$c_red" "$undo_failures" "$c_off"
+        fi
         warn "Aktualisiert bleiben die Paketlisten und bereits vorhandene Pakete, die eine Abhängigkeit auf eine neuere Version gehoben hat (z. B. php-common)."
     fi
     exit "$status"
@@ -595,11 +607,14 @@ ask_tls() {
     esac
 }
 
-# ask_firewall PREFIX — offers to open the web ports when ufw is active.
+# ask_firewall PREFIX — offers to open the web ports when ufw is active (call
+# after ask_tls).
 ask_firewall() {
+    local question="Ports 80 und 443 freigeben?"
+    [[ $tls_mode == proxy ]] && question="Port 80 nur für den Reverse Proxy freigeben?"
     open_firewall=false
     if command -v ufw > /dev/null && ufw status 2> /dev/null | grep -q '^Status: active'; then
-        if confirm "Die Firewall ufw ist aktiv. Ports 80 und 443 freigeben?" "$(flag_default "${1}_OPEN_FIREWALL")"; then
+        if confirm "Die Firewall ufw ist aktiv. $question" "$(flag_default "${1}_OPEN_FIREWALL")"; then
             open_firewall=true
         fi
     fi
@@ -767,23 +782,36 @@ install_packages() {
 open_firewall_ports() {
     $open_firewall || return 0
     step "Firewall"
-    local port output ports=(80/tcp)
-    [[ $tls_mode != proxy ]] && ports+=(443/tcp)
-    for port in "${ports[@]}"; do
-        output="$(ufw allow "$port" 2>&1)"
+    local rule output rules=() proxy proxy_list
+    if [[ $tls_mode == proxy ]]; then
+        # Only the reverse proxy may reach Nginx, nobody may bypass it.
+        IFS=, read -ra proxy_list <<< "$proxies"
+        for proxy in "${proxy_list[@]}"; do
+            rules+=("from $proxy to any port 80 proto tcp")
+        done
+    else
+        rules=("80/tcp" "443/tcp")
+    fi
+    for rule in "${rules[@]}"; do
+        # shellcheck disable=SC2086 # the rule consists of several words
+        output="$(ufw allow $rule 2>&1)"
         if [[ $output == *Skipping* ]]; then
-            info "$port war bereits freigegeben."
+            info "$rule war bereits freigegeben."
         else
-            record core ufw delete allow "$port"
-            info "$port freigegeben."
+            # shellcheck disable=SC2086
+            record core ufw delete allow $rule
+            info "$rule freigegeben."
         fi
     done
+    if [[ $tls_mode == proxy ]] && ufw status 2> /dev/null | grep -Eq '^80(/tcp)?( \(v6\))? +ALLOW( IN)? +Anywhere'; then
+        warn "Port 80 ist in ufw bereits für alle freigegeben. Diese Regel umgeht den Reverse Proxy und sollte entfernt werden."
+    fi
 }
 
 # --- Release ------------------------------------------------------------------
 
 # download_release [TAG] [LOCAL_ARCHIVE] — downloads and verifies the given or
-# newest release (including pre-releases), or takes a local archive built with
+# newest release (pre-releases only with include_prereleases=true), or takes a local archive built with
 # scripts/build-release.sh; sets archive, release_tag and release_listing.
 download_release() {
     local tag=${1-} local_archive=${2-} api
@@ -807,9 +835,10 @@ download_release() {
         api="$(curl -fsSL -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$repo/releases?per_page=10")" ||
             die "Die Releases von $repo konnten nicht abgerufen werden."
         # shellcheck disable=SC2016 # PHP code, not shell
-        tag="$("$php_bin" -r '
+        tag="$(PRERELEASES=$include_prereleases "$php_bin" -r '
+            $prereleases = getenv("PRERELEASES") === "true";
             foreach (json_decode(stream_get_contents(STDIN), true) ?: [] as $release) {
-                if (! $release["draft"]) { echo $release["tag_name"]; break; }
+                if (! $release["draft"] && ($prereleases || ! $release["prerelease"])) { echo $release["tag_name"]; break; }
             }' <<< "$api")"
         [[ -n $tag ]] || die "In $repo wurde kein Release gefunden."
     fi
@@ -915,6 +944,11 @@ EOF
                 done
                 echo "    real_ip_header X-Forwarded-For;"
                 echo "    real_ip_recursive on;"
+                echo
+                echo "    # Direkte Zugriffe umgehen den Proxy und damit HTTPS."
+                echo "    if (\$${inst_name//-/_}_via_proxy = 0) {"
+                echo "        return 403;"
+                echo "    }"
                 ;;
         esac
         cat << EOF
@@ -973,6 +1007,21 @@ EOF
     {
         echo "# Erzeugt von $installer_label für '$inst_name'."
         echo "limit_req_zone \$binary_remote_addr zone=$inst_name:10m rate=10r/s;"
+        if [[ $tls_mode == proxy ]]; then
+            # The connecting address before realip replaced it with the
+            # client's: only the proxies and this server itself (checks).
+            local proxy proxy_list
+            IFS=, read -ra proxy_list <<< "$proxies"
+            echo
+            echo "geo \$realip_remote_addr \$${inst_name//-/_}_via_proxy {"
+            echo "    default 0;"
+            echo "    127.0.0.1 1;"
+            echo "    ::1 1;"
+            for proxy in "${proxy_list[@]}"; do
+                echo "    $proxy 1;"
+            done
+            echo "}"
+        fi
         if [[ $tls_mode != proxy ]]; then
             cat << EOF
 
