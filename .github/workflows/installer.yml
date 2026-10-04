@@ -111,7 +111,7 @@ jobs:
           set -x
           # sudo puts the private key into the home of the calling user.
           key="$HOME/gymslunity-demo-deploy-key"
-          tag="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName')"
+          tag="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases --limit 1 --json tagName --jq '.[0].tagName')"
           gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "gymslunity-$tag.tar.gz" --dir "$RUNNER_TEMP"
           ssh_opts=(-i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null)
           before="$(sudo ls /srv/gymslunity-demo/next/releases | wc -l)"

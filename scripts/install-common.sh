@@ -45,7 +45,6 @@ assume_yes=false
 journal=()
 journal_file=""
 undo_failures=0
-include_prereleases=false # the demo shows pre-releases, production does not
 state_dir=""
 installing=false
 completed=false
@@ -811,8 +810,8 @@ open_firewall_ports() {
 # --- Release ------------------------------------------------------------------
 
 # download_release [TAG] [LOCAL_ARCHIVE] — downloads and verifies the given or
-# newest release (pre-releases only with include_prereleases=true), or takes a local archive built with
-# scripts/build-release.sh; sets archive, release_tag and release_listing.
+# newest stable release (no drafts, no pre-releases), or takes a local archive
+# built with scripts/build-release.sh; sets archive, release_tag and release_listing.
 download_release() {
     local tag=${1-} local_archive=${2-} api
     if [[ -n $local_archive ]]; then
@@ -835,10 +834,9 @@ download_release() {
         api="$(curl -fsSL -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$repo/releases?per_page=10")" ||
             die "Die Releases von $repo konnten nicht abgerufen werden."
         # shellcheck disable=SC2016 # PHP code, not shell
-        tag="$(PRERELEASES=$include_prereleases "$php_bin" -r '
-            $prereleases = getenv("PRERELEASES") === "true";
+        tag="$("$php_bin" -r '
             foreach (json_decode(stream_get_contents(STDIN), true) ?: [] as $release) {
-                if (! $release["draft"] && ($prereleases || ! $release["prerelease"])) { echo $release["tag_name"]; break; }
+                if (! $release["draft"] && ! $release["prerelease"]) { echo $release["tag_name"]; break; }
             }' <<< "$api")"
         [[ -n $tag ]] || die "In $repo wurde kein Release gefunden."
     fi

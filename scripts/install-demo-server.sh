@@ -220,7 +220,6 @@ summary() {
 # --- Installation steps ------------------------------------------------------
 
 fetch_demo_release() {
-    include_prereleases=true
     download_release "${DEMO_RELEASE_TAG:-}"
     grep -q '/app/Console/Commands/ResetDemo.php$' <<< "$release_listing" ||
         die "$release_tag enthält den Demo-Modus noch nicht (ab v1.0.0-beta.4). Mit DEMO_RELEASE_TAG ein neueres Release wählen."

@@ -2,10 +2,10 @@
 
 Diese Anleitung richtet eine öffentliche Live-Demo mit zwei Instanzen ein:
 
-| Instanz   | Beispiel-Domain                | Inhalt                              | Aktualisierung                                                         |
-| --------- | ------------------------------ | ----------------------------------- | ---------------------------------------------------------------------- |
-| `release` | `demo.gymslunity.example`      | neuestes Release, auch Pre-Releases | automatisch nach jedem Release (`release.yml`)                         |
-| `next`    | `next.demo.gymslunity.example` | aktueller Stand von `main`          | automatisch nach jedem erfolgreichen Testlauf auf `main` (`tests.yml`) |
+| Instanz   | Beispiel-Domain                | Inhalt                                        | Aktualisierung                                                         |
+| --------- | ------------------------------ | --------------------------------------------- | ---------------------------------------------------------------------- |
+| `release` | `demo.gymslunity.example`      | neuestes stabiles Release (ohne Pre-Releases) | automatisch nach jedem stabilen Release (`release.yml`)                |
+| `next`    | `next.demo.gymslunity.example` | aktueller Stand von `main`                    | automatisch nach jedem erfolgreichen Testlauf auf `main` (`tests.yml`) |
 
 Beide Instanzen laufen mit `DEMO_MODE=true`. Was das bewirkt (Zugangsdaten auf der Anmeldeseite, Demo-Postfach statt E-Mail-Versand, nächtliche Zurücksetzung, gesperrte Funktionen), steht in [konfiguration.md](konfiguration.md#öffentliche-demo).
 
