@@ -27,6 +27,9 @@ set -Eeuo pipefail
 umask 022
 
 readonly repo="${GYMSLUNITY_REPO:-Abiturientia-am-GymSL-e-V/GymSLunity}"
+# The copy attached to a release names its tag here (release.yml): it loads
+# install-common.sh of exactly that version and installs that release.
+readonly installer_ref=main
 readonly state_base=/var/lib/gymslunity-installer
 readonly installer_label=install-server.sh
 
@@ -35,14 +38,16 @@ if [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; then
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fi
 
-# The shared functions come from next to this script or, when it was
-# downloaded alone, from the same branch on GitHub.
-if [[ -n $script_dir && -f $script_dir/install-common.sh ]]; then
+# The shared functions come from the checkout next to this script or, for a
+# script downloaded alone or attached to a release, from the same ref on
+# GitHub. A release copy never takes a file from its directory, which might be
+# left over from another version.
+if [[ $installer_ref == main && -n $script_dir && -f $script_dir/install-common.sh ]]; then
     # shellcheck source=install-common.sh
     source "$script_dir/install-common.sh"
 else
     common_file="$(mktemp)"
-    common_url="https://raw.githubusercontent.com/$repo/${GYMSLUNITY_REF:-main}/scripts/install-common.sh"
+    common_url="https://raw.githubusercontent.com/$repo/${GYMSLUNITY_REF:-$installer_ref}/scripts/install-common.sh"
     if ! { curl -fsSL "$common_url" -o "$common_file" 2> /dev/null || wget -qO "$common_file" "$common_url"; }; then
         echo "Fehler: $common_url konnte nicht geladen werden." >&2
         exit 1
@@ -69,8 +74,13 @@ mariadb_present=false
 # --- Usage -------------------------------------------------------------------
 
 usage() {
+    local release="das neueste stabile GymSLunity-Release" release_default="neuestes stabiles"
+    if [[ $installer_ref != main ]]; then
+        release="GymSLunity $installer_ref"
+        release_default=$installer_ref
+    fi
     cat << EOF
-Installiert das neueste GymSLunity-Release als Produktivinstanz auf einem
+Installiert $release als Produktivinstanz auf einem
 Debian- oder Ubuntu-Server (siehe docs/installation.md).
 
 Aufruf:
@@ -103,7 +113,7 @@ Umgebungsvariablen (Antworten auf die Rückfragen):
   GYMSLUNITY_ADMIN_NAME, GYMSLUNITY_ADMIN_EMAIL, GYMSLUNITY_ADMIN_PASSWORD
                              Erstes Administratorkonto (Pflicht bei --yes)
   GYMSLUNITY_OPEN_FIREWALL   1/0: Ports 80/443 in ufw freigeben, falls aktiv (1)
-  GYMSLUNITY_RELEASE_TAG     Zu installierendes Release (neuestes)
+  GYMSLUNITY_RELEASE_TAG     Zu installierendes Release ($release_default)
   GYMSLUNITY_ARCHIVE         Lokales Release-Archiv statt Download
   GYMSLUNITY_UNINSTALL_DATA  1 = bei --uninstall --yes auch Datenbank, Dateien und Backups löschen
   GYMSLUNITY_UNINSTALL_PACKAGES   1 = bei --uninstall --yes auch Pakete entfernen
@@ -375,7 +385,9 @@ summary() {
 # --- Installation steps ------------------------------------------------------
 
 fetch_release() {
-    download_release "${GYMSLUNITY_RELEASE_TAG:-}" "${GYMSLUNITY_ARCHIVE:-}"
+    local tag=${GYMSLUNITY_RELEASE_TAG:-}
+    [[ -n $tag || $installer_ref == main ]] || tag=$installer_ref
+    download_release "$tag" "${GYMSLUNITY_ARCHIVE:-}"
     tar -xzOf "$archive" "$(head -n1 <<< "$release_listing" | cut -d/ -f1)/app/Console/Commands/InstallApplication.php" |
         grep -q 'admin-password-file' ||
         die "$release_tag unterstützt die unbeaufsichtigte Einrichtung noch nicht. Mit GYMSLUNITY_RELEASE_TAG ein neueres Release wählen."
