@@ -23,7 +23,7 @@ curl -fsSLO https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases/lat
     sudo bash install-server.sh
 ```
 
-Das Skript hängt an jedem Release und ist an dieses gebunden: Es lädt seine gemeinsamen Funktionen (`install-common.sh`) aus genau dieser Version und installiert genau dieses Release. Ein bestimmtes Release installiert man mit `…/releases/download/v<Version>/install-server.sh` statt `latest`.
+Das Skript hängt an jedem Release und ist an dieses gebunden: Es lädt seine gemeinsamen Funktionen (`install-common.sh`) aus genau dieser Version und installiert genau dieses Release. Ein bestimmtes Release installiert man mit `…/releases/download/v<Version>/install-server.sh` statt `latest`. Wer vor dem Ausführen prüfen will, woher das Skript stammt, liest [Herkunft prüfen](#herkunft-prüfen).
 
 Es fragt nach Domain, Installationsverzeichnis, HTTPS-Variante (Let's Encrypt, vorhandenes Zertifikat oder vorgeschalteter Reverse Proxy), Datenbank, Vereinsname und Absenderadresse, Backup-Verzeichnis und dem ersten Administratorkonto. Für die Datenbank gibt es drei Varianten:
 
@@ -116,7 +116,29 @@ sudo mv /var/www/gymslunity-v$VERSION /var/www/gymslunity
 sudo chown -R deploy:www-data /var/www/gymslunity
 ```
 
-`sha256sum -c` muss `OK` melden. Andernfalls das Archiv nicht verwenden.
+`sha256sum -c` muss `OK` melden. Andernfalls das Archiv nicht verwenden. Die Prüfsumme erkennt nur beschädigte Downloads; ob das Archiv wirklich aus diesem Repository stammt, zeigt [Herkunft prüfen](#herkunft-prüfen).
+
+### Herkunft prüfen
+
+Releases nach v1.1.0 tragen eine signierte Herkunftsbescheinigung ([GitHub Artifact Attestation](https://docs.github.com/de/actions/security-for-github-actions/using-artifact-attestations), Sigstore) für das Archiv (`.tar.gz` und `.zip`) und `install-server.sh`. Sie belegt, dass die Datei vom Workflow `release.yml` dieses Repositorys aus dem Tag des Releases gebaut und danach nicht verändert wurde. Geprüft wird mit der [GitHub CLI](https://cli.github.com/) (`gh`), hier am Beispiel des Installers:
+
+```bash
+REPO=Abiturientia-am-GymSL-e-V/GymSLunity
+gh attestation verify install-server.sh --repo $REPO \
+    --signer-workflow $REPO/.github/workflows/release.yml
+```
+
+Ohne GitHub-Anmeldung funktioniert das mit der Bescheinigung, die jedem Release als Datei beiliegt:
+
+```bash
+VERSION=1.1.1
+curl -fLO https://github.com/$REPO/releases/download/v$VERSION/gymslunity-v$VERSION.sigstore.json
+gh attestation verify install-server.sh --repo $REPO \
+    --signer-workflow $REPO/.github/workflows/release.yml \
+    --bundle gymslunity-v$VERSION.sigstore.json
+```
+
+Für das Archiv statt `install-server.sh` den Dateinamen des Archivs angeben. Schlägt die Prüfung fehl, bricht der Befehl mit einer Fehlermeldung ab; dann die Datei nicht verwenden. Die Bescheinigung schützt vor nachträglich ausgetauschten oder fremd hochgeladenen Dateien, nicht aber vor einem Release, das jemand mit Schreibrechten am Repository absichtlich veröffentlicht.
 
 Jedes Release enthält denselben Inhalt zusätzlich als `gymslunity-v$VERSION.zip` (mit `.zip.sha256`), etwa für Webhosting, dessen Dateimanager nur ZIP-Dateien entpacken kann.
 

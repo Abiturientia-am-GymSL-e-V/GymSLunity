@@ -13,6 +13,13 @@ Sicherheitsupdates; bitte stattdessen auf die neueste Version aktualisieren.
 | ältere 1.x           | nein        |
 | 1.0.0-beta.x, Alphas | nein        |
 
+## Echtheit von Releases
+
+Release-Archive und `install-server.sh` tragen ab dem ersten Release nach
+v1.1.0 eine signierte Herkunftsbescheinigung (GitHub Artifact Attestation).
+Wie sie geprüft wird, steht in
+[docs/installation.md](docs/installation.md#herkunft-prüfen).
+
 ## Sicherheitslücken melden
 
 Bitte melde vermutete Sicherheitslücken nicht in einem öffentlichen Issue und
