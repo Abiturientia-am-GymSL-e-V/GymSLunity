@@ -171,6 +171,17 @@ jobs:
           # The checksum file names the original archive.
           sed -i 's/gymslunity-v[^ ]*\.tar\.gz$/gymslunity.tar.gz/' dist/gymslunity.tar.gz.sha256
 
+      - name: Release copy of the installer
+        env:
+          REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          # As in release.yml, but pinned to this commit instead of a tag. In
+          # an empty directory it loads install-common.sh of exactly that ref.
+          dir="$(mktemp -d)"
+          sed "s/^readonly installer_ref=main\$/readonly installer_ref=$REF/" scripts/install-server.sh > "$dir/install-server.sh"
+          grep -qx "readonly installer_ref=$REF" "$dir/install-server.sh"
+          (cd "$dir" && bash install-server.sh --help) | grep -q "GymSLunity $REF"
+
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-archive
