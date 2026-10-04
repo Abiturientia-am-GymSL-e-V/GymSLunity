@@ -16,15 +16,14 @@ Alle Einstellungen in der `.env` sind in [konfiguration.md](konfiguration.md) be
 
 ## Automatische Installation
 
-Das Skript [`scripts/install-server.sh`](../scripts/install-server.sh) erledigt die Schritte 1 bis 11 auf einem Server mit **Debian 12/13 oder Ubuntu 22.04/24.04** und installiert das neueste stabile Release (keine Vorabversionen):
+Das Skript [`scripts/install-server.sh`](../scripts/install-server.sh) erledigt die Schritte 1 bis 11 auf einem Server mit **Debian 12/13 oder Ubuntu 22.04/24.04** und installiert das neueste stabile Release:
 
 ```bash
-cd "$(mktemp -d)"
-curl -fsSLO https://raw.githubusercontent.com/Abiturientia-am-GymSL-e-V/GymSLunity/main/scripts/install-server.sh &&
+curl -fsSLO https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases/latest/download/install-server.sh &&
     sudo bash install-server.sh
 ```
 
-Das leere Verzeichnis ist wichtig, weil das Skript eine `install-common.sh` neben sich bevorzugt; eine alte Kopie von früher würde sonst mitbenutzt.
+Das Skript hängt an jedem Release und ist an dieses gebunden: Es lädt seine gemeinsamen Funktionen (`install-common.sh`) aus genau dieser Version und installiert genau dieses Release. Ein bestimmtes Release installiert man mit `…/releases/download/v<Version>/install-server.sh` statt `latest`.
 
 Es fragt nach Domain, Installationsverzeichnis, HTTPS-Variante (Let's Encrypt, vorhandenes Zertifikat oder vorgeschalteter Reverse Proxy), Datenbank, Vereinsname und Absenderadresse, Backup-Verzeichnis und dem ersten Administratorkonto. Für die Datenbank gibt es drei Varianten:
 

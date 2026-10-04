@@ -3,8 +3,8 @@
 # Installs the newest GymSLunity release as a production instance on a Debian
 # or Ubuntu server, see docs/installation.md:
 #
-#   curl -fsSLO https://raw.githubusercontent.com/Abiturientia-am-GymSL-e-V/GymSLunity/main/scripts/install-server.sh
-#   sudo bash install-server.sh               # install
+#   curl -fsSLO https://github.com/Abiturientia-am-GymSL-e-V/GymSLunity/releases/latest/download/install-server.sh &&
+#       sudo bash install-server.sh           # install
 #   sudo bash install-server.sh --uninstall   # remove again
 #
 # Afterwards the instance runs completely: own system user and PHP-FPM pool,
