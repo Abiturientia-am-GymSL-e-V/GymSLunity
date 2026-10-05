@@ -15,7 +15,7 @@
         "@inertiajs/vite": "^3.0.0",
         "@inertiajs/vue3": "^3.0.0",
         "@laravel/passkeys": "^0.4.0",
-        "@lucide/vue": "^1.17.0",
+        "@lucide/vue": "^1.48.0",
         "@tiptap/extension-image": "^3.31.3",
         "@tiptap/extension-text-align": "^3.31.3",
         "@tiptap/starter-kit": "^3.31.3",
@@ -44,9 +44,9 @@
         "vue-tsc": "^3.3.11"
     },
     "optionalDependencies": {
-        "@laravel/multiplex": "^0.4.1",
-        "@rollup/rollup-linux-x64-gnu": "4.63.4",
-        "@rollup/rollup-win32-x64-msvc": "4.63.4",
+        "@laravel/multiplex": "^0.4.4",
+        "@rollup/rollup-linux-x64-gnu": "4.63.5",
+        "@rollup/rollup-win32-x64-msvc": "4.63.5",
         "@tailwindcss/oxide-linux-x64-gnu": "^4.0.1",
         "@tailwindcss/oxide-win32-x64-msvc": "^4.0.1",
         "lightningcss-linux-x64-gnu": "^1.29.1",
