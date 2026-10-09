@@ -76,6 +76,7 @@ use App\Http\Controllers\SelfService\TransactionReceiptController as SelfService
 use App\Http\Controllers\StatisticsController;
 use App\Http\Middleware\EnsureSelfService;
 use App\Http\Middleware\RequireAllowedSelfServiceEmail;
+use Illuminate\Routing\RedirectController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -292,7 +293,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('mitglieder/{member:member_number}/dokumente/{kind}', [MemberController::class, 'document'])->middleware(['throttle:sensitive', 'audit:document_access'])->name('members.document');
     Route::get('mitglieder/{member:member_number}/mandate/{document}', [MemberController::class, 'mandateDocument'])->whereNumber('document')->middleware(['throttle:sensitive', 'audit:document_access'])->name('members.mandates.document');
     Route::middleware('can:manage-configuration')->prefix('konfiguration')->name('configuration.')->group(function () {
-        Route::redirect('/', '/konfiguration/verein');
+        Route::get('/', RedirectController::class)->defaults('destination', '/konfiguration/verein')->defaults('status', 302);
         Route::get('verein', [ClubController::class, 'edit'])->name('club.edit');
         Route::patch('verein', [ClubController::class, 'update'])->name('club.update');
         Route::post('verein/logo', [ClubLogoController::class, 'store'])->name('club.logo.store');
