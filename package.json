@@ -12,14 +12,14 @@
         "types:check": "vue-tsc --noEmit"
     },
     "dependencies": {
-        "@inertiajs/vite": "^3.0.0",
-        "@inertiajs/vue3": "^3.0.0",
+        "@inertiajs/vite": "^3.8.0",
+        "@inertiajs/vue3": "^3.8.0",
         "@laravel/passkeys": "^0.4.0",
-        "@lucide/vue": "^1.17.0",
-        "@tiptap/extension-image": "^3.31.3",
-        "@tiptap/extension-text-align": "^3.31.3",
-        "@tiptap/starter-kit": "^3.31.3",
-        "@tiptap/vue-3": "^3.31.3",
+        "@lucide/vue": "^1.50.0",
+        "@tiptap/extension-image": "^3.31.4",
+        "@tiptap/extension-text-align": "^3.31.4",
+        "@tiptap/starter-kit": "^3.31.4",
+        "@tiptap/vue-3": "^3.31.4",
         "@vueuse/core": "^15.0.0",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -41,12 +41,12 @@
         "typescript": "^6.0.3",
         "vite": "npm:@voidzero-dev/vite-plus-core@0.3.3",
         "vite-plus": "0.3.3",
-        "vue-tsc": "^3.3.11"
+        "vue-tsc": "^3.3.12"
     },
     "optionalDependencies": {
-        "@laravel/multiplex": "^0.4.1",
-        "@rollup/rollup-linux-x64-gnu": "4.63.4",
-        "@rollup/rollup-win32-x64-msvc": "4.63.4",
+        "@laravel/multiplex": "^0.4.5",
+        "@rollup/rollup-linux-x64-gnu": "4.64.0",
+        "@rollup/rollup-win32-x64-msvc": "4.64.0",
         "@tailwindcss/oxide-linux-x64-gnu": "^4.0.1",
         "@tailwindcss/oxide-win32-x64-msvc": "^4.0.1",
         "lightningcss-linux-x64-gnu": "^1.29.1",
