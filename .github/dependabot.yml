@@ -28,6 +28,16 @@ updates:
       frontend-dependencies:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    ignore:
+      # Node is pinned to 24 (engines), so @types/node must stay on 24.x.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # vite is an npm alias of @voidzero-dev/vite-plus-core and must match
+      # vite-plus exactly. Dependabot cannot update the alias, so its PRs
+      # always fail; bump vite-plus and both vite entries by hand instead.
+      - dependency-name: "vite-plus"
+      - dependency-name: "vite"
+      - dependency-name: "@voidzero-dev/vite-plus-core"
     cooldown:
       default-days: 7
   - package-ecosystem: github-actions
@@ -37,5 +47,9 @@ updates:
       day: monday
       time: "06:00"
       timezone: Europe/Berlin
+    # One PR for all action updates instead of one per action.
+    groups:
+      github-actions:
+        patterns: ["*"]
     cooldown:
       default-days: 7
