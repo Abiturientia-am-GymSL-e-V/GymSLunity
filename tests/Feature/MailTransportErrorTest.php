@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Inertia\Support\SessionKey;
@@ -12,6 +13,9 @@ use Tests\TestCase;
 
 class MailTransportErrorTest extends TestCase
 {
+    // Web middleware sends unmigrated installations to the installer.
+    use RefreshDatabase;
+
     public function test_rejected_smtp_login_returns_to_the_form_with_a_hint(): void
     {
         $log = Log::spy();
