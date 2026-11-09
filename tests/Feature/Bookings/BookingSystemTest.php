@@ -23,6 +23,14 @@ class BookingSystemTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // The scenarios use fixed dates in autumn 2026; freeze the clock so
+        // they do not turn into past bookings as real time moves on.
+        $this->travelTo(CarbonImmutable::parse('2026-10-01 12:00:00'));
+    }
+
     public function test_administration_can_create_resources_and_manual_external_bookings(): void
     {
         $admin = User::factory()->create(['roles' => ['admin']]);
