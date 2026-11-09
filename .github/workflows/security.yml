@@ -60,5 +60,11 @@ jobs:
           persist-credentials: false
       - name: Detect committed secrets
         uses: docker://ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+        env:
+          # The checkout belongs to another user than the container; without
+          # safe.directory git refuses it and gitleaks scans 0 commits.
+          GIT_CONFIG_COUNT: '1'
+          GIT_CONFIG_KEY_0: safe.directory
+          GIT_CONFIG_VALUE_0: /github/workspace
         with:
           args: git /github/workspace --redact --verbose --no-banner

@@ -1,0 +1,2 @@
+# Testpasswort im Feature-Test (kein echtes Geheimnis), siehe tests/Feature/Demo/DemoProtectionTest.php
+7dcc6cd3d25d8dfd8ca58e9c42530ce2f94df15c:tests/Feature/Demo/DemoProtectionTest.php:generic-api-key:40
