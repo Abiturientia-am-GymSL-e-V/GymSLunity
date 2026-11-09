@@ -18,6 +18,8 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -52,4 +54,18 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        // A failing mail server is an operational problem, not a bug: keep the
+        // log entry, but tell the user what happened instead of showing a 500.
+        $exceptions->render(function (TransportExceptionInterface $exception, Request $request) {
+            $message = $exception->getCode() === 535
+                ? 'Die E-Mail konnte nicht versendet werden: Der Mailserver hat die Anmeldung abgelehnt. Bitte die Zugangsdaten in den Mail-Einstellungen prüfen.'
+                : 'Die E-Mail konnte nicht versendet werden, weil der Mailserver nicht erreichbar war oder die Nachricht abgelehnt hat. Bitte später erneut versuchen oder die Mail-Einstellungen prüfen.';
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json(['message' => $message], 503);
+            }
+            Inertia::flash('toast', ['type' => 'error', 'message' => $message]);
+
+            return back(fallback: '/');
+        });
     })->create();
